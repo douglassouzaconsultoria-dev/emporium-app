@@ -5,9 +5,9 @@
  * nwsapi.js - Fast CSS Selectors API Engine
  *
  * Author: Diego Perini <diego.perini at gmail com>
- * Version: 2.2.27
+ * Version: 2.2.28
  * Created: 20070722
- * Release: 20260830
+ * Release: 20260918
  *
  * License:
  *  https://javascript.nwbox.com/nwsapi/MIT-LICENSE
@@ -30,11 +30,24 @@
 
 })(this, function Factory(global, Export) {
 
-  var version = 'nwsapi-2.2.27',
+  var version = 'nwsapi-2.2.28',
 
   doc = global.document,
   root = doc.documentElement,
   slice = Array.prototype.slice,
+
+  // The host matcher is captured here, before anything can replace it, and
+  // node.matches is never consulted at match time. A host is free to wire
+  // Element.prototype.matches back to this engine, which is what jsdom does,
+  // and calling it while resolving a state pseudo-class re-enters the lambda
+  // that asked for the state: the recursion only ends when the stack does,
+  // and the RangeError is swallowed below. Passing a document alone, as jsdom
+  // does, leaves no matcher at all, which is the intended outcome: there is
+  // no native state to read.
+  NATIVE_MATCHES = (function(proto) {
+    return (proto && (proto.matches || proto.webkitMatchesSelector ||
+      proto.mozMatchesSelector || proto.msMatchesSelector)) || null;
+  })(global.Element && global.Element.prototype),
 
   HSP = '\\x20\\t',
   VSP = '\\r\\n\\f',
@@ -60,13 +73,14 @@
     HexNumbers: RegExp('^[0-9a-fA-F]'),
     EscOrQuote: RegExp('^\\\\|[\\x22\\x27]'),
     RegExpChar: RegExp('(?!\\\\)[\\\\^$.,*+?()[\\]{}|\\/]', 'g'),
-    TrimSpaces: RegExp('^' + WSP + '+|' + WSP + '+$|' + VSP, 'g'),
+    TrimSpaces: RegExp('^' + WSP + '+|' + WSP + '+$', 'g'),
     SplitGroup: RegExp('(\\([^)]*\\)|\\[[^[]*\\]|\\\\.|[^,])+', 'g'),
     CommaGroup: RegExp('(\\s*,\\s*)' + NOT.square_enc + NOT.parens_enc, 'g'),
     FixEscapes: RegExp('\\\\([0-9a-fA-F]{1,6}' + WSP + '?|.)|([\\x22\\x27])', 'g'),
     CombineWSP: RegExp('[\\n\\r\\f\\x20]+' + NOT.single_enc + NOT.double_enc, 'g'),
     TabCharWSP: RegExp('(\\x20?\\t+\\x20?)' + NOT.single_enc + NOT.double_enc, 'g'),
-    PseudosWSP: RegExp('\\s+([-+])\\s+' + NOT.square_enc, 'g')
+    PseudosWSP: RegExp('\\s+([-+])\\s+' + NOT.square_enc, 'g'),
+    LogicalPfx: RegExp('^:(is|where|matches|not|has)\\x28', 'i')
   },
 
   STD = {
@@ -77,21 +91,19 @@
 
   GROUPS = {
     // pseudo-classes requiring parameters
-    linguistic: '(dir|lang)(?:\\x28\\s?([-\\w]{2,})\\s?\\x29)',
-    logicalsel: '(is|where|matches|not|has)(?:\\x28\\s?(' + '[^()]*|.*' + ')\\s?\\x29)',
-    treestruct: '(nth(?:-last)?(?:-child|-of\\-type))(?:\\x28\\s?(even|odd|(?:[-+]?\\d*)(?:n\\s?[-+]?\\s?\\d*)?)\\s?\\x29)',
+    linguistic: '(dir|lang)(?:\\x28\\s?([-\\w]{2,})\\s?(?:\\x29|$))',
+    logicalsel: '(is|where|matches|not|has)(?:\\x28\\s?(' + '[^()]*|.*' + ')\\s?(?:\\x29|$))',
+    treestruct: '(nth(?:-last)?(?:-child|-of\\-type))(?:\\x28\\s?(even|odd|(?:[-+]?\\d*)(?:n\\s?[-+]?\\s?\\d*)?)\\s?(?:\\x29|$))',
     // pseudo-classes not requiring parameters
     locationpc: '(any\\-link|link|visited|target|defined)\\b',
     useraction: '(hover|active|focus\\-within|focus\\-visible|focus)\\b',
     structural: '(scope|root|empty|(?:(?:first|last|only)(?:-child|\\-of\\-type)))\\b',
-    inputstate: '(enabled|disabled|read\\-only|read\\-write|placeholder\\-shown|default)\\b',
+    inputstate: '(enabled|disabled|read\\-only|read\\-write|placeholder\\-shown|default|autofill|-webkit\\-autofill)\\b',
     inputvalue: '(checked|indeterminate|required|optional|valid|invalid|in\\-range|out\\-of\\-range)\\b',
     // pseudo-classes not requiring parameters and describing functional state
     rsrc_state: '(playing|paused|seeking|buffering|stalled|muted|volume\\-locked)\\b',
     disp_state: '(open|closed|modal|fullscreen|picture\\-in\\-picture|popover\\-open|popover)\\b',
     time_state: '(current|past|future)\\b',
-    // pseudo-classes for parsing only selectors
-    pseudo_nop: '(autofill|-webkit\\-autofill)\\b',
     // pseudo-elements starting with single colon (:)
     pseudo_sng: '(after|before|first\\-letter|first\\-line)\\b',
     // pseudo-elements starting with double colon (::)
@@ -111,7 +123,6 @@
     time_state: RegExp('^:(?:' + GROUPS.time_state + ')(.*)', 'i'),
     locationpc: RegExp('^:(?:' + GROUPS.locationpc + ')(.*)', 'i'),
     logicalsel: RegExp('^:(?:' + GROUPS.logicalsel + ')(.*)', 'i'),
-    pseudo_nop: RegExp('^:(?:' + GROUPS.pseudo_nop + ')(.*)', 'i'),
     pseudo_sng: RegExp('^:(?:' + GROUPS.pseudo_sng + ')(.*)', 'i'),
     pseudo_dbl: RegExp('^:(?:' + GROUPS.pseudo_dbl + ')(.*)', 'i'),
     // combinator symbols
@@ -131,6 +142,9 @@
     '[\\u0591-\\u08ff]|' +
     '[\\ufb1d-\\ufdfd]|' +
     '[\\ufe70-\\ufefc])+$'),
+
+  // elements that can carry a hyperlink, see isLink()
+  reLinkName = RegExp('^(?:a|area)$', 'i'),
 
   // emulate firefox error strings
   qsNotArgs = 'Not enough arguments',
@@ -202,7 +216,10 @@
     function(nodes, callback) {
       var i = 0, l = nodes.length, list = Array(l);
       while (l > i) {
-        if (false === callback(list[i] = nodes[i])) break;
+        if (false === callback(list[i] = nodes[i])) {
+          list.length = i + 1;
+          break;
+        }
         ++i;
       }
       return list;
@@ -442,6 +459,63 @@
         ) : str;
     },
 
+  // split ':is(', ':where(', ':matches(', ':not(' and ':has(' into their
+  // selector list argument and the rest of the selector. The argument can
+  // nest parentheses and quote them, which a single regular expression
+  // cannot track, so the closing parenthesis is located by scanning. An
+  // argument left unclosed is closed by EOF, as the CSS Syntax parser does
+  // with any open construct. Returns a match-like array so that callers can
+  // pop() the remainder the same way they do with a RegExp match.
+  splitList =
+    function(text) {
+      var chr, depth = 0, escaped, i = 0, l = text.length,
+      quote = '', start = 0, list = [ ];
+
+      for (; l > i; ++i) {
+        chr = text.charAt(i);
+        if (escaped) { escaped = false; continue; }
+        if (chr == '\\') { escaped = true; }
+        else if (quote) { if (chr == quote) { quote = ''; } }
+        else if (chr == '\x22' || chr == '\x27') { quote = chr; }
+        else if (chr == '\x28' || chr == '\x5b') { ++depth; }
+        else if (chr == '\x29' || chr == '\x5d') { --depth; }
+        else if (chr == ',' && depth === 0) {
+          list[list.length] = text.slice(start, i).replace(REX.TrimSpaces, '');
+          start = i + 1;
+        }
+      }
+      list[list.length] = text.slice(start).replace(REX.TrimSpaces, '');
+      return list;
+    },
+
+  matchLogical =
+    function(selector) {
+      var chr, close, escaped, depth = 1, i, l, quote = '',
+      match = selector.match(REX.LogicalPfx);
+
+      if (!match) { return null; }
+
+      for (i = match[0].length, l = selector.length; l > i; ++i) {
+        chr = selector.charAt(i);
+        if (escaped) { escaped = false; continue; }
+        if (chr == '\\') { escaped = true; }
+        else if (quote) { if (chr == quote) { quote = ''; } }
+        else if (chr == '\x22' || chr == '\x27') { quote = chr; }
+        else if (chr == '\x28') { ++depth; }
+        else if (chr == '\x29' && --depth === 0) { break; }
+      }
+
+      // i is the closing parenthesis, or the EOF that stands in for it
+      close = l > i ? i + 1 : i;
+
+      return [
+        selector.slice(0, close),
+        match[1],
+        selector.slice(match[0].length, i).replace(REX.TrimSpaces, ''),
+        selector.slice(close)
+      ];
+    },
+
   method = {
     '#': 'getElementById',
     '*': 'getElementsByTagName',
@@ -667,6 +741,39 @@
     },
 
   // check if node content is editable
+  // Whether an element is defined, which every built-in element is. Only
+  // a custom element can be undefined: one whose name carries a hyphen, or a
+  // built-in carrying an 'is' attribute, and in both cases only until a
+  // definition exists and the element has been upgraded to it.
+  // https://dom.spec.whatwg.org/#concept-element-defined
+  isDefined =
+    function(element) {
+      var custom, name = element.localName, registry, view;
+
+      if (element.namespaceURI !== 'http://www.w3.org/1999/xhtml') {
+        return true;
+      }
+
+      if (name.indexOf('-') < 0) {
+        if (!element.hasAttribute('is')) { return true; }
+        name = element.getAttribute('is') || name;
+      }
+
+      view = element.ownerDocument.defaultView;
+      registry = view && view.customElements;
+      if (!registry || !registry.get) { return false; }
+      custom = registry.get(name);
+      return !!custom && element instanceof custom;
+    },
+
+  isRequired =
+    function(node) {
+      return !!node.required &&
+        (/^(select|textarea)$/.test(node.localName) ||
+        (node.localName == 'input' &&
+        !/^(hidden|range|color|button|submit|reset|image)$/.test(node.type)));
+    },
+
   isContentEditable =
     function(node) {
       var attrValue = 'inherit';
@@ -690,6 +797,41 @@
 
   // return node if node is focusable
   // or false if node isn't focusable
+  // Whether a form control is disabled, which is not only its own
+  // property: a control inside a disabled fieldset is disabled too, unless it
+  // sits in that fieldset's first legend child.
+  // https://html.spec.whatwg.org/#enabling-and-disabling-form-controls:-the-disabled-attribute
+  isDisabled =
+    function(element) {
+      var legend, name = element.localName, node;
+
+      if (element.disabled === true) { return true; }
+
+      // an optgroup is disabled by its own attribute and nothing else; an
+      // option is also disabled by the optgroup it is a child of
+      if (name == 'optgroup') { return false; }
+      if (name == 'option') {
+        node = element.parentElement;
+        return !!node && node.localName == 'optgroup' && node.disabled === true;
+      }
+
+      // any disabled fieldset above it, unless it sits in that fieldset's
+      // first legend child, which excuses that fieldset and no other
+      node = element.parentElement;
+      while (node) {
+        if (node.localName == 'fieldset' && node.disabled === true) {
+          legend = node.firstElementChild;
+          while (legend && legend.localName != 'legend') {
+            legend = legend.nextElementSibling;
+          }
+          if (!(legend && legend.contains(element))) { return true; }
+        }
+        node = node.parentElement;
+      }
+
+      return false;
+    },
+
   isFocusable =
     function(node) {
       var doc = node.ownerDocument;
@@ -706,15 +848,22 @@
   // installed itself, _matches retains the native implementation
   matchesNative =
     function(node, selector) {
-      var matcher = _matches || node.matches || node.webkitMatchesSelector ||
-        node.mozMatchesSelector || node.msMatchesSelector;
-      if (!matcher) return false;
+      var matcher = _matches || NATIVE_MATCHES;
+      // the captured matcher can still be a host wrapper that delegates back
+      // to this engine, in which case the outer answer is the only one
+      if (!matcher || matchingNative) { return false; }
       try {
+        matchingNative = true;
         return matcher.call(node, selector);
       } catch (e) {
         return false;
+      } finally {
+        matchingNative = false;
       }
     },
+
+  // set while the captured host matcher runs, see NATIVE_MATCHES
+  matchingNative = false,
 
   // :open and :closed have a portable DOM state for details and dialog.
   // Native matching extends support to host-language states such as pickers.
@@ -763,6 +912,12 @@
       return node.hasAttribute('popover') && matchesNative(node, ':popover-open');
     },
 
+  // ':link', ':any-link' and ':visited' share this test
+  isLink =
+    function(node) {
+      return reLinkName.test(node.localName) && node.hasAttribute('href');
+    },
+
   // check media resources is playing
   isPlaying =
     function(media) {
@@ -779,6 +934,8 @@
       if (typeof option == 'string') { return !!Config[option]; }
       if (typeof option != 'object') { return Config; }
       for (var i in option) {
+        // Compiled logical selectors capture the forgiving mode.
+        if (i == 'FORGIVING' && Config[i] !== !!option[i]) { clear = true; }
         Config[i] = !!option[i];
       }
       // clear lambda cache
@@ -851,8 +1008,8 @@
 
       pseudonames = '[-\\w]+',
       pseudoparms = '(?:[-+]?\\d*)(?:n\\s?[-+]?\\s?\\d*)',
-      doublequote = '"[^"\\\\]*(?:\\\\.[^"\\\\]*)*(?:"|$)',
-      singlequote = "'[^'\\\\]*(?:\\\\.[^'\\\\]*)*(?:'|$)",
+      doublequote = '"[^"\\\\' + VSP + ']*(?:\\\\.[^"\\\\' + VSP + ']*)*(?:"|$)',
+      singlequote = "'[^'\\\\" + VSP + "]*(?:\\\\.[^'\\\\" + VSP + "]*)*(?:'|$)",
 
       attrparser = identifier + '|' + doublequote + '|' + singlequote,
 
@@ -888,7 +1045,10 @@
             '(?:[.#]?' + identifier + ')|' +
             '(?:' + attributes + ')' +
           ')+|' +
-          '(?:' + WSP + '?[>+~][^>+~]' + WSP + '?)|' +
+          // the combinator is only recognized, not consumed: taking the
+          // character after it swallows the '[' of a following attribute
+          // selector, which then cannot be parsed
+          '(?:' + WSP + '?[>+~](?=[^>+~])' + WSP + '?)|' +
           '(?:' + WSP + '?,' + WSP + '?)|' +
           '(?:' + WSP + '?)|' +
           '(?:\\x29|$)' +
@@ -973,7 +1133,8 @@
   // compile groups or single selector strings into
   // executable functions for matching or selecting
   compile =
-    function(selector, mode, callback) {
+    function(selector, mode, callback, relative) {
+      var cacheKey = (relative ? 'relative:' : 'selector:') + selector;
       var factory, head = '', loop = '', macro = '', source = '', vars = '';
 
       // 'mode' can be boolean or null
@@ -981,19 +1142,19 @@
       // null to use collection.item()
       switch (mode) {
         case true:
-          if ((factory = selectLambdas.get(selector))) { return factory; }
+          if ((factory = selectLambdas.get(cacheKey))) { return factory; }
           macro = S_BODY + (callback ? S_TEST : '') + S_TAIL;
           head = S_HEAD;
           loop = S_LOOP;
           break;
         case false:
-          if ((factory = matchLambdas.get(selector))) { return factory; }
+          if ((factory = matchLambdas.get(cacheKey))) { return factory; }
           macro = M_BODY + (callback ? M_TEST : '') + M_TAIL;
           head = M_HEAD;
           loop = M_LOOP;
           break;
         case null:
-          if ((factory = selectLambdas.get(selector))) { return factory; }
+          if ((factory = selectLambdas.get(cacheKey))) { return factory; }
           macro = N_BODY + (callback ? N_TEST : '') + N_TAIL;
           head = N_HEAD;
           loop = N_LOOP;
@@ -1002,7 +1163,10 @@
           break;
       }
 
-      source = compileSelector(selector, macro, mode, callback);
+      source = compileSelector(
+        relative && !/^[>+~]/.test(selector) ? ' ' + selector : selector,
+        relative ? 'if(e===s.anchor){' + macro + '}' : macro,
+        mode, callback);
 
       loop += mode || mode === null ? '{' + source + '}' : source;
 
@@ -1021,9 +1185,9 @@
       factory = Function('s', F_INIT + '{' + head + vars + ';' + loop + 'return r;}')(Snapshot);
 
       if (mode || mode === null) {
-        selectLambdas.set(selector, factory);
+        selectLambdas.set(cacheKey, factory);
       } else {
-        matchLambdas.set(selector, factory);
+        matchLambdas.set(cacheKey, factory);
       }
 
       return factory;
@@ -1094,6 +1258,7 @@
           // attributes resolver
           case '[':
             match = selector.match(Patterns.attribute);
+            if (!match) { break; }
             NS = match[0].match(STD.namespaces);
             name = match[1];
             expr = name.split(':');
@@ -1262,20 +1427,15 @@
             // :is( s1, [ s2, ... ]), :not( s1, [ s2, ... ]),
             // :has( s1, [ s2, ... ]) no nesting is allowed for
             // :where( s1, [ s2, ... ]), :matches( s1, [ s2, ... ]),
-            else if ((match = selector.match(Patterns.logicalsel))) {
+            else if ((match = matchLogical(selector))) {
               match[1] = match[1].toLowerCase();
-              expr = match[2]
-//                .replace(REX.CommaGroup, ',')
-//                .replace(REX.TrimSpaces, '')
-                .replace(/\x22/g, '\\"');
+              expr = match[2].replace(/\x22/g, '\\"');
               switch (match[1]) {
                 case 'is':
                 case 'where':
                   if (Config.FORGIVING) {
-                    source =
-                      'try{' +
-                        'if(s.match("' + expr + '",e)){' + source + '}' +
-                      '}catch(E){}';
+                    source = 'if(s.matchForgiving(' +
+                      JSON.stringify(splitList(match[2])) + ',e)){' + source + '}';
                   } else {
                     source = 'if(s.match("' + expr + '",e)){' + source + '}';
                   }
@@ -1287,26 +1447,7 @@
                   source = 'if(!s.match("' + expr + '",e)){' + source + '}';
                   break;
                 case 'has':
-                  if (expr == ':scope') {
-                    source = 'if(s.has("' + expr + '",e)){' + source + '}';
-                    break;
-                  }
-
-                  // combinators having mangled context
-                  switch (expr.charAt(0)) {
-                    case '+':
-                      source = 'if(e.parentElement&&s.select("*' + expr + '",e.parentElement).includes(e.nextElementSibling)){' + source + '}';
-                      break;
-                    case '~':
-                      source = 'if(e.parentElement&&Array.from(e.parentElement.children).includes(e.nextElementSibling)){' + source + '}';
-                      break;
-                    case '>':
-                      source = 'if(s.first(":scope ' + expr + '",e)){' + source + '}';
-                      break;
-                     default:
-                      source = 'if(s.has(":scope ' + expr + '",e)){' + source + '}';
-                      break;
-                  }
+                  source = 'if(s.has(' + JSON.stringify(splitList(match[2])) + ',e)){' + source + '}';
                   break;
                 default:
                   emit('\'' + expression + '\'' + qsInvalid);
@@ -1345,19 +1486,19 @@
               match[1] = match[1].toLowerCase();
               switch (match[1]) {
                 case 'any-link':
-                  source = 'if((/^a|area$/i.test(e.localName)&&e.hasAttribute("href")||e.visited)){' + source + '}';
+                  source = 'if((s.isLink(e)||e.visited)){' + source + '}';
                   break;
                 case 'link':
-                  source = 'if((/^a|area$/i.test(e.localName)&&e.hasAttribute("href"))){' + source + '}';
+                  source = 'if(s.isLink(e)){' + source + '}';
                   break;
                 case 'visited':
-                  source = 'if((/^a|area$/i.test(e.localName)&&e.hasAttribute("href")&&e.visited)){' + source + '}';
+                  source = 'if((s.isLink(e)&&e.visited)){' + source + '}';
                   break;
                 case 'target':
                   source = 'if(((s.doc.compareDocumentPosition(e)&16)&&s.doc.location.hash&&e.id==s.doc.location.hash.slice(1))){' + source + '}';
                   break;
                 case 'defined':
-                  source = 'n=s.doc.defaultView.customElements.get(e.localName);if(n&&e instanceof n){' + source + '}';
+                  source = 'if(s.isDefined(e)){' + source + '}';
                   break;
                 default:
                   emit('\'' + expression + '\'' + qsInvalid);
@@ -1400,42 +1541,20 @@
               match[1] = match[1].toLowerCase();
               switch (match[1]) {
                 case 'enabled':
-                  source = 'if((("form" in e||/^optgroup$/i.test(e.localName))&&"disabled" in e &&e.disabled===false' +
-                    ')){' + source + '}';
+                  // the complement of ':disabled' over the same elements
+                  source = 'if((("form" in e||/^optgroup$/i.test(e.localName))&&' +
+                    '"disabled" in e&&!s.isDisabled(e))){' + source + '}';
                   break;
                 case 'disabled':
-                  // https://html.spec.whatwg.org/#enabling-and-disabling-form-controls:-the-disabled-attribute
-                  source = 'if((("form" in e||/^optgroup$/i.test(e.localName))&&"disabled" in e)){' +
-                    // F is true if any of the fieldset elements in the ancestry chain has the disabled attribute specified
-                    // L is true if the first legend element of the fieldset contains the element
-                    'var x=0,N=[],F=false,L=false;' +
-                    'if(!(/^(optgroup|option)$/i.test(e.localName))){' +
-                      'n=e.parentElement;' +
-                      'while(n){' +
-                        'if(n.localName=="fieldset"){' +
-                          'N[x++]=n;' +
-                          'if(n.disabled===true){' +
-                            'F=true;' +
-                            'break;' +
-                          '}' +
-                        '}' +
-                        'n=n.parentElement;' +
-                      '}' +
-                      'for(var x=0;x<N.length;x++){' +
-                        'if((n=s.first("legend",N[x]))&&n.contains(e)){' +
-                          'L=true;' +
-                          'break;' +
-                        '}' +
-                      '}' +
-                    '}' +
-                    'if(e.disabled===true||(F&&!L)){' + source + '}}';
+                  source = 'if((("form" in e||/^optgroup$/i.test(e.localName))&&' +
+                    '"disabled" in e&&s.isDisabled(e))){' + source + '}';
                   break;
                 case 'read-only':
                 case '-moz-read-only':
                   source =
                     'if(' +
-                      '(/^textarea$/i.test(e.localName)&&(e.readOnly||e.disabled))||' +
-                      '(/^input$/i.test(e.localName)&&("|date|datetime-local|email|month|number|password|search|tel|text|time|url|week|".includes("|"+e.type+"|")?(e.readOnly||e.disabled):true))||' +
+                      '(/^textarea$/i.test(e.localName)&&(e.readOnly||s.isDisabled(e)))||' +
+                      '(/^input$/i.test(e.localName)&&("|date|datetime-local|email|month|number|password|search|tel|text|time|url|week|".includes("|"+e.type+"|")?(e.readOnly||s.isDisabled(e)):true))||' +
                       '(!/^(?:input|textarea)$/i.test(e.localName) && !s.isContentEditable(e))' +
                     '){' + source + '}';
                   break;
@@ -1443,19 +1562,19 @@
                 case '-moz-read-write':
                   source =
                     'if(' +
-                      '(/^textarea$/i.test(e.localName)&&!e.readOnly&&!e.disabled)||' +
-                      '(/^input$/i.test(e.localName)&&"|date|datetime-local|email|month|number|password|search|tel|text|time|url|week|".includes("|"+e.type+"|")&&!e.readOnly&&!e.disabled)||' +
+                      '(/^textarea$/i.test(e.localName)&&!e.readOnly&&!s.isDisabled(e))||' +
+                      '(/^input$/i.test(e.localName)&&"|date|datetime-local|email|month|number|password|search|tel|text|time|url|week|".includes("|"+e.type+"|")&&!e.readOnly&&!s.isDisabled(e))||' +
                       '(!/^(?:input|textarea)$/i.test(e.localName) && s.isContentEditable(e))' +
                     '){' + source + '}';
                   break;
                 case 'autofill':
                 case '-webkit-autofill':
-                  source = 'if(e.matches&&e.matches(":-webkit-autofill,:autofill")){' + source + '}';
+                  source = 'if(s.matchesNative(e,":autofill")||s.matchesNative(e,":-webkit-autofill")){' + source + '}';
                   break;
                 case 'placeholder-shown':
                   source =
                     'if((' +
-                      '(/^input|textarea$/i.test(e.localName))&&e.hasAttribute("placeholder")&&' +
+                      '(/^(?:input|textarea)$/i.test(e.localName))&&e.hasAttribute("placeholder")&&' +
                       '("|textarea|password|number|search|email|text|tel|url|".includes("|"+e.type+"|"))&&' +
                       '(!s.match(":focus",e))' +
                     ')){' + source + '}';
@@ -1503,12 +1622,12 @@
                   break;
                 case 'required':
                   source =
-                    'if((/^input|select|textarea$/i.test(e.localName)&&e.required)' +
+                    'if((s.isRequired(e))' +
                     '){' + source + '}';
                   break;
                 case 'optional':
                   source =
-                    'if((/^input|select|textarea$/i.test(e.localName)&&!e.required)' +
+                    'if((/^(?:button|input|select|textarea)$/i.test(e.localName)&&!s.isRequired(e))' +
                     '){' + source + '}';
                   break;
                 case 'invalid':
@@ -1524,7 +1643,7 @@
                     'if(((' +
                       '(/^form$/i.test(e.localName)&&!e.noValidate)||' +
                       '(e.willValidate&&!e.formNoValidate))&&e.checkValidity())||' +
-                      '(/^fieldset$/i.test(e.localName)&&s.first(":valid",e))' +
+                      '(/^fieldset$/i.test(e.localName)&&!s.first(":invalid",e))' +
                     '){' + source + '}';
                   break;
                 case 'in-range':
@@ -1609,11 +1728,6 @@
               }
             }
 
-            // placeholder for parse only no-op selectors
-            else if ((match = selector.match(Patterns.pseudo_nop))) {
-              break;
-            }
-
             // allow pseudo-elements starting with single colon (:)
             // :after, :before, :first-letter, :first-line
             // assert: e.type is in double-colon format, like ::after
@@ -1661,7 +1775,7 @@
 
               if (!status) {
                 if (Config.FORGIVING &&
-                  selector.match(/(:(?:is|where)\\x28)/)) {
+                  selector.match(/(:(?:is|where)\x28)/)) {
                   return '';
                 }
                 emit('unknown pseudo-class selector \'' + selector + '\'');
@@ -1689,7 +1803,7 @@
 
         if (!match) {
           if (Config.FORGIVING &&
-            selector.match(/(:(?:is|where)\\x28)/)) {
+            selector.match(/(:(?:is|where)\x28)/)) {
             return '';
           }
           emit('\'' + expression + '\'' + qsInvalid);
@@ -1744,6 +1858,80 @@
       return { factory: f };
     },
 
+  // Consume string continuations before whitespace normalization. Preserve
+  // escape boundaries: removing a continuation must not extend a hex escape.
+  stringContinuations =
+    function(selectors) {
+      if (!/[\r\n\f]/.test(selectors)) { return selectors; }
+      var i = 0, j, c, next, quote = '', result = '', length = selectors.length;
+      while (i < length) {
+        c = selectors[i++];
+        if (c == '\\' && i == length && quote) { break; }
+        if (c == '\\' && i < length) {
+          next = selectors[i];
+          if (quote && /[\r\n\f]/.test(next)) {
+            ++i;
+            if (next == '\r' && selectors[i] == '\n') { ++i; }
+            continue;
+          }
+          if (quote && /[0-9a-f]/i.test(next)) {
+            j = i;
+            while (i < length && i - j < 6 && /[0-9a-f]/i.test(selectors[i])) { ++i; }
+            result += '\\' + ('000000' + selectors.slice(j, i)).slice(-6);
+            if (/[\x20\t\r\n\f]/.test(selectors[i] || '')) {
+              next = selectors[i++];
+              if (next == '\r' && selectors[i] == '\n') { ++i; }
+            }
+            continue;
+          }
+          result += c + selectors[i++];
+          continue;
+        }
+        if (c == quote) { quote = ''; }
+        else if (!quote && (c == '"' || c == "'")) { quote = c; }
+        result += c;
+      }
+      // EOF closes a string. Keep its trailing whitespace inside that string
+      // so selector trimming cannot erase a bad newline or a literal space.
+      return result + quote;
+    },
+
+  // Reject malformed blocks before the regular-expression validator runs.
+  validBlocks =
+    function(text) {
+      var stack = [], quote = '', chr, i = 0, length = text.length;
+      for (; i < length; ++i) {
+        chr = text.charAt(i);
+        if (chr == '\\') {
+          ++i;
+          continue;
+        }
+        if (quote) {
+          if (chr == quote) {
+            quote = '';
+          } else if (/[\r\n\f]/.test(chr)) {
+            return false;
+          }
+        } else if (chr == '"' || chr == "'") {
+          quote = chr;
+        } else if (!validBlockToken(chr, stack)) {
+          return false;
+        }
+      }
+      // CSS closes unfinished strings and blocks at EOF.
+      return true;
+    },
+
+  validBlockToken =
+    function(chr, stack) {
+      if (chr == '(' || chr == '[') {
+        stack.push(chr);
+      } else if (chr == ')' || chr == ']') {
+        return stack.pop() == (chr == ')' ? '(' : '[');
+      }
+      return chr != '{' && chr != '}';
+    },
+
   // unique parser entry point for all
   // methods (type matching/selecting)
   parse =
@@ -1768,6 +1956,12 @@
         selectors = '' + selectors;
       }
 
+      selectors = stringContinuations(selectors);
+      if (!validBlocks(selectors)) {
+        emit("'" + selectors + "'" + qsInvalid);
+        return type ? none : false;
+      }
+
       // normalize input string
       parsed = selectors.
         replace(/\x00|\\$/g, '\ufffd').
@@ -1779,7 +1973,7 @@
 
       // parse, validate and split possible compound selectors
       if ((selectors = parsed.match(reValidator)) && selectors.join('') == parsed) {
-        selectors = parsed.match(REX.SplitGroup);
+        selectors = splitList(parsed);
         if (parsed[parsed.length - 1] == ',') {
           emit(qsInvalid);
           return Config.VERBOSITY ? undefined : (type ? none : false);
@@ -1788,9 +1982,21 @@
         if (Config.FORGIVING) {
           // forgiving pseudos allow to continue even after parse errors
           if (!(parsed.includes(':is(') || parsed.includes(':where('))) {
-            emit('\'' + selectors + '\'' + qsInvalid);
+            // 'selectors' holds the fragments the validator did match,
+            // which read as a mangled selector once joined by String()
+            emit('\'' + parsed + '\'' + qsInvalid);
             return Config.VERBOSITY ? undefined : (type ? none : false);
           }
+          // The validator cannot read this selector, but it holds a
+          // forgiving list, which may be where the part it cannot read
+          // lives. Hand on the selector itself rather than the fragments the
+          // validator did match: compiled, the argument of an :is() or
+          // :where() is evaluated inside a try/catch, so the unreadable part
+          // drops out and the rest of the selector still applies. Returning
+          // the fragments compiled each of them as a selector of its own,
+          // which made 'div:not(:is(svg|div))' match every element in the
+          // document rather than the divs.
+          selectors = splitList(parsed);
         }
       }
 
@@ -1813,10 +2019,41 @@
       return match_assert(resolver.factory, element, callback);
     },
 
+  // Invalid items do not discard the remaining forgiving selectors.
+  matchForgiving =
+    function(list, element) {
+      for (var i = 0, l = list.length; l > i; ++i) {
+        try {
+          if (match(list[i], element)) { return true; }
+        } catch (e) { }
+      }
+      return false;
+    },
+
   // true if element matches the selector
   has =
-    function(selector, context, callback) {
-      return collect(parse(selector, true), context, callback).results.length > 0;
+    function(list, anchor) {
+      var context, found = false, i = 0, length = list.length,
+        previous = Snapshot.anchor;
+      Snapshot.anchor = anchor;
+      try {
+        for (; i < length; ++i) {
+          if (!list[i]) {
+            emit(qsInvalid);
+            return false;
+          }
+          context = /^[+~]/.test(list[i]) ? anchor.parentElement : anchor;
+          // Validate root sibling selectors even when they have no candidates.
+          if (collect(parse('* ' + list[i], true).map(function(selector) {
+            return selector.slice(1).replace(/^\s+/, '');
+          }), context || anchor, undefined, true).results.length && context) {
+            found = true;
+          }
+        }
+        return found;
+      } finally {
+        Snapshot.anchor = previous;
+      }
     },
 
   // equivalent of w3c 'querySelector' method
@@ -1911,7 +2148,7 @@
 
   // prepare factory resolvers and closure collections
   collect =
-    function(selectors, context, callback) {
+    function(selectors, context, callback, relative) {
 
       var i, l, seen = { }, token = ['', '*', '*'], optimized = selectors,
       factory = [ ], htmlset = [ ], nodeset = [ ], results = [ ], type;
@@ -1920,7 +2157,7 @@
 
         if (!seen[selectors[i]] && (seen[selectors[i]] = true)) {
           type = selectors[i].match(reOptimizer);
-          if (type && type[1] != ':' && (token = type)) {
+          if (type && type[1] != ':' && selectors[i].indexOf('\\') < 0 && (token = type)) {
             token[1] || (token[1] = '*');
             optimized[i] = optimize(optimized[i], token);
           } else {
@@ -1931,7 +2168,7 @@
         nodeset[i] = token[1] + token[2];
         token[2] = unescapeIdentifier(token[2]);
         htmlset[i] = compat[token[1]](context, token[2]);
-        factory[i] = compile(optimized[i], true, null);
+        factory[i] = compile(optimized[i], true, null, relative);
 
         factory[i] ?
           factory[i](htmlset[i](), callback, context, results) :
@@ -2056,7 +2293,7 @@
         Element.prototype.querySelector =
         HTMLElement.prototype.querySelector = _querySelector;
         Element.prototype.querySelectorAll =
-        HTMLElement.prototype.querySelectorAll = _querySelector;
+        HTMLElement.prototype.querySelectorAll = _querySelectorAll;
       }
       if (_querySelectorAllDoc) {
         Document.prototype.querySelector =
@@ -2086,12 +2323,14 @@
     doc: doc,
     from: doc,
     root: root,
+    anchor: null,
 
     byTag: byTag,
 
     has: has,
     first: first,
     match: match,
+    matchForgiving: matchForgiving,
     select: select,
 
     ancestor: ancestor,
@@ -2099,14 +2338,19 @@
     nthOfType: nthOfType,
     nthElement: nthElement,
 
+    isDefined: isDefined,
+    matchesNative: matchesNative,
+    isRequired: isRequired,
     isOpen: isOpen,
     isClosed: isClosed,
+    isDisabled: isDisabled,
     isModal: isModal,
     isFullscreen: isFullscreen,
     isPictureInPicture: isPictureInPicture,
     isPopoverOpen: isPopoverOpen,
     isFocusable: isFocusable,
     isContentEditable: isContentEditable,
+    isLink: isLink,
     hasAttributeNS: hasAttributeNS
   },
 
