@@ -1,0 +1,400 @@
+/* ========== VARIÁVEIS ========== */
+:root {
+  --primary: #C41E3A;
+  --primary-dark: #a01830;
+  --light: #f8f9fa;
+  --border: #ddd;
+  --text: #333;
+  --danger: #ef4444;
+}
+
+.admin-categories {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+}
+
+/* ========== HEADER ========== */
+.admin-header {
+  margin-bottom: 30px;
+}
+
+.admin-header h2 {
+  font-size: 28px;
+  color: var(--text);
+  margin-bottom: 20px;
+  border-left: 5px solid var(--primary);
+  padding-left: 15px;
+}
+
+.header-stats {
+  display: flex;
+  gap: 15px;
+}
+
+.stat {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c8e6f5 100%);
+  padding: 15px 25px;
+  border-radius: 8px;
+  border-left: 4px solid var(--primary);
+}
+
+.stat-label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+
+.stat-value {
+  display: block;
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--primary);
+}
+
+/* ========== MENSAGEM ========== */
+.admin-message {
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 500;
+  animation: slideIn 0.3s ease;
+}
+
+.admin-message.success {
+  background: #dcfce7;
+  border-left: 4px solid #22c55e;
+  color: #166534;
+}
+
+.admin-message.error {
+  background: #fee2e2;
+  border-left: 4px solid var(--danger);
+  color: #991b1b;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ========== FILTROS ========== */
+.filters-section {
+  display: grid;
+  grid-template-columns: 1fr 150px;
+  gap: 15px;
+  margin-bottom: 25px;
+  align-items: end;
+}
+
+.search-box {
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
+}
+
+.btn-new {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-new:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
+}
+
+.results-info {
+  text-align: right;
+  font-size: 13px;
+  color: #666;
+}
+
+.results-info strong {
+  color: var(--primary);
+}
+
+/* ========== FORMULÁRIO NOVA CATEGORIA ========== */
+.new-category-form {
+  background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%);
+  padding: 20px;
+  border-radius: 12px;
+  border-left: 4px solid #f59e0b;
+  margin-bottom: 25px;
+}
+
+.new-category-form .form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.new-category-form .form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.form-input {
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
+}
+
+.form-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn-save, .btn-cancel {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-save {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+}
+
+.btn-save:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
+}
+
+.btn-cancel {
+  background: var(--light);
+  color: #666;
+  border: 1px solid var(--border);
+}
+
+.btn-cancel:hover {
+  background: #e0e0e0;
+}
+
+/* ========== GRID DE CATEGORIAS ========== */
+.categories-container {
+  min-height: 300px;
+}
+
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.category-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.category-card:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+/* ========== DISPLAY DE CATEGORIA ========== */
+.category-display {
+  padding: 30px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.category-icon {
+  font-size: 48px;
+}
+
+.category-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.category-id {
+  font-size: 12px;
+  color: #999;
+  margin: 0;
+}
+
+.category-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-edit, .btn-delete {
+  padding: 10px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-edit {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+}
+
+.btn-edit:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
+}
+
+.btn-delete {
+  background: #fecaca;
+  color: #991b1b;
+}
+
+.btn-delete:hover {
+  background: #fca5a5;
+  transform: scale(1.05);
+}
+
+/* ========== MODAL DE EDIÇÃO ========== */
+.edit-modal {
+  padding: 20px;
+  background: white;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.close-modal {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: var(--light);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  color: #666;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-modal:hover {
+  background: var(--danger);
+  color: white;
+  transform: rotate(90deg);
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.edit-form .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.edit-form .form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.edit-form .form-buttons {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid var(--border);
+}
+
+/* ========== ESTADO VAZIO ========== */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.empty-state p {
+  font-size: 18px;
+  margin: 10px 0;
+}
+
+/* ========== RESPONSIVIDADE ========== */
+@media (max-width: 768px) {
+  .filters-section {
+    grid-template-columns: 1fr;
+  }
+
+  .categories-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+
+  .form-buttons {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,43 @@
+/* Stock Indicator */
+.stock-indicator {
+  font-size: 12px;
+  margin: 8px 0;
+  text-align: center;
+  font-weight: 500;
+}
+
+.stock-good {
+  color: #22c55e;
+  background: #f0fdf4;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.stock-low {
+  color: #f59e0b;
+  background: #fffbeb;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.stock-empty {
+  color: #ef4444;
+  background: #fef2f2;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Desabilitar botão quando sem estoque */
+.add-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.add-btn:disabled:hover {
+  background-color: #ccc;
+  transform: none;
+}
