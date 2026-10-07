@@ -1,17 +1,11 @@
-FROM node:24 AS builder
+FROM node:24
 
 WORKDIR /app
 COPY . .
 
 WORKDIR /app/frontend
-RUN npm install --legacy-peer-deps
-RUN npm ci --only=production || npm run build
-RUN npm run build
-
-FROM node:24
-WORKDIR /app
-RUN npm install -g serve
-COPY --from=builder /app/frontend/build /app/build
+RUN npm install --legacy-peer-deps && npm run build
 
 EXPOSE 3000
-CMD ["serve", "-s", "/app/build", "-l", "3000"]
+
+CMD ["npx", "serve", "-s", "build", "-l", "3000"]
