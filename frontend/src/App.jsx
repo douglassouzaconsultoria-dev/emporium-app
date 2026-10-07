@@ -22,7 +22,7 @@ function AppContent() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [view, setView] = React.useState('store');
 
-  const API_URL = 'http://localhost:3001/api';
+  const API_URL = process.env.REACT_APP_API_URL || 'https://emporium-backend-7w10.onrender.com/api';
 
   React.useEffect(() => {
     if (token && user && user.role !== 'motoboy') {
