@@ -6,12 +6,8 @@ COPY . .
 
 WORKDIR /app/frontend
 
-RUN npm install --legacy-peer-deps
-
-RUN npm run build
-
-WORKDIR /app
+RUN npm install --legacy-peer-deps && npm run build
 
 EXPOSE 3000
 
-CMD ["npx", "serve", "-s", "frontend/build", "-l", "3000"]
+CMD ["npx", "serve", "-s", "/app/frontend/build", "-l", "3000"]
