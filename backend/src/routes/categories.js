@@ -48,28 +48,22 @@ router.post('/', verifyAdmin, async (req, res) => {
 });
 
 // 🔒 PUT - Apenas ADMIN (editar categoria)
-router.put('/:id', verifyAdmin, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name } = req.body;
+    console.log('📋 Buscando categorias...');
+    console.log('Pool config:', {
+      host: process.env.DB_HOST,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      port: process.env.DB_PORT
+    });
     
-    if (!name) {
-      return res.status(400).json({ error: 'Nome da categoria é obrigatório' });
-    }
-
-    const result = await pool.query(
-      'UPDATE categories SET name = $1 WHERE id = $2 RETURNING *',
-      [name, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Categoria não encontrada' });
-    }
-
-    res.json(result.rows[0]);
+    const result = await pool.query('SELECT * FROM categories ORDER BY id');
+    console.log('✅ Resultado:', result.rows);
+    res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao atualizar categoria' });
+    console.error('❌ ERRO COMPLETO:', err);
+    res.status(500).json({ error: 'Erro ao buscar categorias', details: err.message });
   }
 });
 
