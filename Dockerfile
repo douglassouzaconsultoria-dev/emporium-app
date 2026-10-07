@@ -5,6 +5,7 @@ COPY . .
 
 WORKDIR /app/frontend
 RUN npm install --legacy-peer-deps
+RUN npm ci --only=production || npm run build
 RUN npm run build
 
 FROM node:24
