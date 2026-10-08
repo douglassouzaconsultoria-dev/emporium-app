@@ -33,6 +33,25 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
+// 🧱 Cria colunas/tabelas novas que o banco de produção ainda não tem (não apaga nada)
+require('./utils/database').query(`
+  ALTER TABLE customers ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+  ALTER TABLE customers ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS motoboy_id INTEGER REFERENCES customers(id);
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP;
+  CREATE TABLE IF NOT EXISTS product_stock_config (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER UNIQUE REFERENCES products(id) ON DELETE CASCADE,
+    type VARCHAR(20) DEFAULT 'MANUAL',
+    auto_quantity INTEGER DEFAULT 50,
+    auto_frequency VARCHAR(20) DEFAULT 'SEMANAL',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`)
+  .then(() => console.log('🧱 Banco atualizado'))
+  .catch(err => console.error('Erro ao atualizar banco:', err));
+
 // 👑 Redefine a senha do usuário "admin" e garante role admin (senha vem da variável ADMIN_PASSWORD)
 if (process.env.ADMIN_PASSWORD) {
   const pool = require('./utils/database');
