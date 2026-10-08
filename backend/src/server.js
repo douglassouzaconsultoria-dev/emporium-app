@@ -33,6 +33,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
+// 🔎 Confere variáveis de ambiente obrigatórias (mostra só os nomes, nunca os valores)
+const missingEnv = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_PORT', 'JWT_SECRET',
+  'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].filter(v => !process.env[v]);
+console.log(missingEnv.length ? `🔎 Variáveis faltando: ${missingEnv.join(', ')}` : '🔎 Variáveis OK');
+if ((process.env.JWT_SECRET || '').startsWith('GERE_UMA_CHAVE')) {
+  console.log('⚠️ JWT_SECRET ainda é o valor de exemplo — troque por uma chave secreta');
+}
+
 // 🧱 Cria colunas/tabelas novas que o banco de produção ainda não tem (não apaga nada)
 require('./utils/database').query(`
   ALTER TABLE customers ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;

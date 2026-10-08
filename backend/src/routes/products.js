@@ -236,10 +236,20 @@ router.put('/:id/stock-config', verifyAdmin, async (req, res) => {
       RETURNING *
     `;
 
-    const result = await pool.query(query, [type, auto_quantity, auto_frequency, req.params.id]);
+    let result = await pool.query(query, [type, auto_quantity, auto_frequency, req.params.id]);
 
+    // Produtos antigos podem não ter configuração ainda → cria
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Produto não encontrado' });
+      const product = await pool.query('SELECT id FROM products WHERE id = $1', [req.params.id]);
+      if (product.rows.length === 0) {
+        return res.status(404).json({ error: 'Produto não encontrado' });
+      }
+      result = await pool.query(
+        `INSERT INTO product_stock_config (product_id, type, auto_quantity, auto_frequency)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [req.params.id, type, auto_quantity, auto_frequency]
+      );
     }
 
     res.json(result.rows[0]);
