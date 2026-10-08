@@ -4,7 +4,7 @@ WORKDIR /app
 COPY . .
 
 WORKDIR /app/frontend
-RUN npm ci --legacy-peer-deps
+RUN npm install --legacy-peer-deps --force
 RUN npm run build
 
 EXPOSE 3000
