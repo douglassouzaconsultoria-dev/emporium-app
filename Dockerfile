@@ -5,7 +5,7 @@ COPY . .
 
 WORKDIR /app/frontend
 RUN npm install --legacy-peer-deps --force
-RUN npm run build
+RUN npx react-scripts build
 
 EXPOSE 3000
 CMD ["npx", "serve", "-s", "build", "-l", "3000"]
