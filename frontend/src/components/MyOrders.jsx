@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
 import './MyOrders.css';
@@ -10,7 +11,6 @@ const MyOrders = ({ user }) => {
   const [pixOrder, setPixOrder] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  const API_URL = 'http://localhost:3001/api';
 
   useEffect(() => {
     fetchMyOrders();

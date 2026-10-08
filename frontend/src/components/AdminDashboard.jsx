@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import './AdminDashboard.css';
 
@@ -26,7 +27,7 @@ const AdminDashboard = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/orders', {
+      const response = await fetch(`${API_URL}/orders`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

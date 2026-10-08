@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import axios from 'axios';
 import './AdminCategories.css';
 
@@ -11,7 +12,6 @@ function AdminCategories() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showNewForm, setShowNewForm] = useState(false);
 
-  const API_URL = 'http://localhost:3001/api';
 
   useEffect(() => {
     fetchCategories();

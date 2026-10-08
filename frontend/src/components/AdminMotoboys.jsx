@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import './AdminMotoboys.css';
 
-const API_URL = 'http://localhost:3001/api';
 const emptyForm = { name: '', username: '', phone_number: '', password: '' };
 
 const sanitizeUsername = (value) =>

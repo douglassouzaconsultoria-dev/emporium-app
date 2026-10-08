@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import axios from 'axios';
 import './AdminProducts.css';
 import { getImageUrl } from '../utils/imageUrl';
 
-const API_URL = 'http://localhost:3001/api';
 const emptyForm = { name: '', price: '', unit: '', category_id: '', estoque: '' };
 
 function AdminProducts() {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_URL } from '../config';
 import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
 import './Checkout.css';
@@ -17,7 +18,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
   const token = localStorage.getItem('authToken');
 
   const createOrder = async () => {
-    const response = await fetch('http://localhost:3001/api/orders', {
+    const response = await fetch(`${API_URL}/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
+import { API_URL } from '../config';
 import { AuthContext } from '../AuthContext';
 import './Profile.css';
 
-const API_URL = 'http://localhost:3001/api';
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 const sanitizeUsername = (value) =>

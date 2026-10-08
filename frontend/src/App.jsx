@@ -1,4 +1,5 @@
 import React, { useContext } from 'react';
+import { API_URL } from './config';
 import { AuthContext, AuthProvider } from './AuthContext';
 import axios from 'axios';
 import './App.css';
@@ -22,7 +23,6 @@ function AppContent() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [view, setView] = React.useState('store');
 
-  const API_URL = 'https://emporium-backend-7w10.onrender.com/api';
 
   React.useEffect(() => {
     if (token && user && user.role !== 'motoboy') {

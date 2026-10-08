@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import './AdminOrders.css';
 
 const AdminOrders = () => {
@@ -10,7 +11,6 @@ const AdminOrders = () => {
   const [orderDetails, setOrderDetails] = useState(null);
   const [savingMotoboy, setSavingMotoboy] = useState(false);
 
-  const API_URL = 'http://localhost:3001/api';
   const statuses = ['Pendente', 'Preparando', 'Saído', 'Entregue'];
 
   useEffect(() => {

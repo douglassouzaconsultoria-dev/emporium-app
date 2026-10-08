@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import axios from 'axios';
 import './AdminStockConfig.css';
 
@@ -10,7 +11,6 @@ function AdminStockConfig() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://localhost:3001/api';
 
   useEffect(() => {
     fetchProducts();

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
+import { API_URL } from '../config';
 import { AuthContext } from '../AuthContext';
 import Profile from './Profile';
 import './MotoboyPanel.css';
 
-const API_URL = 'http://localhost:3001/api';
 const CITY = 'Patrocínio - MG';
 const REFRESH_MS = 20000; // atualiza a cada 20 segundos
 

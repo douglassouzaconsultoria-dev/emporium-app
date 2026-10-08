@@ -1,8 +1,8 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { API_URL } from './config';
 
 export const AuthContext = createContext();
 
-   const API_URL = 'https://emporium-backend-7w10.onrender.com/api';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
