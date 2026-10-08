@@ -33,6 +33,19 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
+// 👑 Redefine a senha do usuário "admin" e garante role admin (senha vem da variável ADMIN_PASSWORD)
+if (process.env.ADMIN_PASSWORD) {
+  const pool = require('./utils/database');
+  const bcrypt = require('bcryptjs');
+  bcrypt.hash(process.env.ADMIN_PASSWORD, 10)
+    .then(hash => pool.query(
+      "UPDATE customers SET password = $1, role = 'admin' WHERE LOWER(username) = 'admin'",
+      [hash]
+    ))
+    .then(r => console.log(`👑 Usuário admin atualizado (${r.rowCount})`))
+    .catch(err => console.error('Erro ao atualizar admin:', err));
+}
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`🛒 EMPÓRIO BRUMADO API rodando em http://localhost:${PORT}`);
