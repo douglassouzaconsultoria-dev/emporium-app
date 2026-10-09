@@ -239,6 +239,7 @@ function MotoboyPanel({ onLogout }) {
 
                       <div className="mb-customer">
                         <strong>👤 {order.customer_name || 'Cliente'}</strong>
+                        {order.customer_phone && <p>📞 {order.customer_phone}</p>}
                         <p>📍 {order.delivery_address}</p>
                         {order.customer_neighborhood && order.customer_neighborhood !== '-' && (
                           <p className="mb-neighborhood">Bairro: {order.customer_neighborhood}</p>
