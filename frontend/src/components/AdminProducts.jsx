@@ -38,6 +38,24 @@ function AdminProducts() {
     return () => URL.revokeObjectURL(url);
   }, [imageFile]);
 
+  // 🔄 Gira a foto escolhida 90° (para produto que saiu deitado)
+  const rotateImage = (degrees) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.height;
+      canvas.height = img.width;
+      const ctx = canvas.getContext('2d');
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((degrees * Math.PI) / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      canvas.toBlob((blob) => {
+        if (blob) setImageFile(new File([blob], 'produto.jpg', { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.92);
+    };
+    img.src = previewUrl;
+  };
+
   // Tecla ESC fecha a janela
   useEffect(() => {
     const onKey = (e) => {
@@ -407,13 +425,21 @@ function AdminProducts() {
               </div>
 
               <div className="ap-form-group">
-                <label>{modalMode === 'create' ? 'Imagem (800x800, fundo branco)' : 'Trocar Imagem (opcional)'}</label>
+                <label>{modalMode === 'create' ? 'Imagem' : 'Trocar Imagem (opcional)'}</label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => setImageFile(e.target.files[0] || null)}
                   className="ap-input"
                 />
+                <small>Pode ser qualquer foto: o fundo é removido e o produto fica centralizado em 800x800 com fundo branco.</small>
+                {previewUrl && (
+                  <div className="ap-rotate">
+                    <span>Produto deitado?</span>
+                    <button type="button" onClick={() => rotateImage(-90)} disabled={saving}>↺ Girar</button>
+                    <button type="button" onClick={() => rotateImage(90)} disabled={saving}>↻ Girar</button>
+                  </div>
+                )}
               </div>
             </div>
 

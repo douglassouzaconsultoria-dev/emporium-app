@@ -513,3 +513,28 @@
 
   .ap-form-row { grid-template-columns: 1fr; gap: 0; }
 }
+.ap-rotate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.ap-rotate button {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+
+.ap-form-group small {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #888;
+}

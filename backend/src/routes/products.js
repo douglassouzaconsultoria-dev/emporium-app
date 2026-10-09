@@ -32,9 +32,17 @@ const uploadToCloudinary = (fileBuffer) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: 'emporio-brumado/produtos',
+        format: 'jpg', // JPG: a área sem fundo vira branca
         transformation: [
-          { width: 800, height: 800, crop: 'pad', background: 'white' },
-          { quality: 'auto', fetch_format: 'auto' }
+          // 🤖 IA do Cloudinary tira o fundo (mesa, prateleira, mão...), deixando só o produto
+          { effect: 'background_removal' },
+          // ✂️ Corta o espaço vazio em volta do produto
+          { effect: 'trim' },
+          // 🎯 Centraliza o produto inteiro (sem cortar nem distorcer) em 740x740...
+          { width: 740, height: 740, crop: 'pad', background: 'white' },
+          // ...e completa até 800x800 com fundo branco (30px de margem em volta)
+          { width: 800, height: 800, crop: 'lpad', background: 'white' },
+          { quality: 'auto' }
         ]
       },
       (error, result) => {
