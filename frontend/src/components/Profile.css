@@ -298,3 +298,20 @@
     padding: 4px;
   }
 }
+.profile-delete {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+  font-size: 13px;
+  color: #888;
+}
+
+.profile-delete a {
+  color: #666;
+}
+
+.profile-delete .profile-btn-link {
+  display: block;
+  margin-top: 12px;
+  color: #c62828;
+}

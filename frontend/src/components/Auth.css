@@ -115,3 +115,14 @@
 .link-btn:hover {
   color: #764ba2;
 }
+.auth-legal {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 12px;
+  color: #888;
+  line-height: 1.5;
+}
+
+.auth-legal a {
+  color: #666;
+}

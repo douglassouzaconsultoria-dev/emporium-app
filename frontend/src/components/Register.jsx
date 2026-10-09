@@ -195,6 +195,10 @@ function Register({ onSwitchToLogin }) {
         <p className="auth-switch">
           Já tem conta? <button onClick={onSwitchToLogin} className="link-btn">Faça login aqui</button>
         </p>
+        <p className="auth-legal">
+          Ao se cadastrar, você concorda com os{' '}<a href="/termos.html" target="_blank" rel="noopener noreferrer">Termos de uso</a> e a{' '}
+          <a href="/privacidade.html" target="_blank" rel="noopener noreferrer">Política de privacidade</a>.
+        </p>
       </div>
     </div>
   );

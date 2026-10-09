@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const multer = require('multer');
 const pool = require('../utils/database');
 const { verifyToken } = require('../middleware/authMiddleware');
@@ -321,6 +322,42 @@ router.put('/password', verifyToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao alterar senha' });
+  }
+});
+
+// ===================== EXCLUIR MINHA CONTA (exigido pelas lojas e pela LGPD) =====================
+// Apaga os dados pessoais e desativa a conta. Os pedidos ficam no histórico do Empório, sem o nome do cliente.
+router.delete('/account', verifyToken, async (req, res) => {
+  try {
+    if (req.user.role === 'admin' || req.user.role === 'motoboy') {
+      return res.status(403).json({ error: 'Só contas de cliente podem ser excluídas por aqui' });
+    }
+
+    const result = await pool.query('SELECT password FROM customers WHERE id = $1', [req.user.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente não encontrado' });
+    }
+
+    const match = await bcrypt.compare(req.body.password || '', result.rows[0].password);
+    if (!match) {
+      return res.status(400).json({ error: 'Senha incorreta' });
+    }
+
+    const id = req.user.id;
+    const lockedPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+    await pool.query(
+      `UPDATE customers
+       SET name = 'Cliente excluído', username = $2, email = NULL, phone_number = $3, phone = NULL,
+           address = '', neighborhood = '', city = NULL, state = NULL, avatar_url = NULL,
+           password = $4, active = false
+       WHERE id = $1`,
+      [id, `excluido.${id}`, `del${id}`, lockedPassword]
+    );
+
+    res.json({ message: 'Conta excluída' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao excluir conta' });
   }
 });
 

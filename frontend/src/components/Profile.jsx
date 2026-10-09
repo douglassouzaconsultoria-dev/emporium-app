@@ -14,7 +14,7 @@ const sanitizeUsername = (value) =>
     .slice(0, 20);
 
 function Profile({ onClose }) {
-  const { user, token, updateUser } = useContext(AuthContext);
+  const { user, token, updateUser, logout } = useContext(AuthContext);
 
   const [form, setForm] = useState({
     name: user?.name || '',
@@ -188,6 +188,30 @@ function Profile({ onClose }) {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const password = window.prompt('Para excluir sua conta, digite sua senha. Seus dados pessoais serão apagados e isso não pode ser desfeito.');
+    if (password === null) return;
+    if (!window.confirm('Tem certeza? Sua conta será excluída agora.')) return;
+
+    try {
+      const res = await fetch(`${API_URL}/auth/account`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao excluir conta');
+
+      alert('Sua conta foi excluída.');
+      logout();
+    } catch (err) {
+      alert(`❌ ${err.message}`);
+    }
+  };
+
   const avatarSrc = previewUrl || user?.avatar_url;
   const initial = (user?.name || '?').trim().charAt(0).toUpperCase();
 
@@ -350,6 +374,15 @@ function Profile({ onClose }) {
           <button className="profile-btn-primary" onClick={handlePasswordChange} disabled={pwSaving}>
             {pwSaving ? '⏳ Alterando...' : '🔑 Alterar senha'}
           </button>
+
+          <div className="profile-delete">
+            <a href="/privacidade.html" target="_blank" rel="noopener noreferrer">Política de privacidade</a>
+            {' · '}
+            <a href="/termos.html" target="_blank" rel="noopener noreferrer">Termos de uso</a>
+            <button type="button" className="profile-btn-link" onClick={handleDeleteAccount}>
+              Excluir minha conta
+            </button>
+          </div>
         </section>
       </div>
     </div>
