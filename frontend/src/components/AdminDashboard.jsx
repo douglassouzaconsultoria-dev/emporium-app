@@ -37,7 +37,7 @@ const AdminDashboard = () => {
 
       const data = await response.json();
       setOrders(data);
-      processData(data);
+      processData(data.filter(o => o.status !== 'Cancelado'));
     } catch (err) {
       console.error('Erro:', err);
     } finally {
@@ -272,6 +272,7 @@ const AdminDashboard = () => {
                     {order.status === 'Preparando' && '🍳'}
                     {order.status === 'Saído' && '🚚'}
                     {order.status === 'Entregue' && '✅'}
+                    {order.status === 'Cancelado' && '❌'}
                     {' ' + order.status}
                   </span>
                 </td>

@@ -17,15 +17,18 @@ const AdminOrders = () => {
   useEffect(() => {
     fetchOrders();
     fetchMotoboys();
+    // 🔄 Atualiza a lista sozinha a cada 20 segundos
+    const timer = setInterval(() => fetchOrders(true), 20000);
+    return () => clearInterval(timer);
   }, []);
 
   const getAuthHeaders = () => ({
     'Authorization': `Bearer ${localStorage.getItem('authToken')}`
   });
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await fetch(`${API_URL}/orders`, {
         headers: getAuthHeaders()
       });
@@ -82,7 +85,8 @@ const AdminOrders = () => {
         body: JSON.stringify({ status: newStatus })
       });
 
-      if (!response.ok) throw new Error('Erro ao atualizar status');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro ao atualizar status');
 
       setOrders(orders.map(order =>
         order.id === orderId ? { ...order, status: newStatus } : order
@@ -96,6 +100,13 @@ const AdminOrders = () => {
       }
     } catch (err) {
       alert('Erro ao atualizar status: ' + err.message);
+    }
+  };
+
+  // ❌ Cancelar: o backend devolve os itens ao estoque
+  const cancelOrder = (order) => {
+    if (window.confirm(`Cancelar o pedido #${order.id}? Os itens voltam para o estoque.`)) {
+      updateOrderStatus(order.id, 'Cancelado');
     }
   };
 
@@ -139,6 +150,7 @@ const AdminOrders = () => {
       case 'Preparando': return '#60a5fa';
       case 'Saído': return '#8b5cf6';
       case 'Entregue': return '#10b981';
+      case 'Cancelado': return '#ef4444';
       default: return '#6b7280';
     }
   };
@@ -332,7 +344,7 @@ const AdminOrders = () => {
             }}>
               <p style={{ margin: '0 0 8px', fontWeight: 700 }}>🛵 Motoboy da entrega:</p>
 
-              {selectedOrder.status === 'Entregue' ? (
+              {['Entregue', 'Cancelado'].includes(selectedOrder.status) ? (
                 <p style={{ margin: 0 }}>{selectedOrder.motoboy_name ? `🛵 ${selectedOrder.motoboy_name}` : 'Sem motoboy registrado'}</p>
               ) : (
                 <>
@@ -417,6 +429,11 @@ const AdminOrders = () => {
               </p>
             </div>
 
+            {selectedOrder.status === 'Cancelado' ? (
+              <div className="status-buttons">
+                <p>❌ Pedido cancelado — os itens já voltaram para o estoque.</p>
+              </div>
+            ) : (
             <div className="status-buttons">
               <p><strong>Mudar Status:</strong></p>
               <div className="button-group">
@@ -434,7 +451,17 @@ const AdminOrders = () => {
                   </button>
                 ))}
               </div>
+              {selectedOrder.status !== 'Entregue' && (
+                <button
+                  className="status-btn"
+                  style={{ backgroundColor: '#fee2e2', color: '#b91c1c', marginTop: '10px' }}
+                  onClick={() => cancelOrder(selectedOrder)}
+                >
+                  ❌ Cancelar pedido
+                </button>
+              )}
             </div>
+            )}
           </div>
         </div>
       )}

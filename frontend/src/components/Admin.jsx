@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { API_URL } from '../config';
 import './Admin.css';
 import AdminProducts from './AdminProducts';
 import AdminOrders from './AdminOrders';
@@ -7,10 +8,67 @@ import AdminCategories from './AdminCategories';
 import AdminStockConfig from './AdminStockConfig';
 import AdminMotoboys from './AdminMotoboys';
 import AdminDeliveryFees from './AdminDeliveryFees';
+import AdminCustomers from './AdminCustomers';
+
+// 🔔 Dois bipes curtos (não precisa de arquivo de som)
+const playBeep = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.3].forEach(t => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.value = 0.3;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.15);
+    });
+  } catch (err) {
+    console.error('Sem som:', err);
+  }
+};
 
 function Admin() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [user, setUser] = useState(null);
+  const [newOrders, setNewOrders] = useState(0);
+  const knownIds = useRef(null);
+
+  // 🔔 Confere pedidos novos a cada 20 segundos (em qualquer aba)
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch(`${API_URL}/orders`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        if (!res.ok) return;
+        const ids = (await res.json()).map(o => o.id);
+        if (knownIds.current) {
+          const fresh = ids.filter(id => !knownIds.current.has(id)).length;
+          if (fresh > 0) {
+            playBeep();
+            setNewOrders(n => n + fresh);
+          }
+        }
+        knownIds.current = new Set(ids);
+      } catch (err) {
+        console.error('Erro ao checar pedidos:', err);
+      }
+    };
+    check();
+    const timer = setInterval(check, 20000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    document.title = newOrders > 0 ? `(${newOrders}) Novo pedido! - Empório` : 'EMPÓRIO BRUMADO - Delivery De Supermercado';
+  }, [newOrders]);
+
+  const openNewOrders = () => {
+    setNewOrders(0);
+    setActiveTab('orders');
+  };
 
   useEffect(() => {
     // Verificar se é admin
@@ -40,6 +98,7 @@ function Admin() {
     { id: 'dashboard', label: '📊 Dashboard' },
     { id: 'orders', label: '📦 Pedidos' },
     { id: 'motoboys', label: '🛵 Motoboys' },
+    { id: 'customers', label: '👥 Clientes' },
     { id: 'fees', label: '🏘️ Taxas de entrega' },
     { id: 'categories', label: '📁 Categorias' },
     { id: 'products', label: '🛍️ Produtos' },
@@ -52,6 +111,12 @@ function Admin() {
         <h1>🔧 Painel de Administração</h1>
         <p className="admin-welcome">Bem-vindo, {user.username || user.email} (Admin)</p>
       </div>
+
+      {newOrders > 0 && (
+        <button className="admin-new-orders" onClick={openNewOrders}>
+          🔔 {newOrders} {newOrders === 1 ? 'pedido novo' : 'pedidos novos'} — clique para ver
+        </button>
+      )}
 
       {/* MENU DE ABAS */}
       <div className="admin-tabs-container">
@@ -71,6 +136,7 @@ function Admin() {
         {activeTab === 'dashboard' && <AdminDashboard />}
         {activeTab === 'orders' && <AdminOrders />}
         {activeTab === 'motoboys' && <AdminMotoboys />}
+        {activeTab === 'customers' && <AdminCustomers />}
         {activeTab === 'fees' && <AdminDeliveryFees />}
         {activeTab === 'categories' && <AdminCategories />}
         {activeTab === 'products' && <AdminProducts />}

@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
 import './MyOrders.css';
 
-const MyOrders = ({ user }) => {
+const MyOrders = ({ user, onReorder }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,6 +52,7 @@ const MyOrders = ({ user }) => {
       case 'Preparando': return '#60a5fa';
       case 'Saído': return '#8b5cf6';
       case 'Entregue': return '#10b981';
+      case 'Cancelado': return '#ef4444';
       default: return '#6b7280';
     }
   };
@@ -62,7 +63,22 @@ const MyOrders = ({ user }) => {
       case 'Preparando': return '👨‍🍳';
       case 'Saído': return '🚗';
       case 'Entregue': return '✅';
+      case 'Cancelado': return '❌';
       default: return '📦';
+    }
+  };
+
+  // 🔁 Busca os itens do pedido e manda para o carrinho
+  const handleReorder = async (order) => {
+    try {
+      const response = await fetch(`${API_URL}/orders/${order.id}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      if (!response.ok) throw new Error('Erro ao buscar itens do pedido');
+      const data = await response.json();
+      onReorder(data.items || []);
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -190,6 +206,9 @@ const MyOrders = ({ user }) => {
                   </button>
                 )}
 
+                {order.status === 'Cancelado' ? (
+                  <p style={{ color: '#b91c1c', fontWeight: 600 }}>❌ Este pedido foi cancelado.</p>
+                ) : (
                 <div className="order-timeline">
                   <div className={`timeline-step ${order.status !== 'Pendente' ? 'completed' : 'active'}`}>
                     <div className="timeline-dot">1</div>
@@ -208,6 +227,25 @@ const MyOrders = ({ user }) => {
                     <p>Entregue</p>
                   </div>
                 </div>
+                )}
+
+                <button
+                  onClick={() => handleReorder(order)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    marginTop: '12px',
+                    background: '#fff',
+                    color: '#C41E3A',
+                    border: '2px solid #C41E3A',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  🔁 Pedir de novo
+                </button>
               </div>
             );
           })}

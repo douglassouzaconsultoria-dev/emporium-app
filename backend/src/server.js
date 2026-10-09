@@ -22,6 +22,7 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/motoboys', require('./routes/motoboys'));
 app.use('/api/delivery-fees', require('./routes/deliveryFees'));
+app.use('/api/customers', require('./routes/customers'));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -101,19 +102,6 @@ require('./utils/database').query(`
     });
   })
   .catch(err => console.error('Erro ao atualizar banco:', err));
-
-// 👑 Redefine a senha do usuário "admin" e garante role admin (senha vem da variável ADMIN_PASSWORD)
-if (process.env.ADMIN_PASSWORD) {
-  const pool = require('./utils/database');
-  const bcrypt = require('bcryptjs');
-  bcrypt.hash(process.env.ADMIN_PASSWORD, 10)
-    .then(hash => pool.query(
-      "UPDATE customers SET password = $1, role = 'admin' WHERE LOWER(username) = 'admin'",
-      [hash]
-    ))
-    .then(r => console.log(`👑 Usuário admin atualizado (${r.rowCount})`))
-    .catch(err => console.error('Erro ao atualizar admin:', err));
-}
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {

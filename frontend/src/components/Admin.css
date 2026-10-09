@@ -153,3 +153,22 @@
     padding: 20px 15px;
   }
 }
+/* 🔔 Aviso de pedido novo */
+.admin-new-orders {
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  animation: admin-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes admin-pulse {
+  50% { opacity: 0.75; }
+}

@@ -206,13 +206,13 @@ router.put('/:id/motoboy', verifyAdmin, async (req, res) => {
 
     const result = await pool.query(
       `UPDATE orders SET motoboy_id = $1
-       WHERE id = $2 AND status <> 'Entregue'
+       WHERE id = $2 AND status NOT IN ('Entregue', 'Cancelado')
        RETURNING *`,
       [motoboyId, req.params.id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'Pedido não encontrado ou já entregue' });
+      return res.status(400).json({ error: 'Pedido não encontrado, já entregue ou cancelado' });
     }
 
     res.json({ message: 'Motoboy atualizado!', order: result.rows[0] });
@@ -224,34 +224,66 @@ router.put('/:id/motoboy', verifyAdmin, async (req, res) => {
 
 // 🔒 PUT mudar status do pedido (APENAS ADMIN)
 router.put('/:id', verifyAdmin, async (req, res) => {
+  const { status } = req.body;
+  const validStatuses = ['Pendente', 'Preparando', 'Saído', 'Entregue', 'Cancelado'];
+
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Status inválido' });
+  }
+
+  const client = await pool.connect();
+
   try {
-    const { status } = req.body;
-    const validStatuses = ['Pendente', 'Preparando', 'Saído', 'Entregue'];
+    await client.query('BEGIN');
 
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Status inválido' });
-    }
-
-    const result = await pool.query(
-      `UPDATE orders
-       SET status = $1,
-           delivered_at = CASE WHEN $3 THEN NOW() ELSE delivered_at END
-       WHERE id = $2
-       RETURNING *`,
-      [status, req.params.id, status === 'Entregue']
-    );
-
-    if (result.rows.length === 0) {
+    const current = await client.query('SELECT status FROM orders WHERE id = $1 FOR UPDATE', [req.params.id]);
+    if (current.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Pedido não encontrado' });
     }
+
+    const oldStatus = current.rows[0].status;
+    if (oldStatus === 'Cancelado') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Pedido cancelado não pode ser alterado' });
+    }
+    if (status === 'Cancelado' && oldStatus === 'Entregue') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Pedido já entregue não pode ser cancelado' });
+    }
+
+    // ❌ Cancelou → devolve os itens ao estoque e libera o motoboy
+    if (status === 'Cancelado') {
+      await client.query(
+        `UPDATE products p SET estoque = p.estoque + oi.quantity
+         FROM order_items oi
+         WHERE oi.order_id = $1 AND p.id = oi.product_id`,
+        [req.params.id]
+      );
+    }
+
+    const result = await client.query(
+      `UPDATE orders
+       SET status = $1,
+           delivered_at = CASE WHEN $3 THEN NOW() ELSE delivered_at END,
+           motoboy_id = CASE WHEN $4 THEN NULL ELSE motoboy_id END
+       WHERE id = $2
+       RETURNING *`,
+      [status, req.params.id, status === 'Entregue', status === 'Cancelado']
+    );
+
+    await client.query('COMMIT');
 
     res.json({
       message: 'Status atualizado!',
       order: result.rows[0]
     });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar status' });
+  } finally {
+    client.release();
   }
 });
 

@@ -393,3 +393,7 @@
 .orders-table-container {
   animation: fadeIn 0.5s ease;
 }
+.badge-cancelado {
+  background: #fee2e2;
+  color: #b91c1c;
+}

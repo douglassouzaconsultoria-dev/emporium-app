@@ -106,6 +106,29 @@ function AppContent() {
     alert('Pedido realizado com sucesso!');
   };
 
+  // 🔁 Pedir de novo: coloca no carrinho os itens de um pedido antigo
+  const reorder = (items) => {
+    let newCart = [...cart];
+    const missing = [];
+    items.forEach(item => {
+      const product = products.find(p => p.id === item.product_id);
+      if (!product || product.estoque <= 0) {
+        missing.push(item.product_name);
+        return;
+      }
+      const qty = Math.min(parseFloat(item.quantity), product.estoque);
+      const existing = newCart.find(c => c.id === product.id);
+      newCart = existing
+        ? newCart.map(c => c.id === product.id ? { ...c, quantity: roundQty(Math.min(c.quantity + qty, product.estoque)) } : c)
+        : [...newCart, { ...product, quantity: qty }];
+    });
+    setCart(newCart);
+    setView('cart');
+    if (missing.length) {
+      alert(`Estes itens não estão disponíveis agora: ${missing.join(', ')}`);
+    }
+  };
+
   const toggleView = (target) => {
     setView(current => (current === target ? 'store' : target));
   };
@@ -190,7 +213,7 @@ function AppContent() {
         {view === 'admin' && isUserAdmin ? (
           <Admin />
         ) : view === 'orders' ? (
-          <MyOrders user={user} />
+          <MyOrders user={user} onReorder={reorder} />
         ) : view === 'profile' ? (
           <Profile onClose={() => setView('store')} />
         ) : view === 'cart' ? (
