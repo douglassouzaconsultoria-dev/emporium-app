@@ -47,6 +47,8 @@ require('./utils/database').query(`
   ALTER TABLE customers ADD COLUMN IF NOT EXISTS avatar_url TEXT;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS motoboy_id INTEGER REFERENCES customers(id);
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20) DEFAULT 'dinheiro';
   CREATE TABLE IF NOT EXISTS product_stock_config (
     id SERIAL PRIMARY KEY,
     product_id INTEGER UNIQUE REFERENCES products(id) ON DELETE CASCADE,
