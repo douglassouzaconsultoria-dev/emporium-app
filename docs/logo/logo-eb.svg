@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-280 -280 560 560" width="1024" height="1024">
+  <title>Empório Brumado</title>
+  <circle r="280" fill="#C41E3A"/>
+  <g transform="matrix(1 0 -0.168 1 -236.26 -310)">
+    <path d="M134 90h45v238h-45Z M134 90h178v42h-178Z M134 182h166v44h-166Z M134 282h160v46h-160Z M263 282h45v248h-45Z M263 282H389A62 62 0 0 1 451 344V363A62 62 0 0 1 389 425H263Z M263 405H387A62 62 0 0 1 449 467V468A62 62 0 0 1 387 530H263Z" fill="#fff"/>
+    <path d="M308 328H375A22 22 0 0 1 397 350V358A22 22 0 0 1 375 380H308Z M308 425H373A22 22 0 0 1 395 447V465A22 22 0 0 1 373 487H308Z" fill="#C41E3A"/>
+  </g>
+</svg>
