@@ -400,6 +400,9 @@ function AdminProducts() {
                     onChange={(e) => setFormData({ ...formData, estoque: e.target.value })}
                     className="ap-input"
                   />
+                  {modalMode === 'create' && (
+                    <small>Com estoque, o produto já entra no automático: renova para essa quantidade toda segunda. Para mudar, use a aba Estoque.</small>
+                  )}
                 </div>
               </div>
 

@@ -104,12 +104,14 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
       [name, price, unit, category_id, imageUrl, estoqueInicial]
     );
 
-    // ⚙️ Cria configuração de estoque padrão para o novo produto
+    // ⚙️ Produto novo com estoque já nasce AUTOMÁTICO (renova toda semana para a quantidade cadastrada).
+    // Sem estoque → MANUAL. Dá para trocar depois na aba Estoque.
+    const auto = estoqueInicial > 0;
     await pool.query(
-      `INSERT INTO product_stock_config (product_id, type, auto_quantity, auto_frequency)
-       VALUES ($1, 'MANUAL', 50, 'SEMANAL')
+      `INSERT INTO product_stock_config (product_id, type, auto_quantity, auto_frequency, last_restocked_at)
+       VALUES ($1, $2, $3, 'SEMANAL', NOW())
        ON CONFLICT (product_id) DO NOTHING`,
-      [result.rows[0].id]
+      [result.rows[0].id, auto ? 'AUTOMÁTICO' : 'MANUAL', auto ? estoqueInicial : 50]
     );
 
     res.status(201).json(result.rows[0]);
