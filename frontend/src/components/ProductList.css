@@ -85,3 +85,32 @@
   border-radius: 6px;
   font-size: 14px;
 }
+
+/* 🔢 Quantidade (produto por unidade) */
+.unit-stepper {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  gap: 6px;
+}
+
+.unit-stepper button {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.unit-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.unit-stepper input {
+  text-align: center;
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 15px;
+}

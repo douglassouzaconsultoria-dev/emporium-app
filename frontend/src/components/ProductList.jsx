@@ -47,6 +47,32 @@ function KgPicker({ product, onAddToCart }) {
   );
 }
 
+// 🔢 Escolha de quantidade para produto vendido por unidade
+function UnitPicker({ product, onAddToCart }) {
+  const [qty, setQty] = useState(1);
+  const max = Math.floor(product.estoque);
+  const price = parseFloat(product.price) * qty;
+
+  return (
+    <div className="kg-picker">
+      <div className="unit-stepper">
+        <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} disabled={qty <= 1}>−</button>
+        <input
+          type="number"
+          min="1"
+          max={max}
+          value={qty}
+          onChange={(e) => setQty(Math.min(max, Math.max(1, parseInt(e.target.value) || 1)))}
+        />
+        <button type="button" onClick={() => setQty(Math.min(max, qty + 1))} disabled={qty >= max}>+</button>
+      </div>
+      <button className="add-btn" onClick={() => { onAddToCart(product, qty); setQty(1); }}>
+        🛒 Adicionar {qty} — R$ {price.toFixed(2)}
+      </button>
+    </div>
+  );
+}
+
 function ProductList({ products, onAddToCart }) {
   return (
     <div className="products">
@@ -78,16 +104,12 @@ function ProductList({ products, onAddToCart }) {
                 )}
               </div>
 
-              {isKg(product.unit) && product.estoque > 0 ? (
+              {product.estoque <= 0 ? (
+                <button className="add-btn" disabled>❌ Indisponível</button>
+              ) : isKg(product.unit) ? (
                 <KgPicker product={product} onAddToCart={onAddToCart} />
               ) : (
-                <button
-                  className="add-btn"
-                  onClick={() => onAddToCart(product)}
-                  disabled={product.estoque === 0}
-                >
-                  {product.estoque === 0 ? '❌ Indisponível' : '🛒 Adicionar ao Carrinho'}
-                </button>
+                <UnitPicker product={product} onAddToCart={onAddToCart} />
               )}
             </div>
           </div>
