@@ -73,11 +73,12 @@ function UnitPicker({ product, onAddToCart }) {
   );
 }
 
-function ProductList({ products, onAddToCart }) {
+// row: uma fileira que rola para o lado (vitrine por categoria)
+function ProductList({ products, onAddToCart, title = 'Produtos', row = false }) {
   return (
     <div className="products">
-      <h2>Produtos</h2>
-      <div className="product-grid">
+      <h2>{title}</h2>
+      <div className={row ? 'product-row' : 'product-grid'}>
         {products.map(product => (
           <div key={product.id} className="product-card">
             {product.image_url && (

@@ -67,7 +67,8 @@ function Register({ onSwitchToLogin }) {
   return (
     <div className="auth-container">
       <div className="auth-box">
-        <h1>🛒 EMPÓRIO BRUMADO</h1>
+        <img src="/logo-eb.svg" alt="" className="auth-logo" />
+        <h1>EMPÓRIO BRUMADO</h1>
         <h2>Cadastro</h2>
 
         {message && <div className={`auth-message ${message.includes('✅') ? 'success' : 'error'}`}>{message}</div>}

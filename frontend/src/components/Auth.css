@@ -126,3 +126,10 @@
 .auth-legal a {
   color: #666;
 }
+
+.auth-logo {
+  display: block;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 12px;
+}

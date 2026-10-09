@@ -23,6 +23,18 @@ function AppContent() {
   const [showCheckout, setShowCheckout] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [view, setView] = React.useState('store');
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const headerRef = React.useRef(null);
+  const [headerHeight, setHeaderHeight] = React.useState(0);
+
+  // Altura do cabeçalho fixo: a barra de categorias gruda logo abaixo dele
+  React.useEffect(() => {
+    if (!headerRef.current) return;
+    const measure = () => setHeaderHeight(headerRef.current ? headerRef.current.offsetHeight : 0);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [user]);
 
 
   React.useEffect(() => {
@@ -35,28 +47,32 @@ function AppContent() {
     try {
       const response = await axios.get(`${API_URL}/categories`);
       setCategories(response.data);
-      if (response.data.length > 0) {
-        setSelectedCategory(response.data[0].id);
-        fetchProducts(response.data[0].id);
-      }
+      fetchProducts();
     } catch (error) {
       console.error('Erro ao buscar categorias:', error);
     }
   };
 
-  const fetchProducts = async (categoryId) => {
+  const fetchProducts = async () => {
     try {
       const response = await axios.get(`${API_URL}/products`);
-      const filtered = response.data.filter(p => p.category_id === categoryId);
-      setProducts(filtered);
+      setProducts(response.data);
     } catch (error) {
       console.error('Erro ao buscar produtos:', error);
     }
   };
 
+  // Leva até a fileira da categoria
   const handleCategoryChange = (categoryId) => {
     setSelectedCategory(categoryId);
-    fetchProducts(categoryId);
+    setMenuOpen(false);
+    const el = document.getElementById(`cat-${categoryId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const chip = document.querySelector(`[data-cat="${categoryId}"]`);
+    if (chip) {
+      const bar = chip.parentElement;
+      bar.scrollTo({ left: chip.offsetLeft - bar.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
+    }
   };
 
   const handleSearch = (term) => {
@@ -66,6 +82,11 @@ function AppContent() {
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Vitrine: uma seção por categoria (só as que têm produto)
+  const sections = categories
+    .map(category => ({ ...category, items: filteredProducts.filter(p => p.category_id === category.id) }))
+    .filter(section => section.items.length > 0);
 
   // qty: 1 para unidade; em kg para produto por peso (ex: 0.25 = 250 g)
   const addToCart = (product, qty = 1) => {
@@ -166,10 +187,13 @@ function AppContent() {
 
   return (
     <div className="app">
-      <header className="header">
+      <header className="header" ref={headerRef}>
         <div className="header-left" onClick={() => setView('store')} style={{ cursor: 'pointer' }}>
-          <h1>🛒 EMPÓRIO BRUMADO</h1>
-          <p>Delivery de Supermercado</p>
+          <img src="/logo-eb-branco.svg" alt="" className="brand-seal" />
+          <div>
+            <h1>EMPÓRIO BRUMADO</h1>
+            <p>Delivery de Supermercado</p>
+          </div>
         </div>
         <div className="header-right">
           <button
@@ -227,22 +251,48 @@ function AppContent() {
           <>
             <SearchBar onSearch={handleSearch} />
 
-            <div className="categories">
-              <h2>Categorias</h2>
-              <div className="category-list">
-                {categories.map(category => (
+            <div className="cat-bar" style={{ top: headerHeight }}>
+              <button className="cat-menu-btn" onClick={() => setMenuOpen(open => !open)}>
+                ☰ Categorias
+              </button>
+              <div className="cat-chips">
+                {sections.map(section => (
                   <button
-                    key={category.id}
-                    className={`category-btn ${selectedCategory === category.id ? 'active' : ''}`}
-                    onClick={() => handleCategoryChange(category.id)}
+                    key={section.id}
+                    data-cat={section.id}
+                    className={`category-btn ${selectedCategory === section.id ? 'active' : ''}`}
+                    onClick={() => handleCategoryChange(section.id)}
                   >
-                    {category.name}
+                    {section.name}
                   </button>
                 ))}
               </div>
+              {menuOpen && (
+                <div className="cat-menu">
+                  {sections.map(section => (
+                    <button key={section.id} onClick={() => handleCategoryChange(section.id)}>
+                      <span>{section.name}</span>
+                      <small>{section.items.length}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <ProductList products={filteredProducts} onAddToCart={addToCart} />
+            {sections.length === 0 ? (
+              <p className="empty-store">Nenhum produto encontrado.</p>
+            ) : (
+              sections.map(section => (
+                <section
+                  key={section.id}
+                  id={`cat-${section.id}`}
+                  className="cat-section"
+                  style={{ scrollMarginTop: headerHeight + 70 }}
+                >
+                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} row />
+                </section>
+              ))
+            )}
           </>
         )}
       </div>
