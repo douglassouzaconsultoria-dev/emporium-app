@@ -14,3 +14,8 @@ export const roundQty = (qty) => Math.round(qty * 1000) / 1000;
 
 // Valor do item arredondado ao centavo (igual ao cálculo do servidor)
 export const lineTotal = (item) => Math.round(parseFloat(item.price) * item.quantity * 100) / 100;
+
+// "3 un" para unidade; "250 g" / "1,5 kg" para peso
+export const qtyText = (q, unit) => (isKg(unit)
+  ? formatQty(q, unit)
+  : `${Number(q).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} un`);
