@@ -223,10 +223,17 @@ router.get('/:id/stock-config', async (req, res) => {
 // 🔧 ESTOQUE AVANÇADO - PUT configuração
 router.put('/:id/stock-config', verifyAdmin, async (req, res) => {
   try {
-    const { type, auto_quantity, auto_frequency } = req.body;
+    const { type, auto_frequency } = req.body;
+    const auto_quantity = parseFloat(req.body.auto_quantity) || 0;
 
     if (!['MANUAL', 'AUTOMÁTICO'].includes(type)) {
       return res.status(400).json({ error: 'Tipo inválido (MANUAL ou AUTOMÁTICO)' });
+    }
+    if (!['DIÁRIA', 'SEMANAL', 'QUINZENAL', 'MENSAL'].includes(auto_frequency)) {
+      return res.status(400).json({ error: 'Frequência inválida' });
+    }
+    if (type === 'AUTOMÁTICO' && auto_quantity <= 0) {
+      return res.status(400).json({ error: 'Informe a quantidade do estoque automático' });
     }
 
     const query = `
@@ -250,6 +257,12 @@ router.put('/:id/stock-config', verifyAdmin, async (req, res) => {
          RETURNING *`,
         [req.params.id, type, auto_quantity, auto_frequency]
       );
+    }
+
+    // 🔄 Automático: o estoque já vira a quantidade configurada e o período começa agora
+    if (type === 'AUTOMÁTICO') {
+      await pool.query('UPDATE products SET estoque = $1 WHERE id = $2', [auto_quantity, req.params.id]);
+      await pool.query('UPDATE product_stock_config SET last_restocked_at = NOW() WHERE product_id = $1', [req.params.id]);
     }
 
     res.json(result.rows[0]);

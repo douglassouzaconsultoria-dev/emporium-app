@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import { isKg } from '../utils/units';
 import axios from 'axios';
 import './AdminStockConfig.css';
+
+const RENEW_WHEN = {
+  'DIÁRIA': 'todo dia',
+  'SEMANAL': 'toda segunda-feira',
+  'QUINZENAL': 'nos dias 1 e 16 de cada mês',
+  'MENSAL': 'todo dia 1º do mês'
+};
 
 function AdminStockConfig() {
   const [products, setProducts] = useState([]);
@@ -68,7 +76,7 @@ function AdminStockConfig() {
       fetchProducts();
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      setMessage('❌ Erro ao atualizar configuração');
+      setMessage(`❌ ${error.response?.data?.error || 'Erro ao atualizar configuração'}`);
       console.error(error);
     }
   };
@@ -148,7 +156,7 @@ function AdminStockConfig() {
                       {product.config?.type === 'AUTOMÁTICO' ? '🤖 AUTOMÁTICO' : '✋ MANUAL'}
                     </span>
                   </td>
-                  <td>{product.config?.auto_quantity || 0} un</td>
+                  <td>{product.config?.type === 'AUTOMÁTICO' ? `${product.config.auto_quantity} ${isKg(product.unit) ? 'kg' : 'un'}` : '—'}</td>
                   <td>{product.config?.auto_frequency || 'N/A'}</td>
                   <td>
                     <button 
@@ -188,18 +196,18 @@ function AdminStockConfig() {
                   className="form-input"
                 >
                   <option value="MANUAL">✋ MANUAL (Admin controla)</option>
-                  <option value="AUTOMÁTICO">🤖 AUTOMÁTICO (Repõe sozinho)</option>
+                  <option value="AUTOMÁTICO">🤖 AUTOMÁTICO (Renova sozinho)</option>
                 </select>
               </div>
 
               {editData.type === 'AUTOMÁTICO' && (
                 <>
                   <div className="form-group">
-                    <label>Quantidade a Repor</label>
+                    <label>Estoque a manter{isKg(products.find(p => p.id === editingId)?.unit) ? ' (kg)' : ''}</label>
                     <input
                       type="number"
                       value={editData.auto_quantity || 0}
-                      onChange={(e) => setEditData({...editData, auto_quantity: parseInt(e.target.value) || 0})}
+                      onChange={(e) => setEditData({...editData, auto_quantity: parseFloat(e.target.value) || 0})}
                       className="form-input"
                       placeholder="Ex: 50"
                       min="0"
@@ -207,7 +215,7 @@ function AdminStockConfig() {
                   </div>
 
                   <div className="form-group">
-                    <label>Frequência de Reposição</label>
+                    <label>Frequência da renovação</label>
                     <select
                       value={editData.auto_frequency || 'SEMANAL'}
                       onChange={(e) => setEditData({...editData, auto_frequency: e.target.value})}
@@ -222,7 +230,8 @@ function AdminStockConfig() {
 
                   <div className="info-box">
                     <p>📌 <strong>Como funciona:</strong></p>
-                    <p>O sistema reporá automaticamente {editData.auto_quantity} unidades {editData.auto_frequency?.toLowerCase()} neste produto.</p>
+                    <p>O estoque <strong>volta a ser {editData.auto_quantity}</strong> {RENEW_WHEN[editData.auto_frequency] || ''}, não importa quanto sobrou. Ele não soma: com {editData.auto_quantity} configurado e 12 sobrando, renova para {editData.auto_quantity}.</p>
+                    <p>Ao salvar, o estoque já fica em {editData.auto_quantity}. Para mudar, altere a quantidade aqui.</p>
                   </div>
                 </>
               )}

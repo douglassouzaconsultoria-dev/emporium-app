@@ -60,6 +60,9 @@ require('./utils/database').query(`
     fee NUMERIC(10,2) NOT NULL
   );
   ALTER TABLE products ALTER COLUMN estoque TYPE NUMERIC(10,3);
+  ALTER TABLE product_stock_config ALTER COLUMN auto_quantity TYPE NUMERIC(10,3);
+  ALTER TABLE product_stock_config ADD COLUMN IF NOT EXISTS last_restocked_at TIMESTAMPTZ;
+  UPDATE product_stock_config SET last_restocked_at = NOW() WHERE type = 'AUTOMÁTICO' AND last_restocked_at IS NULL;
   ALTER TABLE order_items ALTER COLUMN quantity TYPE NUMERIC(10,3);
   CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(50) PRIMARY KEY, value TEXT);
   INSERT INTO app_settings (key, value) VALUES ('default_delivery_fee', '5') ON CONFLICT (key) DO NOTHING;
@@ -77,6 +80,7 @@ require('./utils/database').query(`
   );
 `)
   .then(() => console.log('🧱 Banco atualizado'))
+  .then(() => require('./utils/stockRestock').startStockRestock())
   .then(() => {
     // 🔎 Confere se o banco tem todas as colunas que o código usa (só leitura)
     const expected = {
