@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../utils/database');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
+const { getDeliveryFee } = require('../utils/deliveryFee');
 
 const VALID_PAYMENT_METHODS = ['dinheiro', 'cartao', 'pix'];
 
@@ -76,7 +77,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 
 // 👤 POST criar novo pedido (cliente autenticado)
 router.post('/', verifyToken, async (req, res) => {
-  const { items, delivery_address, payment_method } = req.body;
+  const { items, delivery_address, payment_method, delivery_neighborhood } = req.body;
 
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Carrinho vazio' });
@@ -84,6 +85,10 @@ router.post('/', verifyToken, async (req, res) => {
 
   if (!delivery_address || !delivery_address.trim()) {
     return res.status(400).json({ error: 'Endereço de entrega é obrigatório' });
+  }
+
+  if (!delivery_neighborhood || !delivery_neighborhood.trim()) {
+    return res.status(400).json({ error: 'Informe o bairro da entrega' });
   }
 
   const method = payment_method || 'dinheiro';
@@ -133,13 +138,15 @@ router.post('/', verifyToken, async (req, res) => {
       pricedItems.push({ product_id: product.id, quantity: qty, price });
     }
 
-    total = Math.round(total * 100) / 100;
+    // 🛵 Taxa calculada no servidor (o navegador não decide o valor)
+    const delivery = await getDeliveryFee(client, delivery_neighborhood);
+    total = Math.round((total + delivery.fee) * 100) / 100;
 
     const orderResult = await client.query(
-      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
-       RETURNING id, customer_id, total, status, payment_method, created_at`,
-      [req.user.id, total, 'Pendente', delivery_address.trim(), method]
+      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, created_at`,
+      [req.user.id, total, 'Pendente', delivery_address.trim(), method, delivery.fee, delivery.neighborhood]
     );
 
     const orderId = orderResult.rows[0].id;

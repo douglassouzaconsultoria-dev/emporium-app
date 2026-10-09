@@ -107,11 +107,17 @@ function MotoboyPanel({ onLogout }) {
     }
   };
 
+  // 🏘️ Bairro escolhido no pedido (ou o do cadastro, em pedidos antigos)
+  const neighborhoodOf = (order) => {
+    const n = order.delivery_neighborhood || order.customer_neighborhood;
+    return n && n !== '-' ? n : '';
+  };
+
   // 📍 Endereço completo (com cidade) para mapa e navegação
   const fullAddress = (order) => {
     const parts = [order.delivery_address];
-    if (order.customer_neighborhood && order.customer_neighborhood !== '-') {
-      parts.push(order.customer_neighborhood);
+    if (neighborhoodOf(order)) {
+      parts.push(neighborhoodOf(order));
     }
     parts.push(CITY);
     return parts.join(', ');
@@ -241,8 +247,8 @@ function MotoboyPanel({ onLogout }) {
                         <strong>👤 {order.customer_name || 'Cliente'}</strong>
                         {order.customer_phone && <p>📞 {order.customer_phone}</p>}
                         <p>📍 {order.delivery_address}</p>
-                        {order.customer_neighborhood && order.customer_neighborhood !== '-' && (
-                          <p className="mb-neighborhood">Bairro: {order.customer_neighborhood}</p>
+                        {neighborhoodOf(order) && (
+                          <p className="mb-neighborhood">Bairro: {neighborhoodOf(order)}</p>
                         )}
                       </div>
 

@@ -1,11 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { API_URL } from '../config';
+import { AuthContext } from '../AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
 import './Checkout.css';
 
+const OTHER = '__outro';
+
+// Compara bairros sem acento/maiúscula ("Enéas" = "eneas")
+const normalize = (s) => (s || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().trim().replace(/\s+/g, ' ');
+
 const Checkout = ({ cart, total, onClose, onSuccess }) => {
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const { user } = useContext(AuthContext);
+  const [deliveryAddress, setDeliveryAddress] = useState(user?.address || '');
+  const [fees, setFees] = useState([]);
+  const [defaultFee, setDefaultFee] = useState(0);
+  const [neighborhood, setNeighborhood] = useState('');
+  const [otherNeighborhood, setOtherNeighborhood] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('dinheiro');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -16,6 +29,29 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
   const [copied, setCopied] = useState(false);
 
   const token = localStorage.getItem('authToken');
+
+  // 🛵 Carrega as taxas e já seleciona o bairro do cadastro do cliente
+  useEffect(() => {
+    fetch(`${API_URL}/delivery-fees`)
+      .then(res => res.json())
+      .then(data => {
+        setFees(data.fees || []);
+        setDefaultFee(parseFloat(data.default_fee) || 0);
+        const match = (data.fees || []).find(f => normalize(f.neighborhood) === normalize(user?.neighborhood));
+        if (match) {
+          setNeighborhood(match.neighborhood);
+        } else if (user?.neighborhood && user.neighborhood !== '-') {
+          setNeighborhood(OTHER);
+          setOtherNeighborhood(user.neighborhood);
+        }
+      })
+      .catch(err => console.error('Erro ao buscar taxas:', err));
+  }, [user]);
+
+  const selectedNeighborhood = neighborhood === OTHER ? otherNeighborhood.trim() : neighborhood;
+  const selectedFee = fees.find(f => f.neighborhood === neighborhood);
+  const deliveryFee = !neighborhood ? 0 : selectedFee ? parseFloat(selectedFee.fee) : defaultFee;
+  const finalTotalPreview = parseFloat(total) + deliveryFee;
 
   const createOrder = async () => {
     const response = await fetch(`${API_URL}/orders`, {
@@ -30,6 +66,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
           quantity: item.quantity
         })),
         delivery_address: deliveryAddress,
+        delivery_neighborhood: selectedNeighborhood,
         payment_method: paymentMethod
       })
     });
@@ -52,11 +89,16 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
       return;
     }
 
+    if (!selectedNeighborhood) {
+      setError('Escolha o bairro da entrega');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const data = await createOrder();
-      const finalTotal = parseFloat(data.order?.total ?? total);
+      const finalTotal = parseFloat(data.order?.total ?? finalTotalPreview);
 
       setOrderId(data.id);
       setOrderTotal(finalTotal);
@@ -196,8 +238,16 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
               </div>
             ))}
           </div>
+          <div className="order-item">
+            <span>Subtotal</span>
+            <span>R$ {parseFloat(total).toFixed(2)}</span>
+          </div>
+          <div className="order-item">
+            <span>🛵 Taxa de entrega{neighborhood ? '' : ' (escolha o bairro)'}</span>
+            <span>R$ {deliveryFee.toFixed(2)}</span>
+          </div>
           <div className="order-total">
-            <strong>Total: R$ {parseFloat(total).toFixed(2)}</strong>
+            <strong>Total: R$ {finalTotalPreview.toFixed(2)}</strong>
           </div>
         </div>
 
@@ -211,6 +261,33 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
               placeholder="Digite seu endereço completo"
               disabled={loading}
             />
+          </div>
+
+          <div className="form-group">
+            <label>🏘️ Bairro:</label>
+            <select
+              value={neighborhood}
+              onChange={(e) => setNeighborhood(e.target.value)}
+              disabled={loading}
+            >
+              <option value="">Selecione o bairro</option>
+              {fees.map(f => (
+                <option key={f.id} value={f.neighborhood}>
+                  {f.neighborhood} — R$ {parseFloat(f.fee).toFixed(2)}
+                </option>
+              ))}
+              <option value={OTHER}>Outro bairro — R$ {defaultFee.toFixed(2)}</option>
+            </select>
+            {neighborhood === OTHER && (
+              <input
+                type="text"
+                value={otherNeighborhood}
+                onChange={(e) => setOtherNeighborhood(e.target.value)}
+                placeholder="Digite o nome do seu bairro"
+                disabled={loading}
+                style={{ marginTop: '8px' }}
+              />
+            )}
           </div>
 
           <div className="form-group">

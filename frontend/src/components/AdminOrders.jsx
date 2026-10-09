@@ -399,6 +399,9 @@ const AdminOrders = () => {
             </div>
 
             <div className="order-total-section">
+              {parseFloat(selectedOrder.delivery_fee) > 0 && (
+                <p>🛵 Taxa de entrega{selectedOrder.delivery_neighborhood ? ` (${selectedOrder.delivery_neighborhood})` : ''}: R$ {parseFloat(selectedOrder.delivery_fee).toFixed(2)}</p>
+              )}
               <h4>Total do Pedido: R$ {parseFloat(selectedOrder.total).toFixed(2)}</h4>
               <p><strong>Status Atual:</strong>
                 <span

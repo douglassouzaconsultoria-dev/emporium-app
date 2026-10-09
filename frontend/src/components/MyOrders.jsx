@@ -150,6 +150,9 @@ const MyOrders = ({ user }) => {
                 <div className="order-info">
                   <p><strong>Data:</strong> {new Date(order.created_at).toLocaleDateString('pt-BR')}</p>
                   <p><strong>Endereço:</strong> {order.delivery_address}</p>
+                  {parseFloat(order.delivery_fee) > 0 && (
+                    <p><strong>Taxa de entrega:</strong> R$ {parseFloat(order.delivery_fee).toFixed(2)}</p>
+                  )}
                   <p><strong>Total:</strong> R$ {parseFloat(order.total).toFixed(2)}</p>
                   <p>
                     <strong>Pagamento:</strong>{' '}

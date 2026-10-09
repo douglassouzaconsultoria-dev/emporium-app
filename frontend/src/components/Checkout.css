@@ -114,7 +114,8 @@
   font-size: 14px;
 }
 
-.checkout-content input {
+.checkout-content input,
+.checkout-content select {
   padding: 12px;
   border: 2px solid #e0e0e0;
   border-radius: 8px;
@@ -123,7 +124,8 @@
   transition: border-color 0.3s, box-shadow 0.3s;
 }
 
-.checkout-content input:focus {
+.checkout-content input:focus,
+.checkout-content select:focus {
   outline: none;
   border-color: #7c3aed;
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
@@ -292,7 +294,8 @@
     font-size: 20px;
   }
 
-  .checkout-content input {
+  .checkout-content input,
+  .checkout-content select {
     font-size: 16px;
     padding: 14px;
   }

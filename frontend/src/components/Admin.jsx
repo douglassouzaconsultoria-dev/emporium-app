@@ -6,6 +6,7 @@ import AdminDashboard from './AdminDashboard';
 import AdminCategories from './AdminCategories';
 import AdminStockConfig from './AdminStockConfig';
 import AdminMotoboys from './AdminMotoboys';
+import AdminDeliveryFees from './AdminDeliveryFees';
 
 function Admin() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -39,6 +40,7 @@ function Admin() {
     { id: 'dashboard', label: '📊 Dashboard' },
     { id: 'orders', label: '📦 Pedidos' },
     { id: 'motoboys', label: '🛵 Motoboys' },
+    { id: 'fees', label: '🏘️ Taxas de entrega' },
     { id: 'categories', label: '📁 Categorias' },
     { id: 'products', label: '🛍️ Produtos' },
     { id: 'stock', label: '⚙️ Estoque' }
@@ -69,6 +71,7 @@ function Admin() {
         {activeTab === 'dashboard' && <AdminDashboard />}
         {activeTab === 'orders' && <AdminOrders />}
         {activeTab === 'motoboys' && <AdminMotoboys />}
+        {activeTab === 'fees' && <AdminDeliveryFees />}
         {activeTab === 'categories' && <AdminCategories />}
         {activeTab === 'products' && <AdminProducts />}
         {activeTab === 'stock' && <AdminStockConfig />}
