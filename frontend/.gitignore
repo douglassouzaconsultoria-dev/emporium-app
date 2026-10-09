@@ -1,0 +1,3 @@
+# Gerados automaticamente (o Render instala e faz o build sozinho)
+node_modules/
+build/
