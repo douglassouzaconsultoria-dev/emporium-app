@@ -45,6 +45,7 @@ if ((process.env.JWT_SECRET || '').startsWith('GERE_UMA_CHAVE')) {
 require('./utils/database').query(`
   ALTER TABLE customers ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
   ALTER TABLE customers ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+  ALTER TABLE customers ALTER COLUMN email DROP NOT NULL;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS motoboy_id INTEGER REFERENCES customers(id);
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT;
@@ -71,8 +72,12 @@ require('./utils/database').query(`
       product_stock_config: ['product_id', 'type', 'auto_quantity', 'auto_frequency', 'updated_at']
     };
     return require('./utils/database').query(
-      "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'"
+      "SELECT table_name, column_name, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'public'"
     ).then(({ rows }) => {
+      const required = rows
+        .filter(r => r.is_nullable === 'NO' && !r.column_default && expected[r.table_name])
+        .map(r => `${r.table_name}.${r.column_name}`);
+      console.log(`🔎 Colunas obrigatórias: ${required.join(', ')}`);
       const have = new Set(rows.map(r => `${r.table_name}.${r.column_name}`));
       const missing = Object.entries(expected)
         .flatMap(([t, cols]) => cols.map(c => `${t}.${c}`))
