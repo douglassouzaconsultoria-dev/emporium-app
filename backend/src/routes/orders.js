@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../utils/database');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 const { getDeliveryFee } = require('../utils/deliveryFee');
+const { isKg } = require('../utils/units');
 
 const VALID_PAYMENT_METHODS = ['dinheiro', 'cartao', 'pix'];
 
@@ -62,7 +63,7 @@ router.get('/:id', verifyToken, async (req, res) => {
     }
 
     const items = await pool.query(`
-      SELECT oi.*, p.name as product_name
+      SELECT oi.*, p.name as product_name, p.unit
       FROM order_items oi
       JOIN products p ON oi.product_id = p.id
       WHERE oi.order_id = $1
@@ -97,8 +98,8 @@ router.post('/', verifyToken, async (req, res) => {
   }
 
   for (const item of items) {
-    const qty = parseInt(item.quantity);
-    if (!Number.isInteger(qty) || qty <= 0) {
+    const qty = parseFloat(item.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) {
       return res.status(400).json({ error: 'Quantidade inválida no carrinho' });
     }
   }
@@ -112,10 +113,8 @@ router.post('/', verifyToken, async (req, res) => {
     const pricedItems = [];
 
     for (const item of items) {
-      const qty = parseInt(item.quantity);
-
       const productResult = await client.query(
-        'SELECT id, name, price, estoque FROM products WHERE id = $1 FOR UPDATE',
+        'SELECT id, name, price, unit, estoque FROM products WHERE id = $1 FOR UPDATE',
         [item.product_id]
       );
 
@@ -126,6 +125,16 @@ router.post('/', verifyToken, async (req, res) => {
 
       const product = productResult.rows[0];
 
+      // ⚖️ Produto por kg aceita quebrado (0,250 kg); por unidade só inteiro
+      const qty = isKg(product.unit)
+        ? Math.round(parseFloat(item.quantity) * 1000) / 1000
+        : parseFloat(item.quantity);
+
+      if (!isKg(product.unit) && !Number.isInteger(qty)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Quantidade inválida para "${product.name}"` });
+      }
+
       if (product.estoque < qty) {
         await client.query('ROLLBACK');
         return res.status(400).json({
@@ -134,7 +143,7 @@ router.post('/', verifyToken, async (req, res) => {
       }
 
       const price = parseFloat(product.price);
-      total += price * qty;
+      total += Math.round(price * qty * 100) / 100;
       pricedItems.push({ product_id: product.id, quantity: qty, price });
     }
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { API_URL } from '../config';
+import { formatQty } from '../utils/units';
 import { AuthContext } from '../AuthContext';
 import Profile from './Profile';
 import './MotoboyPanel.css';
@@ -258,7 +259,7 @@ function MotoboyPanel({ onLogout }) {
                         <summary>🧾 Itens ({order.items.length})</summary>
                         <ul>
                           {order.items.map((item, i) => (
-                            <li key={i}>{item.quantity}x {item.name}</li>
+                            <li key={i}>{formatQty(item.quantity, item.unit)} {item.name}</li>
                           ))}
                         </ul>
                       </details>

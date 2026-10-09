@@ -7,6 +7,7 @@ import Auth from './components/Auth';
 import ProductList from './components/ProductList';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
+import { roundQty, lineTotal } from './utils/units';
 import SearchBar from './components/SearchBar';
 import Admin from './components/Admin';
 import MyOrders from './components/MyOrders';
@@ -66,16 +67,17 @@ function AppContent() {
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const addToCart = (product) => {
+  // qty: 1 para unidade; em kg para produto por peso (ex: 0.25 = 250 g)
+  const addToCart = (product, qty = 1) => {
     const existingItem = cart.find(item => item.id === product.id);
     if (existingItem) {
       setCart(cart.map(item =>
         item.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, quantity: roundQty(item.quantity + qty) }
           : item
       ));
     } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
+      setCart([...cart, { ...product, quantity: qty }]);
     }
   };
 
@@ -88,13 +90,13 @@ function AppContent() {
       removeFromCart(productId);
     } else {
       setCart(cart.map(item =>
-        item.id === productId ? { ...item, quantity } : item
+        item.id === productId ? { ...item, quantity: roundQty(quantity) } : item
       ));
     }
   };
 
   const calculateTotal = () => {
-    return cart.reduce((total, item) => total + (parseFloat(item.price) * item.quantity), 0);
+    return cart.reduce((total, item) => total + lineTotal(item), 0);
   };
 
   const handleCheckoutSuccess = () => {

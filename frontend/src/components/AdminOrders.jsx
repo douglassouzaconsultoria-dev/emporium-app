@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import { formatQty } from '../utils/units';
 import './AdminOrders.css';
 
 const AdminOrders = () => {
@@ -382,7 +383,7 @@ const AdminOrders = () => {
                   {orderDetails.items.map((item, index) => (
                     <div key={index} className="item-detail">
                       <span className="product-name">
-                        {item.quantity}x {item.product_name}
+                        {formatQty(item.quantity, item.unit)} {item.product_name}
                       </span>
                       <span>
                         Preço un: R$ {parseFloat(item.price).toFixed(2)}

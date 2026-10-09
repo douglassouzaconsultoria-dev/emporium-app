@@ -1,4 +1,7 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Colunas NUMERIC (preço, estoque, quantidade em kg) chegam como número, não texto
+types.setTypeParser(1700, parseFloat);
 require('dotenv').config();
 
 const pool = new Pool({

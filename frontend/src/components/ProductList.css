@@ -41,3 +41,47 @@
   background-color: #ccc;
   transform: none;
 }
+/* ⚖️ Escolha de gramas (produto por kg) */
+.kg-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kg-presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.kg-preset {
+  padding: 6px 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.kg-preset.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.kg-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+}
+
+.kg-custom input {
+  width: 80px;
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}

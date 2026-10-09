@@ -58,6 +58,8 @@ require('./utils/database').query(`
     neighborhood VARCHAR(100) UNIQUE NOT NULL,
     fee NUMERIC(10,2) NOT NULL
   );
+  ALTER TABLE products ALTER COLUMN estoque TYPE NUMERIC(10,3);
+  ALTER TABLE order_items ALTER COLUMN quantity TYPE NUMERIC(10,3);
   CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(50) PRIMARY KEY, value TEXT);
   INSERT INTO app_settings (key, value) VALUES ('default_delivery_fee', '5') ON CONFLICT (key) DO NOTHING;
   INSERT INTO delivery_fees (neighborhood, fee)

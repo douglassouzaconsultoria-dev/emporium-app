@@ -13,7 +13,7 @@ const DELIVERY_SELECT = `
          o.delivery_fee, o.delivery_neighborhood,
          c.name AS customer_name, c.phone_number AS customer_phone, c.neighborhood AS customer_neighborhood,
          COALESCE(
-           json_agg(json_build_object('quantity', oi.quantity, 'name', p.name))
+           json_agg(json_build_object('quantity', oi.quantity, 'name', p.name, 'unit', p.unit))
              FILTER (WHERE oi.order_id IS NOT NULL),
            '[]'
          ) AS items

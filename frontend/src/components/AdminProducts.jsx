@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import { isKg } from '../utils/units';
 import axios from 'axios';
 import './AdminProducts.css';
 import { getImageUrl } from '../utils/imageUrl';
@@ -149,7 +150,7 @@ function AdminProducts() {
       };
 
       if (modalMode === 'create') {
-        fd.append('estoque', parseInt(formData.estoque) || 0);
+        fd.append('estoque', parseFloat(formData.estoque) || 0);
         await axios.post(`${API_URL}/products`, fd, { headers: multipartHeaders });
         showMessage('✅ Produto criado com sucesso!');
       } else {
@@ -157,7 +158,7 @@ function AdminProducts() {
 
         if (formData.estoque !== '' && formData.estoque !== undefined) {
           await axios.put(`${API_URL}/products/${editingProduct.id}/estoque`, {
-            estoque: parseInt(formData.estoque)
+            estoque: parseFloat(formData.estoque)
           }, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -300,7 +301,7 @@ function AdminProducts() {
 
                 <div className="ap-cell-stock">
                   <span className={`ap-stock ap-stock-${status.key}`}>
-                    {status.icon} {product.estoque} un
+                    {status.icon} {product.estoque} {isKg(product.unit) ? 'kg' : 'un'}
                   </span>
                 </div>
 
@@ -370,6 +371,7 @@ function AdminProducts() {
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                     className="ap-input"
                   />
+                  <small>Use <strong>kg</strong> para vender por peso: o cliente escolhe as gramas e o preço é por kg.</small>
                 </div>
               </div>
 
@@ -388,10 +390,11 @@ function AdminProducts() {
                   </select>
                 </div>
                 <div className="ap-form-group">
-                  <label>Estoque</label>
+                  <label>Estoque{isKg(formData.unit) ? ' (em kg, ex: 2.5)' : ''}</label>
                   <input
                     type="number"
                     min="0"
+                    step={isKg(formData.unit) ? '0.001' : '1'}
                     placeholder="Ex: 50"
                     value={formData.estoque}
                     onChange={(e) => setFormData({ ...formData, estoque: e.target.value })}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { API_URL } from '../config';
 import { AuthContext } from '../AuthContext';
+import { formatQty, lineTotal } from '../utils/units';
 import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
 import './Checkout.css';
@@ -233,8 +234,8 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
           <div className="order-items">
             {cart.map(item => (
               <div key={item.id} className="order-item">
-                <span>{item.name} x{item.quantity}</span>
-                <span>R$ {(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
+                <span>{formatQty(item.quantity, item.unit)} {item.name}</span>
+                <span>R$ {lineTotal(item).toFixed(2)}</span>
               </div>
             ))}
           </div>

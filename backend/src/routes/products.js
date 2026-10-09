@@ -97,7 +97,7 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
       imageUrl = await uploadToCloudinary(req.file.buffer);
     }
 
-    const estoqueInicial = parseInt(estoque) || 0;
+    const estoqueInicial = parseFloat(estoque) || 0;
 
     const result = await pool.query(
       'INSERT INTO products (name, price, unit, category_id, image_url, estoque) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
