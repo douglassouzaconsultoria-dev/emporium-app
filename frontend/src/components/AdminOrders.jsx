@@ -260,6 +260,7 @@ const AdminOrders = () => {
           <table className="orders-table">
             <thead>
               <tr>
+                <th>Ação</th>
                 <th>ID</th>
                 <th>Cliente</th>
                 <th>Telefone</th>
@@ -269,12 +270,27 @@ const AdminOrders = () => {
                 <th>Status</th>
                 <th>Motoboy</th>
                 <th>Data</th>
-                <th>Ação</th>
               </tr>
             </thead>
             <tbody>
               {orders.map(order => (
                 <tr key={order.id} className="order-row">
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <button
+                      className="details-btn"
+                      onClick={() => openOrderDetails(order)}
+                    >
+                      Ver
+                    </button>
+                    <button
+                      className="details-btn"
+                      title="Imprimir pedido"
+                      style={{ marginLeft: '6px', background: '#1a1a1a' }}
+                      onClick={() => printOrderById(order.id).catch(err => alert(err.message))}
+                    >
+                      🖨️
+                    </button>
+                  </td>
                   <td>
                     #{order.id}
                     {order.notes && <span title={`Observação: ${order.notes}`}> 📝</span>}
@@ -295,22 +311,6 @@ const AdminOrders = () => {
                   </td>
                   <td><MotoboyCell order={order} /></td>
                   <td>{new Date(order.created_at).toLocaleDateString('pt-BR')}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <button
-                      className="details-btn"
-                      onClick={() => openOrderDetails(order)}
-                    >
-                      Ver
-                    </button>
-                    <button
-                      className="details-btn"
-                      title="Imprimir pedido"
-                      style={{ marginLeft: '6px', background: '#1a1a1a' }}
-                      onClick={() => printOrderById(order.id).catch(err => alert(err.message))}
-                    >
-                      🖨️
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
