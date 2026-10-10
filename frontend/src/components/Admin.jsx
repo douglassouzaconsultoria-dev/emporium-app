@@ -11,7 +11,28 @@ import AdminDeliveryFees from './AdminDeliveryFees';
 import AdminCustomers from './AdminCustomers';
 import AdminStore from './AdminStore';
 import AdminCoupons from './AdminCoupons';
+import axios from 'axios';
 import { getAutoPrint, printOrderById } from '../utils/printOrder';
+
+// Ordem padrão das abas (o admin pode mudar em "Organizar abas")
+const DEFAULT_TABS = [
+  { id: 'dashboard', label: '📊 Dashboard' },
+  { id: 'orders', label: '📦 Pedidos' },
+  { id: 'store', label: '🏪 Loja' },
+  { id: 'coupons', label: '🎟️ Cupons' },
+  { id: 'motoboys', label: '🛵 Motoboys' },
+  { id: 'customers', label: '👥 Clientes' },
+  { id: 'fees', label: '🏘️ Taxas de entrega' },
+  { id: 'categories', label: '📁 Categorias' },
+  { id: 'products', label: '🛍️ Produtos' },
+  { id: 'stock', label: '⚙️ Estoque' }
+];
+
+// Aplica a ordem salva; abas novas (que não estão na lista salva) vão para o fim
+const sortTabs = (order) => [
+  ...order.map(id => DEFAULT_TABS.find(t => t.id === id)).filter(Boolean),
+  ...DEFAULT_TABS.filter(t => !order.includes(t.id))
+];
 
 // 🔔 Dois bipes curtos (não precisa de arquivo de som)
 const playBeep = () => {
@@ -33,7 +54,52 @@ const playBeep = () => {
 };
 
 function Admin() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(null);
+  const [tabs, setTabs] = useState(DEFAULT_TABS);
+  const [editingTabs, setEditingTabs] = useState(false);
+  const [savedTabs, setSavedTabs] = useState(DEFAULT_TABS);
+
+  // 🗂️ Ordem das abas salva no servidor; a primeira é a que abre ao entrar
+  useEffect(() => {
+    axios.get(`${API_URL}/settings/admin-tabs`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+    })
+      .then(res => {
+        const sorted = sortTabs(res.data.order || []);
+        setTabs(sorted);
+        setSavedTabs(sorted);
+        setActiveTab(current => current || sorted[0].id);
+      })
+      .catch(err => {
+        console.error('Erro ao buscar ordem das abas:', err);
+        setActiveTab(current => current || DEFAULT_TABS[0].id);
+      });
+  }, []);
+
+  const moveTab = (index, step) => {
+    const target = index + step;
+    if (target < 0 || target >= tabs.length) return;
+    const next = [...tabs];
+    [next[index], next[target]] = [next[target], next[index]];
+    setTabs(next);
+  };
+
+  const saveTabs = async () => {
+    try {
+      await axios.put(`${API_URL}/settings/admin-tabs`, { order: tabs.map(t => t.id) }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      setSavedTabs(tabs);
+      setEditingTabs(false);
+    } catch (err) {
+      alert('Erro ao salvar a ordem das abas');
+    }
+  };
+
+  const cancelTabs = () => {
+    setTabs(savedTabs);
+    setEditingTabs(false);
+  };
   const [user, setUser] = useState(null);
   const [newOrders, setNewOrders] = useState(0);
   const knownIds = useRef(null);
@@ -104,19 +170,6 @@ function Admin() {
     return <div>Carregando...</div>;
   }
 
-  const tabs = [
-    { id: 'dashboard', label: '📊 Dashboard' },
-    { id: 'orders', label: '📦 Pedidos' },
-    { id: 'store', label: '🏪 Loja' },
-    { id: 'coupons', label: '🎟️ Cupons' },
-    { id: 'motoboys', label: '🛵 Motoboys' },
-    { id: 'customers', label: '👥 Clientes' },
-    { id: 'fees', label: '🏘️ Taxas de entrega' },
-    { id: 'categories', label: '📁 Categorias' },
-    { id: 'products', label: '🛍️ Produtos' },
-    { id: 'stock', label: '⚙️ Estoque' }
-  ];
-
   return (
     <div className="admin-panel">
       <div className="admin-header-top">
@@ -141,7 +194,39 @@ function Admin() {
             {tab.label}
           </button>
         ))}
+        <button
+          className="admin-tab admin-tab-edit"
+          onClick={() => (editingTabs ? cancelTabs() : setEditingTabs(true))}
+          title="Mudar a ordem das abas"
+        >
+          ✏️ Organizar abas
+        </button>
       </div>
+
+      {/* 🗂️ ORGANIZAR ABAS: setas mudam a posição; a 1ª abre ao entrar no painel */}
+      {editingTabs && (
+        <div className="admin-tabs-editor">
+          <div className="ate-head">
+            <strong>🗂️ Organizar abas</strong>
+            <span>Use as setas para mudar a posição. A <b>1ª aba</b> é a que abre quando você entra no painel.</span>
+          </div>
+          <ol className="ate-list">
+            {tabs.map((tab, i) => (
+              <li key={tab.id}>
+                <span className="ate-pos">{i + 1}º</span>
+                <span className="ate-label">{tab.label}</span>
+                <button onClick={() => moveTab(i, -1)} disabled={i === 0} title="Subir">▲</button>
+                <button onClick={() => moveTab(i, 1)} disabled={i === tabs.length - 1} title="Descer">▼</button>
+              </li>
+            ))}
+          </ol>
+          <div className="ate-actions">
+            <button className="ate-reset" onClick={() => setTabs(DEFAULT_TABS)}>↺ Ordem original</button>
+            <button className="ate-cancel" onClick={cancelTabs}>Cancelar</button>
+            <button className="ate-save" onClick={saveTabs}>💾 Salvar ordem</button>
+          </div>
+        </div>
+      )}
 
       {/* CONTEÚDO DAS ABAS */}
       <div className="admin-content">
