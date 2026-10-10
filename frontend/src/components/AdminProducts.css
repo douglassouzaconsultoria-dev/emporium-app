@@ -168,7 +168,7 @@
 .ap-list-head,
 .ap-row {
   display: grid;
-  grid-template-columns: 2.5fr 1fr 1fr 170px;
+  grid-template-columns: 2.5fr 1fr 1fr 250px;
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
@@ -537,4 +537,71 @@
   margin-top: 6px;
   font-size: 12px;
   color: #888;
+}
+
+/* Oferta / oculto / ações extras */
+.ap-row-hidden {
+  opacity: 0.55;
+}
+
+.ap-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.ap-tag-hidden {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.ap-tag-promo {
+  background: #fff4cc;
+  color: #a16207;
+}
+
+.ap-cell-price s {
+  display: block;
+  font-size: 12px;
+  color: #999;
+}
+
+.ap-btn-icon {
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #f3f4f6;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ap-btn-icon:hover {
+  background: #e5e7eb;
+}
+
+.ap-modal-visible {
+  padding: 12px 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.ap-modal-visible label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ap-modal-visible input {
+  width: 18px;
+  height: 18px;
+}
+
+textarea.ap-input {
+  resize: vertical;
+  font-family: inherit;
 }

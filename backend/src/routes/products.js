@@ -54,10 +54,22 @@ const uploadToCloudinary = (fileBuffer) => {
   });
 };
 
-// 🔓 GET - Públicos (cliente pode ver)
+// Preço de oferta: vazio/zero = sem oferta
+const parsePromo = (value) => {
+  const n = parseFloat(String(value ?? '').replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+};
+
+// Vem do formulário (multipart) como texto
+const parseActive = (value) => value === undefined || value === true || value === 'true';
+
+// 🔓 GET - Públicos (cliente pode ver). ?all=1 traz também os ocultos (admin)
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, price, unit, category_id, image_url, estoque FROM products ORDER BY name');
+    const result = await pool.query(
+      `SELECT id, name, price, promo_price, description, active, unit, category_id, image_url, estoque
+       FROM products ${req.query.all ? '' : 'WHERE active IS NOT FALSE'} ORDER BY name`
+    );
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -95,12 +107,17 @@ router.get('/:id', async (req, res) => {
 // 🔒 POST - Apenas ADMIN (criar produto)
 router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
   try {
-    const { name, price, unit, category_id, estoque } = req.body;
+    const { name, price, unit, category_id, estoque, promo_price, description, active } = req.body;
     if (!name || !price || !unit || !category_id) {
       return res.status(400).json({ error: 'Todos os campos obrigatórios não foram preenchidos' });
     }
 
-    let imageUrl = null;
+    const promo = parsePromo(promo_price);
+    if (promo !== null && promo >= parseFloat(price)) {
+      return res.status(400).json({ error: 'O preço de oferta precisa ser menor que o preço normal' });
+    }
+
+    let imageUrl = req.body.image_url || null; // "Duplicar" reaproveita a foto do original
     if (req.file) {
       imageUrl = await uploadToCloudinary(req.file.buffer);
     }
@@ -108,8 +125,9 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
     const estoqueInicial = parseFloat(estoque) || 0;
 
     const result = await pool.query(
-      'INSERT INTO products (name, price, unit, category_id, image_url, estoque) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, price, unit, category_id, imageUrl, estoqueInicial]
+      `INSERT INTO products (name, price, unit, category_id, image_url, estoque, promo_price, description, active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [name, price, unit, category_id, imageUrl, estoqueInicial, promo, (description || '').trim() || null, parseActive(active)]
     );
 
     // ⚙️ Produto novo com estoque já nasce AUTOMÁTICO (renova toda semana para a quantidade cadastrada).
@@ -133,10 +151,15 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
 router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, price, unit, category_id } = req.body;
+    const { name, price, unit, category_id, promo_price, description, active } = req.body;
 
     if (!name || !price || !unit || !category_id) {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+    }
+
+    const promo = parsePromo(promo_price);
+    if (promo !== null && promo >= parseFloat(price)) {
+      return res.status(400).json({ error: 'O preço de oferta precisa ser menor que o preço normal' });
     }
 
     let imageUrl = null;
@@ -154,14 +177,33 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
     }
 
     const result = await pool.query(
-      'UPDATE products SET name = $1, price = $2, unit = $3, category_id = $4, image_url = $5 WHERE id = $6 RETURNING *',
-      [name, price, unit, category_id, imageUrl, id]
+      `UPDATE products SET name = $1, price = $2, unit = $3, category_id = $4, image_url = $5,
+              promo_price = $6, description = $7, active = $8
+       WHERE id = $9 RETURNING *`,
+      [name, price, unit, category_id, imageUrl, promo, (description || '').trim() || null, parseActive(active), id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
 
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar produto' });
+  }
+});
+
+// 🔒 PUT - Apenas ADMIN (mostrar/ocultar na loja com um toque)
+router.put('/:id/active', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'UPDATE products SET active = $1 WHERE id = $2 RETURNING *',
+      [req.body.active === true, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);

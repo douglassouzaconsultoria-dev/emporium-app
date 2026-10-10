@@ -4,6 +4,8 @@ const pool = require('../utils/database');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 const { getDeliveryFee } = require('../utils/deliveryFee');
 const { isKg } = require('../utils/units');
+const { getStore, storeStatus } = require('../utils/store');
+const { applyCoupon } = require('../utils/coupons');
 
 const VALID_PAYMENT_METHODS = ['dinheiro', 'cartao', 'pix'];
 
@@ -78,7 +80,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 
 // 👤 POST criar novo pedido (cliente autenticado)
 router.post('/', verifyToken, async (req, res) => {
-  const { items, delivery_address, payment_method, delivery_neighborhood } = req.body;
+  const { items, delivery_address, payment_method, delivery_neighborhood, coupon_code, change_for } = req.body;
 
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Carrinho vazio' });
@@ -104,9 +106,24 @@ router.post('/', verifyToken, async (req, res) => {
     }
   }
 
+  // 💵 Troco: só no dinheiro. Vazio = cliente tem o valor certinho
+  const changeFor = method === 'dinheiro' && change_for !== undefined && change_for !== null && change_for !== ''
+    ? parseFloat(String(change_for).replace(',', '.'))
+    : null;
+  if (changeFor !== null && (!Number.isFinite(changeFor) || changeFor <= 0)) {
+    return res.status(400).json({ error: 'Valor do troco inválido' });
+  }
+
   const client = await pool.connect();
 
   try {
+    // 🏪 Loja fechada não recebe pedido
+    const store = await getStore(client);
+    const status = storeStatus(store);
+    if (!status.open) {
+      return res.status(400).json({ error: status.message || 'A loja está fechada no momento' });
+    }
+
     await client.query('BEGIN');
 
     let total = 0;
@@ -114,7 +131,7 @@ router.post('/', verifyToken, async (req, res) => {
 
     for (const item of items) {
       const productResult = await client.query(
-        'SELECT id, name, price, unit, estoque FROM products WHERE id = $1 FOR UPDATE',
+        'SELECT id, name, price, promo_price, unit, estoque, active FROM products WHERE id = $1 FOR UPDATE',
         [item.product_id]
       );
 
@@ -124,6 +141,11 @@ router.post('/', verifyToken, async (req, res) => {
       }
 
       const product = productResult.rows[0];
+
+      if (product.active === false) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `"${product.name}" não está mais disponível` });
+      }
 
       // ⚖️ Produto por kg aceita quebrado (0,250 kg); por unidade só inteiro
       const qty = isKg(product.unit)
@@ -142,23 +164,60 @@ router.post('/', verifyToken, async (req, res) => {
         });
       }
 
-      const price = parseFloat(product.price);
+      // 🔥 Preço de oferta vale quando é menor que o normal
+      const promo = parseFloat(product.promo_price);
+      const price = promo > 0 && promo < parseFloat(product.price) ? promo : parseFloat(product.price);
       total += Math.round(price * qty * 100) / 100;
       pricedItems.push({ product_id: product.id, quantity: qty, price });
     }
 
+    const subtotal = Math.round(total * 100) / 100;
+
+    if (store.min_order > 0 && subtotal < store.min_order) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `O pedido mínimo é de R$ ${store.min_order.toFixed(2)} em produtos` });
+    }
+
+    // 🎟️ Cupom (conferido de novo aqui; o navegador não decide o desconto)
+    let discount = 0;
+    let couponCode = null;
+    if (coupon_code && String(coupon_code).trim()) {
+      const applied = await applyCoupon(client, coupon_code, subtotal, { lock: true });
+      if (applied.error) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: applied.error });
+      }
+      discount = applied.discount;
+      couponCode = applied.coupon.code;
+      await client.query('UPDATE coupons SET uses = uses + 1 WHERE id = $1', [applied.coupon.id]);
+    }
+
     // 🛵 Taxa calculada no servidor (o navegador não decide o valor)
     const delivery = await getDeliveryFee(client, delivery_neighborhood);
-    total = Math.round((total + delivery.fee) * 100) / 100;
+    total = Math.round((subtotal - discount + delivery.fee) * 100) / 100;
+
+    if (changeFor !== null && changeFor < total) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `O troco precisa ser para um valor maior que o total (R$ ${total.toFixed(2)})` });
+    }
 
     const orderResult = await client.query(
-      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-       RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, created_at`,
-      [req.user.id, total, 'Pendente', delivery_address.trim(), method, delivery.fee, delivery.neighborhood]
+      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+       RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, created_at`,
+      [req.user.id, total, 'Pendente', delivery_address.trim(), method, delivery.fee, delivery.neighborhood, discount, couponCode, changeFor]
     );
 
     const orderId = orderResult.rows[0].id;
+
+    // 🛵 Motoboy padrão (se estiver ativo) já fica escolhido; o admin pode trocar depois
+    if (store.default_motoboy_id) {
+      await client.query(
+        `UPDATE orders SET motoboy_id = $1 WHERE id = $2
+         AND EXISTS (SELECT 1 FROM customers WHERE id = $1 AND role = 'motoboy' AND active = true)`,
+        [store.default_motoboy_id, orderId]
+      );
+    }
 
     for (const item of pricedItems) {
       await client.query(

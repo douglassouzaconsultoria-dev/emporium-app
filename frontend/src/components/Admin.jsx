@@ -9,6 +9,9 @@ import AdminStockConfig from './AdminStockConfig';
 import AdminMotoboys from './AdminMotoboys';
 import AdminDeliveryFees from './AdminDeliveryFees';
 import AdminCustomers from './AdminCustomers';
+import AdminStore from './AdminStore';
+import AdminCoupons from './AdminCoupons';
+import { getAutoPrint, printOrderById } from '../utils/printOrder';
 
 // 🔔 Dois bipes curtos (não precisa de arquivo de som)
 const playBeep = () => {
@@ -45,10 +48,17 @@ function Admin() {
         if (!res.ok) return;
         const ids = (await res.json()).map(o => o.id);
         if (knownIds.current) {
-          const fresh = ids.filter(id => !knownIds.current.has(id)).length;
-          if (fresh > 0) {
+          const fresh = ids.filter(id => !knownIds.current.has(id));
+          knownIds.current = new Set(ids); // antes de imprimir: nunca imprime o mesmo pedido duas vezes
+          if (fresh.length > 0) {
             playBeep();
-            setNewOrders(n => n + fresh);
+            setNewOrders(n => n + fresh.length);
+            // 🖨️ Impressão automática (ligada na aba Loja, vale só neste computador)
+            if (getAutoPrint()) {
+              for (const id of [...fresh].sort((a, b) => a - b)) {
+                await printOrderById(id).catch(err => console.error('Erro ao imprimir:', err));
+              }
+            }
           }
         }
         knownIds.current = new Set(ids);
@@ -97,6 +107,8 @@ function Admin() {
   const tabs = [
     { id: 'dashboard', label: '📊 Dashboard' },
     { id: 'orders', label: '📦 Pedidos' },
+    { id: 'store', label: '🏪 Loja' },
+    { id: 'coupons', label: '🎟️ Cupons' },
     { id: 'motoboys', label: '🛵 Motoboys' },
     { id: 'customers', label: '👥 Clientes' },
     { id: 'fees', label: '🏘️ Taxas de entrega' },
@@ -135,6 +147,8 @@ function Admin() {
       <div className="admin-content">
         {activeTab === 'dashboard' && <AdminDashboard />}
         {activeTab === 'orders' && <AdminOrders />}
+        {activeTab === 'store' && <AdminStore />}
+        {activeTab === 'coupons' && <AdminCoupons />}
         {activeTab === 'motoboys' && <AdminMotoboys />}
         {activeTab === 'customers' && <AdminCustomers />}
         {activeTab === 'fees' && <AdminDeliveryFees />}

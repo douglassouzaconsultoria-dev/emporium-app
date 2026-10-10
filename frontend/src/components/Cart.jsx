@@ -1,14 +1,17 @@
 import React from 'react';
-import { isKg, formatQty, lineTotal } from '../utils/units';
+import { isKg, formatQty, lineTotal, effectivePrice } from '../utils/units';
 
-function Cart({ cart, onRemove, onUpdateQuantity, onCheckout }) {
+function Cart({ cart, onRemove, onUpdateQuantity, onCheckout, onBack }) {
   const total = cart.reduce((sum, item) => sum + lineTotal(item), 0);
 
   return (
     <div className="cart">
-      <h2>Seu Carrinho</h2>
+      <div className="cart-head">
+        <h2>Seu Carrinho</h2>
+        <button className="cart-back" onClick={onBack}>← Continuar comprando</button>
+      </div>
       {cart.length === 0 ? (
-        <p>Carrinho vazio</p>
+        <p className="cart-empty">Seu carrinho está vazio. Que tal dar uma olhada nas ofertas? 🔥</p>
       ) : (
         <>
           <div className="cart-items">
@@ -20,8 +23,8 @@ function Cart({ cart, onRemove, onUpdateQuantity, onCheckout }) {
                   <h4>{item.name}</h4>
                   <p>
                     {isKg(item.unit)
-                      ? `R$ ${parseFloat(item.price).toFixed(2)}/kg × ${formatQty(item.quantity, item.unit)} = R$ ${lineTotal(item).toFixed(2)}`
-                      : `R$ ${parseFloat(item.price).toFixed(2)} x ${item.quantity}`}
+                      ? `R$ ${effectivePrice(item).toFixed(2)}/kg × ${formatQty(item.quantity, item.unit)} = R$ ${lineTotal(item).toFixed(2)}`
+                      : `R$ ${effectivePrice(item).toFixed(2)} x ${item.quantity} = R$ ${lineTotal(item).toFixed(2)}`}
                   </p>
                 </div>
                 <div className="item-controls">

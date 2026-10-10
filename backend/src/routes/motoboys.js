@@ -10,7 +10,7 @@ const clean = (v) => (typeof v === 'string' ? v.trim() : '');
 // Consulta base das entregas (com cliente e itens)
 const DELIVERY_SELECT = `
   SELECT o.id, o.total, o.status, o.delivery_address, o.payment_method, o.created_at, o.motoboy_id,
-         o.delivery_fee, o.delivery_neighborhood,
+         o.delivery_fee, o.delivery_neighborhood, o.change_for,
          c.name AS customer_name, c.phone_number AS customer_phone, c.neighborhood AS customer_neighborhood,
          COALESCE(
            json_agg(json_build_object('quantity', oi.quantity, 'name', p.name, 'unit', p.unit))

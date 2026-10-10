@@ -24,6 +24,8 @@ app.use('/api/motoboys', require('./routes/motoboys'));
 app.use('/api/delivery-fees', require('./routes/deliveryFees'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/settings', require('./routes/settings'));
+app.use('/api/coupons', require('./routes/coupons'));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -65,6 +67,24 @@ require('./utils/database').query(`
   ALTER TABLE product_stock_config ADD COLUMN IF NOT EXISTS last_restocked_at TIMESTAMPTZ;
   UPDATE product_stock_config SET last_restocked_at = NOW() WHERE type = 'AUTOMÁTICO' AND last_restocked_at IS NULL;
   ALTER TABLE order_items ALTER COLUMN quantity TYPE NUMERIC(10,3);
+  ALTER TABLE products ADD COLUMN IF NOT EXISTS promo_price NUMERIC(10,2);
+  ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;
+  ALTER TABLE products ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount NUMERIC(10,2) DEFAULT 0;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(30);
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS change_for NUMERIC(10,2);
+  CREATE TABLE IF NOT EXISTS coupons (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(30) UNIQUE NOT NULL,
+    type VARCHAR(10) NOT NULL DEFAULT 'percent',
+    value NUMERIC(10,2) NOT NULL,
+    min_order NUMERIC(10,2) DEFAULT 0,
+    max_uses INTEGER,
+    uses INTEGER DEFAULT 0,
+    expires_at DATE,
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
   CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(50) PRIMARY KEY, value TEXT);
   INSERT INTO app_settings (key, value) VALUES ('default_delivery_fee', '5') ON CONFLICT (key) DO NOTHING;
   INSERT INTO delivery_fees (neighborhood, fee)
@@ -86,9 +106,9 @@ require('./utils/database').query(`
     // 🔎 Confere se o banco tem todas as colunas que o código usa (só leitura)
     const expected = {
       customers: ['id', 'name', 'username', 'email', 'password', 'phone_number', 'address', 'neighborhood', 'role', 'active', 'avatar_url', 'created_at'],
-      orders: ['id', 'customer_id', 'total', 'status', 'delivery_address', 'payment_method', 'created_at', 'motoboy_id', 'delivered_at', 'delivery_fee', 'delivery_neighborhood'],
+      orders: ['id', 'customer_id', 'total', 'status', 'delivery_address', 'payment_method', 'created_at', 'motoboy_id', 'delivered_at', 'delivery_fee', 'delivery_neighborhood', 'discount', 'coupon_code', 'change_for'],
       order_items: ['order_id', 'product_id', 'quantity', 'price'],
-      products: ['id', 'name', 'price', 'unit', 'category_id', 'image_url', 'estoque'],
+      products: ['id', 'name', 'price', 'unit', 'category_id', 'image_url', 'estoque', 'promo_price', 'description', 'active'],
       categories: ['id', 'name', 'created_at'],
       product_stock_config: ['product_id', 'type', 'auto_quantity', 'auto_frequency', 'updated_at']
     };

@@ -7,7 +7,7 @@ import Auth from './components/Auth';
 import ProductList from './components/ProductList';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
-import { roundQty, lineTotal } from './utils/units';
+import { roundQty, lineTotal, isPromo } from './utils/units';
 import SearchBar from './components/SearchBar';
 import Admin from './components/Admin';
 import MyOrders from './components/MyOrders';
@@ -19,7 +19,17 @@ function AppContent() {
   const [categories, setCategories] = React.useState([]);
   const [products, setProducts] = React.useState([]);
   const [selectedCategory, setSelectedCategory] = React.useState(null);
-  const [cart, setCart] = React.useState([]);
+  // Carrinho fica salvo no aparelho: recarregar a página não perde os itens
+  const [cart, setCart] = React.useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cart')) || [];
+    } catch {
+      return [];
+    }
+  });
+  const [store, setStore] = React.useState(null);
+  const [toast, setToast] = React.useState('');
+  const toastTimer = React.useRef(null);
   const [showCheckout, setShowCheckout] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [view, setView] = React.useState('store');
@@ -43,6 +53,25 @@ function AppContent() {
     }
   }, [token]);
 
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('cart', JSON.stringify(cart));
+    } catch {
+      // sem armazenamento: o carrinho só vale até recarregar
+    }
+  }, [cart]);
+
+  // 🏪 Horário, pedido mínimo e aviso da loja (confere de novo a cada minuto)
+  React.useEffect(() => {
+    if (!token || !user || user.role === 'motoboy') return;
+    const load = () => axios.get(`${API_URL}/settings/store`)
+      .then(res => setStore(res.data))
+      .catch(err => console.error('Erro ao buscar dados da loja:', err));
+    load();
+    const timer = setInterval(load, 60000);
+    return () => clearInterval(timer);
+  }, [token, user]);
+
   const fetchCategories = async () => {
     try {
       const response = await axios.get(`${API_URL}/categories`);
@@ -57,6 +86,13 @@ function AppContent() {
     try {
       const response = await axios.get(`${API_URL}/products`);
       setProducts(response.data);
+      // Atualiza preço/oferta do carrinho salvo e tira o que saiu da loja
+      setCart(current => current
+        .map(item => {
+          const fresh = response.data.find(p => p.id === item.id);
+          return fresh ? { ...fresh, quantity: item.quantity } : null;
+        })
+        .filter(Boolean));
     } catch (error) {
       console.error('Erro ao buscar produtos:', error);
     }
@@ -79,14 +115,22 @@ function AppContent() {
     setSearchTerm(term);
   };
 
+  const term = searchTerm.toLowerCase();
   const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    product.name.toLowerCase().includes(term) ||
+    (product.description || '').toLowerCase().includes(term)
   );
 
-  // Vitrine: uma seção por categoria (só as que têm produto)
-  const sections = categories
-    .map(category => ({ ...category, items: filteredProducts.filter(p => p.category_id === category.id) }))
-    .filter(section => section.items.length > 0);
+  // Vitrine: 🔥 Ofertas primeiro, depois uma seção por categoria (só as que têm produto)
+  const offers = filteredProducts.filter(p => isPromo(p) && p.estoque > 0);
+  const sections = [
+    ...(offers.length ? [{ id: 'ofertas', name: '🔥 Ofertas', items: offers }] : []),
+    ...categories
+      .map(category => ({ ...category, items: filteredProducts.filter(p => p.category_id === category.id) }))
+      .filter(section => section.items.length > 0)
+  ];
+
+  const inCart = Object.fromEntries(cart.map(item => [item.id, item.quantity]));
 
   // qty: 1 para unidade; em kg para produto por peso (ex: 0.25 = 250 g)
   const addToCart = (product, qty = 1) => {
@@ -100,6 +144,9 @@ function AppContent() {
     } else {
       setCart([...cart, { ...product, quantity: qty }]);
     }
+    setToast(`✓ ${product.name} no carrinho`);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(''), 1800);
   };
 
   const removeFromCart = (productId) => {
@@ -118,6 +165,25 @@ function AppContent() {
 
   const calculateTotal = () => {
     return cart.reduce((total, item) => total + lineTotal(item), 0);
+  };
+
+  const storeOpen = !store || store.status.open;
+  const minOrder = store ? store.min_order : 0;
+  const cartTotal = calculateTotal();
+  const missingForMin = Math.max(0, Math.round((minOrder - cartTotal) * 100) / 100);
+  const cartCount = cart.length;
+
+  // ✅ Finalizar direto da vitrine (sem precisar abrir o carrinho)
+  const startCheckout = () => {
+    if (!storeOpen) {
+      alert(store.status.message || 'A loja está fechada no momento.');
+      return;
+    }
+    if (missingForMin > 0) {
+      alert(`O pedido mínimo é R$ ${minOrder.toFixed(2)}. Faltam R$ ${missingForMin.toFixed(2)}.`);
+      return;
+    }
+    setShowCheckout(true);
   };
 
   const handleCheckoutSuccess = () => {
@@ -210,7 +276,7 @@ function AppContent() {
           </button>
 
           <button className="cart-button" onClick={() => toggleView('cart')}>
-            🛒 Carrinho ({cart.length})
+            🛒 Carrinho{cartCount > 0 && <span className="cart-count">{cartCount}</span>}
           </button>
 
           <button className="my-orders-button" onClick={() => toggleView('orders')}>
@@ -233,7 +299,15 @@ function AppContent() {
         </div>
       </header>
 
-      <div className="container">
+      {store && (!storeOpen || store.notice) && view !== 'admin' && (
+        <div className={`store-banner ${storeOpen ? 'info' : 'closed'}`}>
+          {!storeOpen && <strong>🔒 {store.status.message}</strong>}
+          {!storeOpen && store.notice && ' — '}
+          {store.notice && <span>📢 {store.notice}</span>}
+        </div>
+      )}
+
+      <div className={`container ${cartCount > 0 && (view === 'store' || view === 'cart') ? 'has-cart-bar' : ''}`}>
         {view === 'admin' && isUserAdmin ? (
           <Admin />
         ) : view === 'orders' ? (
@@ -245,7 +319,8 @@ function AppContent() {
             cart={cart}
             onRemove={removeFromCart}
             onUpdateQuantity={updateQuantity}
-            onCheckout={() => setShowCheckout(true)}
+            onCheckout={startCheckout}
+            onBack={() => setView('store')}
           />
         ) : (
           <>
@@ -289,7 +364,7 @@ function AppContent() {
                   className="cat-section"
                   style={{ scrollMarginTop: headerHeight + 70 }}
                 >
-                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} row />
+                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} inCart={inCart} row />
                 </section>
               ))
             )}
@@ -297,10 +372,37 @@ function AppContent() {
         )}
       </div>
 
+      {toast && <div className="toast">{toast}</div>}
+
+      {/* 🛒 Barra fixa: total e "Finalizar" sempre à mão */}
+      {cartCount > 0 && (view === 'store' || view === 'cart') && !showCheckout && (
+        <div className="cart-bar">
+          <button className="cart-bar-info" onClick={() => setView(view === 'cart' ? 'store' : 'cart')}>
+            <span className="cart-bar-count">{cartCount}</span>
+            <span className="cart-bar-text">
+              <strong>R$ {cartTotal.toFixed(2)}</strong>
+              <small>
+                {!storeOpen
+                  ? 'Loja fechada agora'
+                  : missingForMin > 0
+                    ? `Faltam R$ ${missingForMin.toFixed(2)} p/ o mínimo`
+                    : view === 'cart' ? 'Voltar às compras' : 'Ver carrinho'}
+              </small>
+            </span>
+          </button>
+          <button className="cart-bar-go" onClick={startCheckout} disabled={!storeOpen || missingForMin > 0}>
+            Finalizar pedido →
+          </button>
+          {minOrder > 0 && missingForMin > 0 && (
+            <div className="cart-bar-progress" style={{ width: `${Math.min(100, (cartTotal / minOrder) * 100)}%` }} />
+          )}
+        </div>
+      )}
+
       {showCheckout && (
         <Checkout
           cart={cart}
-          total={calculateTotal()}
+          total={cartTotal}
           onClose={() => setShowCheckout(false)}
           onSuccess={handleCheckoutSuccess}
         />

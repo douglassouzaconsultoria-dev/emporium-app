@@ -27,7 +27,7 @@ function AdminStockConfig() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/products`);
+      const response = await axios.get(`${API_URL}/products?all=1`);
       
       // Busca a configuração de estoque para cada produto
       const productsWithConfig = await Promise.all(
