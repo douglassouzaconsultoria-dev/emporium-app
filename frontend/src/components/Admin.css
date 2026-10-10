@@ -174,15 +174,9 @@
 }
 
 /* 🗂️ Organizar abas */
-.admin-tab-edit {
-  margin-left: auto;
-  color: #999;
-  font-weight: 500;
-}
-
 .admin-tabs-editor {
   max-width: 520px;
-  margin: 20px auto 0;
+  margin: 0 auto;
   padding: 18px;
   background: #fff;
   border: 2px solid #C41E3A;

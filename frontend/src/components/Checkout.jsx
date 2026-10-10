@@ -30,6 +30,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
   const [copied, setCopied] = useState(false);
   const [needChange, setNeedChange] = useState(null); // null = não respondeu | false = trocado | true = precisa de troco
   const [changeFor, setChangeFor] = useState('');
+  const [notes, setNotes] = useState('');
   const [couponInput, setCouponInput] = useState('');
   const [coupon, setCoupon] = useState(null); // { code, discount }
   const [couponError, setCouponError] = useState('');
@@ -100,6 +101,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
         delivery_neighborhood: selectedNeighborhood,
         payment_method: paymentMethod,
         coupon_code: coupon ? coupon.code : undefined,
+        notes: notes.trim() || undefined,
         change_for: paymentMethod === 'dinheiro' && needChange ? changeValue : undefined
       })
     });
@@ -343,6 +345,18 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
                 style={{ marginTop: '8px' }}
               />
             )}
+          </div>
+
+          <div className="form-group">
+            <label>📝 Observação (opcional):</label>
+            <textarea
+              rows={2}
+              maxLength={300}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ex: banana mais verde, tocar o interfone, deixar na portaria..."
+              disabled={loading}
+            />
           </div>
 
           <div className="form-group">

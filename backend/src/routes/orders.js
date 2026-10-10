@@ -81,6 +81,8 @@ router.get('/:id', verifyToken, async (req, res) => {
 // 👤 POST criar novo pedido (cliente autenticado)
 router.post('/', verifyToken, async (req, res) => {
   const { items, delivery_address, payment_method, delivery_neighborhood, coupon_code, change_for } = req.body;
+  // 📝 Observação do cliente (ex: "banana mais verde", "tocar o interfone")
+  const notes = typeof req.body.notes === 'string' ? req.body.notes.trim().slice(0, 300) : '';
 
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Carrinho vazio' });
@@ -202,10 +204,10 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     const orderResult = await client.query(
-      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
-       RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, created_at`,
-      [req.user.id, total, 'Pendente', delivery_address.trim(), method, delivery.fee, delivery.neighborhood, discount, couponCode, changeFor]
+      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+       RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, created_at`,
+      [req.user.id, total, 'Pendente', delivery_address.trim(), method, delivery.fee, delivery.neighborhood, discount, couponCode, changeFor, notes || null]
     );
 
     const orderId = orderResult.rows[0].id;
@@ -245,6 +247,31 @@ router.post('/', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'Erro ao criar pedido' });
   } finally {
     client.release();
+  }
+});
+
+// ⭐ POST avaliar a entrega (dono do pedido, depois de entregue, uma vez só)
+router.post('/:id/rating', verifyToken, async (req, res) => {
+  const rating = parseInt(req.body.rating);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'Escolha de 1 a 5 estrelas' });
+  }
+  const comment = typeof req.body.comment === 'string' ? req.body.comment.trim().slice(0, 500) : '';
+
+  try {
+    const result = await pool.query(
+      `UPDATE orders SET rating = $1, rating_comment = $2, rated_at = NOW()
+       WHERE id = $3 AND customer_id = $4 AND status = 'Entregue' AND rating IS NULL
+       RETURNING id, rating, rating_comment, rated_at`,
+      [rating, comment || null, req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Esse pedido não pode ser avaliado (ainda não entregue ou já avaliado)' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar avaliação' });
   }
 });
 

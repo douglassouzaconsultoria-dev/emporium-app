@@ -25,7 +25,8 @@ const DEFAULT_TABS = [
   { id: 'fees', label: '🏘️ Taxas de entrega' },
   { id: 'categories', label: '📁 Categorias' },
   { id: 'products', label: '🛍️ Produtos' },
-  { id: 'stock', label: '⚙️ Estoque' }
+  { id: 'stock', label: '⚙️ Estoque' },
+  { id: 'tabs', label: '🗂️ Organizar abas' }
 ];
 
 // Aplica a ordem salva; abas novas (que não estão na lista salva) vão para o fim
@@ -56,7 +57,6 @@ const playBeep = () => {
 function Admin() {
   const [activeTab, setActiveTab] = useState(null);
   const [tabs, setTabs] = useState(DEFAULT_TABS);
-  const [editingTabs, setEditingTabs] = useState(false);
   const [savedTabs, setSavedTabs] = useState(DEFAULT_TABS);
 
   // 🗂️ Ordem das abas salva no servidor; a primeira é a que abre ao entrar
@@ -90,16 +90,13 @@ function Admin() {
         headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
       });
       setSavedTabs(tabs);
-      setEditingTabs(false);
+      alert('✅ Ordem das abas salva!');
     } catch (err) {
       alert('Erro ao salvar a ordem das abas');
     }
   };
 
-  const cancelTabs = () => {
-    setTabs(savedTabs);
-    setEditingTabs(false);
-  };
+  const cancelTabs = () => setTabs(savedTabs);
   const [user, setUser] = useState(null);
   const [newOrders, setNewOrders] = useState(0);
   const knownIds = useRef(null);
@@ -194,39 +191,7 @@ function Admin() {
             {tab.label}
           </button>
         ))}
-        <button
-          className="admin-tab admin-tab-edit"
-          onClick={() => (editingTabs ? cancelTabs() : setEditingTabs(true))}
-          title="Mudar a ordem das abas"
-        >
-          ✏️ Organizar abas
-        </button>
       </div>
-
-      {/* 🗂️ ORGANIZAR ABAS: setas mudam a posição; a 1ª abre ao entrar no painel */}
-      {editingTabs && (
-        <div className="admin-tabs-editor">
-          <div className="ate-head">
-            <strong>🗂️ Organizar abas</strong>
-            <span>Use as setas para mudar a posição. A <b>1ª aba</b> é a que abre quando você entra no painel.</span>
-          </div>
-          <ol className="ate-list">
-            {tabs.map((tab, i) => (
-              <li key={tab.id}>
-                <span className="ate-pos">{i + 1}º</span>
-                <span className="ate-label">{tab.label}</span>
-                <button onClick={() => moveTab(i, -1)} disabled={i === 0} title="Subir">▲</button>
-                <button onClick={() => moveTab(i, 1)} disabled={i === tabs.length - 1} title="Descer">▼</button>
-              </li>
-            ))}
-          </ol>
-          <div className="ate-actions">
-            <button className="ate-reset" onClick={() => setTabs(DEFAULT_TABS)}>↺ Ordem original</button>
-            <button className="ate-cancel" onClick={cancelTabs}>Cancelar</button>
-            <button className="ate-save" onClick={saveTabs}>💾 Salvar ordem</button>
-          </div>
-        </div>
-      )}
 
       {/* CONTEÚDO DAS ABAS */}
       <div className="admin-content">
@@ -240,6 +205,30 @@ function Admin() {
         {activeTab === 'categories' && <AdminCategories />}
         {activeTab === 'products' && <AdminProducts />}
         {activeTab === 'stock' && <AdminStockConfig />}
+        {/* 🗂️ Organizar abas: setas mudam a posição; a 1ª abre ao entrar no painel */}
+        {activeTab === 'tabs' && (
+          <div className="admin-tabs-editor">
+            <div className="ate-head">
+              <strong>🗂️ Organizar abas</strong>
+              <span>Use as setas para mudar a posição. A <b>1ª aba</b> é a que abre quando você entra no painel. A barra de cima já mostra como vai ficar.</span>
+            </div>
+            <ol className="ate-list">
+              {tabs.map((tab, i) => (
+                <li key={tab.id}>
+                  <span className="ate-pos">{i + 1}º</span>
+                  <span className="ate-label">{tab.label}</span>
+                  <button onClick={() => moveTab(i, -1)} disabled={i === 0} title="Subir">▲</button>
+                  <button onClick={() => moveTab(i, 1)} disabled={i === tabs.length - 1} title="Descer">▼</button>
+                </li>
+              ))}
+            </ol>
+            <div className="ate-actions">
+              <button className="ate-reset" onClick={() => setTabs(DEFAULT_TABS)}>↺ Ordem original</button>
+              <button className="ate-cancel" onClick={cancelTabs}>Desfazer</button>
+              <button className="ate-save" onClick={saveTabs}>💾 Salvar ordem</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

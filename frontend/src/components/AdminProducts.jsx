@@ -4,6 +4,7 @@ import { isKg, isPromo } from '../utils/units';
 import axios from 'axios';
 import './AdminProducts.css';
 import { getImageUrl } from '../utils/imageUrl';
+import AdminImportProducts from './AdminImportProducts';
 
 const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', estoque: '', active: true };
 
@@ -15,7 +16,7 @@ function AdminProducts() {
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
-  const [stockFilter, setStockFilter] = useState(''); // '' | 'low' | 'out' | 'hidden' | 'promo'
+  const [stockFilter, setStockFilter] = useState(''); // '' | 'low' | 'out' | 'hidden' | 'promo' | 'nophoto'
   const [modalMode, setModalMode] = useState(null); // null | 'create' | 'edit'
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
@@ -24,6 +25,7 @@ function AdminProducts() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [formError, setFormError] = useState('');
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -111,7 +113,8 @@ function AdminProducts() {
       (stockFilter === 'low' && p.estoque > 0 && p.estoque <= 10) ||
       (stockFilter === 'out' && p.estoque === 0) ||
       (stockFilter === 'hidden' && p.active === false) ||
-      (stockFilter === 'promo' && isPromo(p));
+      (stockFilter === 'promo' && isPromo(p)) ||
+      (stockFilter === 'nophoto' && !p.image_url);
     return matchesSearch && matchesCategory && matchesStock;
   });
 
@@ -120,6 +123,7 @@ function AdminProducts() {
   const outOfStockCount = products.filter(p => p.estoque === 0).length;
   const hiddenCount = products.filter(p => p.active === false).length;
   const promoCount = products.filter(p => isPromo(p)).length;
+  const noPhotoCount = products.filter(p => !p.image_url).length;
 
   // 🪟 JANELA (MODAL)
   const openCreate = () => {
@@ -256,7 +260,10 @@ function AdminProducts() {
       {/* HEADER */}
       <div className="ap-header">
         <h2>🛍️ Gerenciar Produtos</h2>
-        <button className="ap-btn-new" onClick={openCreate}>➕ Novo Produto</button>
+        <div className="ap-header-actions">
+          <button className="ap-btn-import" onClick={() => setShowImport(true)}>📥 Importar planilha</button>
+          <button className="ap-btn-new" onClick={openCreate}>➕ Novo Produto</button>
+        </div>
       </div>
 
       {/* STATS (clicáveis = filtro) */}
@@ -295,6 +302,13 @@ function AdminProducts() {
         >
           <span className="ap-stat-label">🙈 Ocultos</span>
           <span className="ap-stat-value">{hiddenCount}</span>
+        </button>
+        <button
+          className={`ap-stat ${stockFilter === 'nophoto' ? 'active' : ''}`}
+          onClick={() => setStockFilter(stockFilter === 'nophoto' ? '' : 'nophoto')}
+        >
+          <span className="ap-stat-label">📷 Sem foto</span>
+          <span className="ap-stat-value">{noPhotoCount}</span>
         </button>
       </div>
 
@@ -404,6 +418,20 @@ function AdminProducts() {
             );
           })}
         </div>
+      )}
+
+      {showImport && (
+        <AdminImportProducts
+          products={products}
+          onClose={() => setShowImport(false)}
+          onDone={(text) => {
+            setShowImport(false);
+            fetchProducts();
+            fetchCategories();
+            setMessage(text);
+            setTimeout(() => setMessage(''), 8000);
+          }}
+        />
       )}
 
       {/* JANELA DE CRIAR/EDITAR */}

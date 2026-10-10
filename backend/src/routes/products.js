@@ -194,6 +194,104 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
   }
 });
 
+// 📥 POST - Apenas ADMIN (importar produtos de planilha)
+// rows: [{ nome, preco, unidade, categoria, estoque?, preco_oferta?, descricao? }]
+// Mesmo nome de produto já cadastrado → atualiza; categoria que não existe → cria.
+// Foto fica para depois (no ✏️ Editar do produto).
+router.post('/import', verifyAdmin, async (req, res) => {
+  const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
+  if (rows.length === 0) return res.status(400).json({ error: 'A planilha está vazia' });
+  if (rows.length > 2000) return res.status(400).json({ error: 'Máximo de 2000 produtos por vez' });
+
+  const num = (v) => {
+    if (v === undefined || v === null || String(v).trim() === '') return null;
+    const n = parseFloat(String(v).replace(/[R$\s]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : NaN;
+  };
+  const key = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+
+  // Confere tudo antes de gravar (ou grava tudo, ou nada)
+  const errors = [];
+  const clean = rows.map((r, i) => {
+    const line = i + 2; // linha 1 da planilha é o cabeçalho
+    const name = String(r.nome || '').trim();
+    const price = num(r.preco);
+    const unit = String(r.unidade || '').trim() || 'un';
+    const category = String(r.categoria || '').trim();
+    const stock = num(r.estoque);
+    const promo = num(r.preco_oferta);
+    if (!name) errors.push(`Linha ${line}: falta o nome`);
+    if (!(price > 0)) errors.push(`Linha ${line}: preço inválido`);
+    if (!category) errors.push(`Linha ${line}: falta a categoria`);
+    if (Number.isNaN(stock) || stock < 0) errors.push(`Linha ${line}: estoque inválido`);
+    if (Number.isNaN(promo) || (promo !== null && promo >= price)) errors.push(`Linha ${line}: preço de oferta precisa ser menor que o preço`);
+    return {
+      name, price: Math.round(price * 100) / 100, unit, category,
+      stock, promo: promo > 0 ? Math.round(promo * 100) / 100 : null,
+      hasPromo: Object.prototype.hasOwnProperty.call(r, 'preco_oferta'), // sem a coluna → não mexe na oferta
+      description: String(r.descricao || '').trim() || null
+    };
+  });
+  if (errors.length) return res.status(400).json({ error: 'Corrija a planilha', details: errors.slice(0, 30) });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const cats = new Map((await client.query('SELECT id, name FROM categories')).rows.map(c => [key(c.name), c.id]));
+    const prods = new Map((await client.query('SELECT id, name FROM products')).rows.map(p => [key(p.name), p.id]));
+    let created = 0;
+    let updated = 0;
+    let newCategories = 0;
+
+    for (const r of clean) {
+      let categoryId = cats.get(key(r.category));
+      if (!categoryId) {
+        categoryId = (await client.query('INSERT INTO categories (name) VALUES ($1) RETURNING id', [r.category])).rows[0].id;
+        cats.set(key(r.category), categoryId);
+        newCategories++;
+      }
+
+      const existingId = prods.get(key(r.name));
+      if (existingId) {
+        await client.query(
+          `UPDATE products SET price = $1, unit = $2, category_id = $3,
+                  promo_price = CASE WHEN $8 THEN $4 ELSE promo_price END,
+                  description = COALESCE($5, description), estoque = COALESCE($6, estoque)
+           WHERE id = $7`,
+          [r.price, r.unit, categoryId, r.promo, r.description, r.stock, existingId, r.hasPromo]
+        );
+        updated++;
+      } else {
+        const stock = r.stock || 0;
+        const id = (await client.query(
+          `INSERT INTO products (name, price, unit, category_id, estoque, promo_price, description, active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING id`,
+          [r.name, r.price, r.unit, categoryId, stock, r.promo, r.description]
+        )).rows[0].id;
+        // Igual ao cadastro manual: com estoque já entra no automático (renova toda semana)
+        await client.query(
+          `INSERT INTO product_stock_config (product_id, type, auto_quantity, auto_frequency, last_restocked_at)
+           VALUES ($1, $2, $3, 'SEMANAL', NOW())
+           ON CONFLICT (product_id) DO NOTHING`,
+          [id, stock > 0 ? 'AUTOMÁTICO' : 'MANUAL', stock > 0 ? stock : 50]
+        );
+        prods.set(key(r.name), id);
+        created++;
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ created, updated, new_categories: newCategories });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao importar produtos' });
+  } finally {
+    client.release();
+  }
+});
+
 // 🔒 PUT - Apenas ADMIN (mostrar/ocultar na loja com um toque)
 router.put('/:id/active', verifyAdmin, async (req, res) => {
   try {

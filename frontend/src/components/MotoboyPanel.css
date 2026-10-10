@@ -392,3 +392,13 @@
   .mb-brand strong { font-size: 14px; }
   .mb-main { padding: 12px; }
 }
+/* 📝 Observação do cliente */
+.mb-notes {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff7ed;
+  border-left: 4px solid #f97316;
+  font-size: 14px;
+  font-weight: 600;
+}

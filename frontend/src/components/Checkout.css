@@ -479,3 +479,19 @@
   margin-top: 6px;
   color: #166534;
 }
+
+.checkout-content textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.checkout-content textarea:focus {
+  outline: none;
+  border-color: #C41E3A;
+}

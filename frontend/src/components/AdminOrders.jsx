@@ -275,7 +275,11 @@ const AdminOrders = () => {
             <tbody>
               {orders.map(order => (
                 <tr key={order.id} className="order-row">
-                  <td>#{order.id}</td>
+                  <td>
+                    #{order.id}
+                    {order.notes && <span title={`Observação: ${order.notes}`}> 📝</span>}
+                    {order.rating && <span title={`Avaliação: ${order.rating}/5`}> ⭐{order.rating}</span>}
+                  </td>
                   <td>{order.name || 'N/A'}</td>
                   <td>{order.phone_number || 'N/A'}</td>
                   <td>{order.delivery_address}</td>
@@ -291,7 +295,7 @@ const AdminOrders = () => {
                   </td>
                   <td><MotoboyCell order={order} /></td>
                   <td>{new Date(order.created_at).toLocaleDateString('pt-BR')}</td>
-                  <td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
                     <button
                       className="details-btn"
                       onClick={() => openOrderDetails(order)}
@@ -339,6 +343,25 @@ const AdminOrders = () => {
               <p><strong>Data:</strong> {new Date(selectedOrder.created_at).toLocaleString('pt-BR')}</p>
               <p><strong>Pagamento:</strong> <PaymentBadge method={selectedOrder.payment_method} /></p>
             </div>
+
+            {selectedOrder.notes && (
+              <div style={{
+                background: '#fff7ed', borderLeft: '4px solid #f97316', padding: '12px 14px',
+                borderRadius: '8px', margin: '12px 0', fontSize: '15px', fontWeight: 600
+              }}>
+                📝 Observação do cliente: {selectedOrder.notes}
+              </div>
+            )}
+
+            {selectedOrder.rating && (
+              <div style={{
+                background: '#fefce8', borderLeft: '4px solid #eab308', padding: '12px 14px',
+                borderRadius: '8px', margin: '12px 0', fontSize: '14px'
+              }}>
+                <strong>{'⭐'.repeat(selectedOrder.rating)}</strong> Avaliação do cliente ({selectedOrder.rating}/5)
+                {selectedOrder.rating_comment && <p style={{ margin: '6px 0 0' }}>"{selectedOrder.rating_comment}"</p>}
+              </div>
+            )}
 
             {(() => {
               const note = getDeliveryNote(selectedOrder);

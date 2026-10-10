@@ -50,6 +50,7 @@ const receiptHtml = (order) => {
   <b>Endereço:</b> ${esc(order.delivery_address || order.address)}<br>
   ${order.delivery_neighborhood ? `<b>Bairro:</b> ${esc(order.delivery_neighborhood)}<br>` : ''}
   ${order.motoboy_name ? `<b>Motoboy:</b> ${esc(order.motoboy_name)}<br>` : ''}
+  ${order.notes ? `<hr><b>OBSERVAÇÃO:</b><br><b>${esc(order.notes)}</b><br>` : ''}
   <hr>
   <table>${items}</table>
   <hr>

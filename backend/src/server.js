@@ -73,6 +73,10 @@ require('./utils/database').query(`
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount NUMERIC(10,2) DEFAULT 0;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(30);
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS change_for NUMERIC(10,2);
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS rating SMALLINT;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS rating_comment TEXT;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMP;
   CREATE TABLE IF NOT EXISTS coupons (
     id SERIAL PRIMARY KEY,
     code VARCHAR(30) UNIQUE NOT NULL,
@@ -106,7 +110,7 @@ require('./utils/database').query(`
     // 🔎 Confere se o banco tem todas as colunas que o código usa (só leitura)
     const expected = {
       customers: ['id', 'name', 'username', 'email', 'password', 'phone_number', 'address', 'neighborhood', 'role', 'active', 'avatar_url', 'created_at'],
-      orders: ['id', 'customer_id', 'total', 'status', 'delivery_address', 'payment_method', 'created_at', 'motoboy_id', 'delivered_at', 'delivery_fee', 'delivery_neighborhood', 'discount', 'coupon_code', 'change_for'],
+      orders: ['id', 'customer_id', 'total', 'status', 'delivery_address', 'payment_method', 'created_at', 'motoboy_id', 'delivered_at', 'delivery_fee', 'delivery_neighborhood', 'discount', 'coupon_code', 'change_for', 'notes', 'rating', 'rating_comment', 'rated_at'],
       order_items: ['order_id', 'product_id', 'quantity', 'price'],
       products: ['id', 'name', 'price', 'unit', 'category_id', 'image_url', 'estoque', 'promo_price', 'description', 'active'],
       categories: ['id', 'name', 'created_at'],
