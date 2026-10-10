@@ -151,7 +151,9 @@ function MotoboyPanel({ onLogout }) {
       case 'cartao':
         return { cls: 'card', text: `💳 Levar MAQUININHA — cobrar R$ ${total}` };
       default:
-        return { cls: 'cash', text: `💵 DINHEIRO — cobrar R$ ${total} (levar troco)` };
+        return parseFloat(order.change_for) > 0
+          ? { cls: 'cash', text: `💵 DINHEIRO — cobrar R$ ${total}. Troco para R$ ${parseFloat(order.change_for).toFixed(2)}: levar R$ ${(parseFloat(order.change_for) - parseFloat(order.total)).toFixed(2)}` }
+          : { cls: 'cash', text: `💵 DINHEIRO — cobrar R$ ${total} (cliente tem trocado)` };
     }
   };
 
@@ -254,6 +256,7 @@ function MotoboyPanel({ onLogout }) {
                       </div>
 
                       <div className={`mb-pay ${pay.cls}`}>{pay.text}</div>
+                      {order.notes && <div className="mb-notes">📝 {order.notes}</div>}
 
                       <details className="mb-items">
                         <summary>🧾 Itens ({order.items.length})</summary>

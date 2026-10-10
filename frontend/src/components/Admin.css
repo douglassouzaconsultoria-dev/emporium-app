@@ -172,3 +172,108 @@
 @keyframes admin-pulse {
   50% { opacity: 0.75; }
 }
+
+/* 🗂️ Organizar abas */
+.admin-tabs-editor {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 18px;
+  background: #fff;
+  border: 2px solid #C41E3A;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.ate-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.ate-head strong {
+  font-size: 17px;
+}
+
+.ate-head span {
+  font-size: 13px;
+  color: #666;
+}
+
+.ate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ate-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.ate-list li:first-child {
+  border-color: #C41E3A;
+  background: #fff5f6;
+}
+
+.ate-pos {
+  width: 30px;
+  font-weight: 800;
+  color: #C41E3A;
+}
+
+.ate-label {
+  flex: 1;
+  font-weight: 600;
+}
+
+.ate-list button {
+  width: 38px;
+  height: 34px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ate-list button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.ate-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.ate-actions button {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  background: #fff;
+}
+
+.ate-reset {
+  margin-right: auto;
+  color: #666;
+}
+
+.ate-save {
+  border: none !important;
+  background: #C41E3A !important;
+  color: #fff;
+}

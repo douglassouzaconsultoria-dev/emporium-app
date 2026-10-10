@@ -89,7 +89,7 @@
 /* 🔢 Quantidade (produto por unidade) */
 .unit-stepper {
   display: grid;
-  grid-template-columns: 40px 1fr 40px;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
   gap: 6px;
 }
 
@@ -108,6 +108,8 @@
 }
 
 .unit-stepper input {
+  min-width: 0;
+  width: 100%;
   text-align: center;
   padding: 6px;
   border: 1px solid #ddd;

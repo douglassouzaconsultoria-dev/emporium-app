@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { formatQty } from '../utils/units';
+import { printOrder, printOrderById } from '../utils/printOrder';
 import './AdminOrders.css';
 
 const AdminOrders = () => {
@@ -216,12 +217,16 @@ const AdminOrders = () => {
           border: '#8b5cf6',
           text: `💳 Levar a MAQUININHA. Cobrar R$ ${total} na entrega.`
         };
-      default:
+      default: {
+        const changeFor = parseFloat(order.change_for) || 0;
         return {
           bg: '#f0fdf4',
           border: '#22c55e',
-          text: `💵 Pagamento em DINHEIRO: levar troco. Valor: R$ ${total}.`
+          text: changeFor > 0
+            ? `💵 DINHEIRO: cobrar R$ ${total}. Cliente vai pagar com R$ ${changeFor.toFixed(2)} → levar R$ ${(changeFor - parseFloat(order.total)).toFixed(2)} de troco.`
+            : `💵 DINHEIRO: cobrar R$ ${total}. Cliente disse que tem trocado (não precisa de troco).`
         };
+      }
     }
   };
 
@@ -270,7 +275,11 @@ const AdminOrders = () => {
             <tbody>
               {orders.map(order => (
                 <tr key={order.id} className="order-row">
-                  <td>#{order.id}</td>
+                  <td>
+                    #{order.id}
+                    {order.notes && <span title={`Observação: ${order.notes}`}> 📝</span>}
+                    {order.rating && <span title={`Avaliação: ${order.rating}/5`}> ⭐{order.rating}</span>}
+                  </td>
                   <td>{order.name || 'N/A'}</td>
                   <td>{order.phone_number || 'N/A'}</td>
                   <td>{order.delivery_address}</td>
@@ -286,12 +295,20 @@ const AdminOrders = () => {
                   </td>
                   <td><MotoboyCell order={order} /></td>
                   <td>{new Date(order.created_at).toLocaleDateString('pt-BR')}</td>
-                  <td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
                     <button
                       className="details-btn"
                       onClick={() => openOrderDetails(order)}
                     >
                       Ver
+                    </button>
+                    <button
+                      className="details-btn"
+                      title="Imprimir pedido"
+                      style={{ marginLeft: '6px', background: '#1a1a1a' }}
+                      onClick={() => printOrderById(order.id).catch(err => alert(err.message))}
+                    >
+                      🖨️
                     </button>
                   </td>
                 </tr>
@@ -306,7 +323,18 @@ const AdminOrders = () => {
           <div className="order-modal-content">
             <button className="close-modal-btn" onClick={closeModal}>×</button>
 
-            <h3>Detalhes do Pedido #{selectedOrder.id}</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h3>Detalhes do Pedido #{selectedOrder.id}</h3>
+              <button
+                onClick={() => printOrder({ ...selectedOrder, ...orderDetails })}
+                style={{
+                  padding: '8px 14px', background: '#1a1a1a', color: '#fff', border: 'none',
+                  borderRadius: '8px', fontWeight: 700, cursor: 'pointer', marginRight: '30px'
+                }}
+              >
+                🖨️ Imprimir
+              </button>
+            </div>
 
             <div className="order-details">
               <p><strong>Cliente:</strong> {selectedOrder.name || 'N/A'}</p>
@@ -315,6 +343,25 @@ const AdminOrders = () => {
               <p><strong>Data:</strong> {new Date(selectedOrder.created_at).toLocaleString('pt-BR')}</p>
               <p><strong>Pagamento:</strong> <PaymentBadge method={selectedOrder.payment_method} /></p>
             </div>
+
+            {selectedOrder.notes && (
+              <div style={{
+                background: '#fff7ed', borderLeft: '4px solid #f97316', padding: '12px 14px',
+                borderRadius: '8px', margin: '12px 0', fontSize: '15px', fontWeight: 600
+              }}>
+                📝 Observação do cliente: {selectedOrder.notes}
+              </div>
+            )}
+
+            {selectedOrder.rating && (
+              <div style={{
+                background: '#fefce8', borderLeft: '4px solid #eab308', padding: '12px 14px',
+                borderRadius: '8px', margin: '12px 0', fontSize: '14px'
+              }}>
+                <strong>{'⭐'.repeat(selectedOrder.rating)}</strong> Avaliação do cliente ({selectedOrder.rating}/5)
+                {selectedOrder.rating_comment && <p style={{ margin: '6px 0 0' }}>"{selectedOrder.rating_comment}"</p>}
+              </div>
+            )}
 
             {(() => {
               const note = getDeliveryNote(selectedOrder);
@@ -412,6 +459,9 @@ const AdminOrders = () => {
             </div>
 
             <div className="order-total-section">
+              {parseFloat(selectedOrder.discount) > 0 && (
+                <p>🎟️ Desconto{selectedOrder.coupon_code ? ` (cupom ${selectedOrder.coupon_code})` : ''}: − R$ {parseFloat(selectedOrder.discount).toFixed(2)}</p>
+              )}
               {parseFloat(selectedOrder.delivery_fee) > 0 && (
                 <p>🛵 Taxa de entrega{selectedOrder.delivery_neighborhood ? ` (${selectedOrder.delivery_neighborhood})` : ''}: R$ {parseFloat(selectedOrder.delivery_fee).toFixed(2)}</p>
               )}

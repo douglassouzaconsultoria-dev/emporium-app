@@ -189,3 +189,86 @@
     flex: 0 0 calc(50% - 5px);
   }
 }
+/* ⭐ Avaliação da entrega */
+.rate-box {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  text-align: center;
+}
+
+.rate-title {
+  margin: 0 0 6px;
+  font-weight: 700;
+}
+
+.rate-stars {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.rate-stars button {
+  border: none;
+  background: none;
+  font-size: 34px;
+  line-height: 1;
+  color: #d1d5db;
+  cursor: pointer;
+  padding: 2px;
+  transition: transform 0.1s ease;
+}
+
+.rate-stars button.on {
+  color: #f59e0b;
+}
+
+.rate-stars button:hover {
+  transform: scale(1.15);
+}
+
+.rate-box textarea {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.rate-send {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #f59e0b;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rate-done {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #92400e;
+}
+
+.rate-done span {
+  color: #f59e0b;
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+.order-notes {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff7ed;
+  font-size: 14px;
+}

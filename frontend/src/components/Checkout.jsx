@@ -28,6 +28,13 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
   const [orderTotal, setOrderTotal] = useState(null);
   const [pixCode, setPixCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [needChange, setNeedChange] = useState(null); // null = não respondeu | false = trocado | true = precisa de troco
+  const [changeFor, setChangeFor] = useState('');
+  const [notes, setNotes] = useState('');
+  const [couponInput, setCouponInput] = useState('');
+  const [coupon, setCoupon] = useState(null); // { code, discount }
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
 
   const token = localStorage.getItem('authToken');
 
@@ -52,7 +59,31 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
   const selectedNeighborhood = neighborhood === OTHER ? otherNeighborhood.trim() : neighborhood;
   const selectedFee = fees.find(f => f.neighborhood === neighborhood);
   const deliveryFee = !neighborhood ? 0 : selectedFee ? parseFloat(selectedFee.fee) : defaultFee;
-  const finalTotalPreview = parseFloat(total) + deliveryFee;
+  const discount = coupon ? coupon.discount : 0;
+  const finalTotalPreview = Math.round((parseFloat(total) - discount + deliveryFee) * 100) / 100;
+  const changeValue = parseFloat(String(changeFor).replace(',', '.')) || 0;
+
+  // 🎟️ Confere o cupom (o servidor confere de novo ao criar o pedido)
+  const applyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const response = await fetch(`${API_URL}/coupons/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ code: couponInput, subtotal: total })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Cupom inválido');
+      setCoupon(data);
+    } catch (err) {
+      setCoupon(null);
+      setCouponError(err.message);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
 
   const createOrder = async () => {
     const response = await fetch(`${API_URL}/orders`, {
@@ -68,7 +99,10 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
         })),
         delivery_address: deliveryAddress,
         delivery_neighborhood: selectedNeighborhood,
-        payment_method: paymentMethod
+        payment_method: paymentMethod,
+        coupon_code: coupon ? coupon.code : undefined,
+        notes: notes.trim() || undefined,
+        change_for: paymentMethod === 'dinheiro' && needChange ? changeValue : undefined
       })
     });
 
@@ -93,6 +127,17 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
     if (!selectedNeighborhood) {
       setError('Escolha o bairro da entrega');
       return;
+    }
+
+    if (paymentMethod === 'dinheiro') {
+      if (needChange === null) {
+        setError('Diga se você precisa de troco');
+        return;
+      }
+      if (needChange && changeValue <= finalTotalPreview) {
+        setError(`Informe para quanto é o troco (maior que R$ ${finalTotalPreview.toFixed(2)})`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -213,7 +258,12 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
             )}
 
             {paymentMethod === 'cartao' && <p>💳 Levaremos a maquininha na entrega</p>}
-            {paymentMethod === 'dinheiro' && <p>💵 Pagamento em dinheiro na entrega</p>}
+            {paymentMethod === 'dinheiro' && (
+              <p>
+                💵 Pagamento em dinheiro na entrega
+                {needChange ? ` — levaremos troco para R$ ${changeValue.toFixed(2)} (troco de R$ ${(changeValue - orderTotal).toFixed(2)})` : ' — valor certinho, sem troco'}
+              </p>
+            )}
             {paymentMethod !== 'pix' && <p>Você pode acompanhar o status em "Meus Pedidos"</p>}
           </div>
         </div>
@@ -243,6 +293,12 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
             <span>Subtotal</span>
             <span>R$ {parseFloat(total).toFixed(2)}</span>
           </div>
+          {coupon && (
+            <div className="order-item discount">
+              <span>🎟️ Cupom {coupon.code}</span>
+              <span>− R$ {discount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="order-item">
             <span>🛵 Taxa de entrega{neighborhood ? '' : ' (escolha o bairro)'}</span>
             <span>R$ {deliveryFee.toFixed(2)}</span>
@@ -292,6 +348,43 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
           </div>
 
           <div className="form-group">
+            <label>📝 Observação (opcional):</label>
+            <textarea
+              rows={2}
+              maxLength={300}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ex: banana mais verde, tocar o interfone, deixar na portaria..."
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>🎟️ Cupom de desconto:</label>
+            {coupon ? (
+              <div className="coupon-applied">
+                <span>✅ <strong>{coupon.code}</strong> — você economiza R$ {discount.toFixed(2)}</span>
+                <button type="button" onClick={() => { setCoupon(null); setCouponInput(''); }} disabled={loading}>Remover</button>
+              </div>
+            ) : (
+              <div className="coupon-row">
+                <input
+                  type="text"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyCoupon(); } }}
+                  placeholder="Tem um cupom? Digite aqui"
+                  disabled={loading || couponLoading}
+                />
+                <button type="button" onClick={applyCoupon} disabled={loading || couponLoading || !couponInput.trim()}>
+                  {couponLoading ? '...' : 'Aplicar'}
+                </button>
+              </div>
+            )}
+            {couponError && <small className="coupon-error">❌ {couponError}</small>}
+          </div>
+
+          <div className="form-group">
             <label>💳 Método de Pagamento:</label>
             <div className="payment-methods">
               <label className="payment-option">
@@ -330,6 +423,59 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
             </div>
           </div>
 
+          {paymentMethod === 'dinheiro' && (
+            <div className="change-box">
+              <p className="change-title">💵 Vai precisar de troco?</p>
+              <div className="change-options">
+                <button
+                  type="button"
+                  className={needChange === false ? 'active' : ''}
+                  onClick={() => setNeedChange(false)}
+                  disabled={loading}
+                >
+                  Não, tenho trocado
+                </button>
+                <button
+                  type="button"
+                  className={needChange === true ? 'active' : ''}
+                  onClick={() => setNeedChange(true)}
+                  disabled={loading}
+                >
+                  Sim, preciso de troco
+                </button>
+              </div>
+              {needChange && (
+                <div className="change-for">
+                  <label>Troco para quanto?</label>
+                  <div className="change-input">
+                    <span>R$</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      placeholder="Ex: 100"
+                      value={changeFor}
+                      onChange={(e) => setChangeFor(e.target.value)}
+                      disabled={loading}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="change-quick">
+                    {[20, 50, 100, 200].filter(v => v > finalTotalPreview).map(v => (
+                      <button type="button" key={v} onClick={() => setChangeFor(String(v))} disabled={loading}>
+                        R$ {v}
+                      </button>
+                    ))}
+                  </div>
+                  {changeValue > finalTotalPreview && (
+                    <small>Seu troco será de <strong>R$ {(changeValue - finalTotalPreview).toFixed(2)}</strong></small>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {paymentMethod === 'pix' && (
             <div className="card-message">
               <p>📱 Após confirmar, vamos mostrar o QR Code e o código Copia e Cola com o valor do pedido.</p>
@@ -346,7 +492,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
           {error && <div className="error-message">❌ {error}</div>}
 
           <button type="submit" disabled={loading || cart.length === 0}>
-            {loading ? '⏳ Processando...' : '✅ Confirmar Pedido'}
+            {loading ? '⏳ Processando...' : `✅ Confirmar Pedido — R$ ${finalTotalPreview.toFixed(2)}`}
           </button>
         </form>
       </div>

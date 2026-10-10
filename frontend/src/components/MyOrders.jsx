@@ -4,6 +4,66 @@ import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
 import './MyOrders.css';
 
+// ⭐ Avaliar a entrega (aparece quando o pedido foi entregue e ainda não foi avaliado)
+function RateOrder({ order, onRated }) {
+  const [stars, setStars] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [comment, setComment] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const send = async () => {
+    setSending(true);
+    try {
+      const response = await fetch(`${API_URL}/orders/${order.id}/rating`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('authToken')}` },
+        body: JSON.stringify({ rating: stars, comment })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro ao avaliar');
+      onRated(data);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="rate-box">
+      <p className="rate-title">Como foi sua entrega?</p>
+      <div className="rate-stars" onMouseLeave={() => setHover(0)}>
+        {[1, 2, 3, 4, 5].map(n => (
+          <button
+            key={n}
+            type="button"
+            className={n <= (hover || stars) ? 'on' : ''}
+            onMouseEnter={() => setHover(n)}
+            onClick={() => setStars(n)}
+            aria-label={`${n} estrela${n > 1 ? 's' : ''}`}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+      {stars > 0 && (
+        <>
+          <textarea
+            rows={2}
+            maxLength={500}
+            placeholder="Quer deixar um comentário? (opcional)"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+          <button className="rate-send" onClick={send} disabled={sending}>
+            {sending ? 'Enviando...' : 'Enviar avaliação'}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 const MyOrders = ({ user, onReorder }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -169,7 +229,13 @@ const MyOrders = ({ user, onReorder }) => {
                   {parseFloat(order.delivery_fee) > 0 && (
                     <p><strong>Taxa de entrega:</strong> R$ {parseFloat(order.delivery_fee).toFixed(2)}</p>
                   )}
+                  {parseFloat(order.discount) > 0 && (
+                    <p><strong>Desconto{order.coupon_code ? ` (${order.coupon_code})` : ''}:</strong> − R$ {parseFloat(order.discount).toFixed(2)}</p>
+                  )}
                   <p><strong>Total:</strong> R$ {parseFloat(order.total).toFixed(2)}</p>
+                  {order.payment_method === 'dinheiro' && parseFloat(order.change_for) > 0 && (
+                    <p><strong>Troco para:</strong> R$ {parseFloat(order.change_for).toFixed(2)}</p>
+                  )}
                   <p>
                     <strong>Pagamento:</strong>{' '}
                     <span style={{
@@ -228,6 +294,19 @@ const MyOrders = ({ user, onReorder }) => {
                   </div>
                 </div>
                 )}
+
+                {order.status === 'Entregue' && (order.rating ? (
+                  <div className="rate-done">
+                    <span>{'★'.repeat(order.rating)}{'☆'.repeat(5 - order.rating)}</span> Obrigado pela avaliação!
+                  </div>
+                ) : (
+                  <RateOrder
+                    order={order}
+                    onRated={(r) => setOrders(list => list.map(o => (o.id === order.id ? { ...o, ...r } : o)))}
+                  />
+                ))}
+
+                {order.notes && <p className="order-notes">📝 {order.notes}</p>}
 
                 <button
                   onClick={() => handleReorder(order)}

@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
-import { isKg } from '../utils/units';
+import { isKg, isPromo } from '../utils/units';
 import axios from 'axios';
 import './AdminProducts.css';
 import { getImageUrl } from '../utils/imageUrl';
+import AdminImportProducts from './AdminImportProducts';
 
-const emptyForm = { name: '', price: '', unit: '', category_id: '', estoque: '' };
+const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', estoque: '', active: true };
+
+// Sugestões de unidade (pode digitar outra)
+const UNIT_SUGGESTIONS = ['un', 'kg', 'pacote', 'caixa', 'litro', 'garrafa', 'lata', 'dúzia', 'bandeja', 'fardo'];
 
 function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
-  const [stockFilter, setStockFilter] = useState(''); // '' | 'low' | 'out'
+  const [stockFilter, setStockFilter] = useState(''); // '' | 'low' | 'out' | 'hidden' | 'promo' | 'nophoto'
   const [modalMode, setModalMode] = useState(null); // null | 'create' | 'edit'
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
@@ -21,6 +25,7 @@ function AdminProducts() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [formError, setFormError] = useState('');
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -67,7 +72,7 @@ function AdminProducts() {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get(`${API_URL}/products`);
+      const response = await axios.get(`${API_URL}/products?all=1`);
       setProducts(response.data);
     } catch (error) {
       console.error('Erro ao buscar produtos:', error);
@@ -106,13 +111,19 @@ function AdminProducts() {
     const matchesStock =
       stockFilter === '' ||
       (stockFilter === 'low' && p.estoque > 0 && p.estoque <= 10) ||
-      (stockFilter === 'out' && p.estoque === 0);
+      (stockFilter === 'out' && p.estoque === 0) ||
+      (stockFilter === 'hidden' && p.active === false) ||
+      (stockFilter === 'promo' && isPromo(p)) ||
+      (stockFilter === 'nophoto' && !p.image_url);
     return matchesSearch && matchesCategory && matchesStock;
   });
 
   // 📊 STATS
   const lowStockCount = products.filter(p => p.estoque > 0 && p.estoque <= 10).length;
   const outOfStockCount = products.filter(p => p.estoque === 0).length;
+  const hiddenCount = products.filter(p => p.active === false).length;
+  const promoCount = products.filter(p => isPromo(p)).length;
+  const noPhotoCount = products.filter(p => !p.image_url).length;
 
   // 🪟 JANELA (MODAL)
   const openCreate = () => {
@@ -129,12 +140,37 @@ function AdminProducts() {
     setFormData({
       name: product.name,
       price: product.price,
+      promo_price: product.promo_price ?? '',
+      description: product.description ?? '',
       unit: product.unit,
       category_id: product.category_id,
-      estoque: product.estoque ?? 0
+      estoque: product.estoque ?? 0,
+      active: product.active !== false
     });
     setImageFile(null);
     setFormError('');
+  };
+
+  // 📄 Duplicar: abre "Novo produto" já preenchido (útil para variações: 1kg, 5kg...)
+  const openDuplicate = (product) => {
+    openEdit(product);
+    setModalMode('create');
+    setEditingProduct({ ...product, duplicateOf: product.id });
+    setFormData(f => ({ ...f, name: `${product.name} (cópia)` }));
+  };
+
+  // 👁️ Mostrar/ocultar na loja com um toque
+  const toggleActive = async (product) => {
+    try {
+      await axios.put(`${API_URL}/products/${product.id}/active`, { active: product.active === false }, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      fetchProducts();
+      showMessage(product.active === false ? '✅ Produto visível na loja' : '✅ Produto oculto da loja');
+    } catch (error) {
+      console.error(error);
+      showMessage('❌ Erro ao atualizar produto');
+    }
   };
 
   const closeModal = () => {
@@ -149,6 +185,10 @@ function AdminProducts() {
       setFormError('❌ Preencha nome, preço, unidade e categoria');
       return;
     }
+    if (formData.promo_price !== '' && parseFloat(formData.promo_price) >= parseFloat(formData.price)) {
+      setFormError('❌ O preço de oferta precisa ser menor que o preço normal');
+      return;
+    }
 
     try {
       setSaving(true);
@@ -160,7 +200,11 @@ function AdminProducts() {
       fd.append('price', parseFloat(formData.price));
       fd.append('unit', formData.unit);
       fd.append('category_id', parseInt(formData.category_id));
+      fd.append('promo_price', formData.promo_price === '' ? '' : parseFloat(formData.promo_price));
+      fd.append('description', formData.description || '');
+      fd.append('active', formData.active ? 'true' : 'false');
       if (imageFile) fd.append('image', imageFile);
+      else if (modalMode === 'create' && editingProduct?.image_url) fd.append('image_url', editingProduct.image_url);
 
       const multipartHeaders = {
         'Content-Type': 'multipart/form-data',
@@ -188,7 +232,7 @@ function AdminProducts() {
       fetchProducts();
     } catch (error) {
       console.error(error);
-      setFormError('❌ Erro ao salvar produto. Tente novamente.');
+      setFormError(`❌ ${error.response?.data?.error || 'Erro ao salvar produto. Tente novamente.'}`);
     } finally {
       setSaving(false);
     }
@@ -216,7 +260,10 @@ function AdminProducts() {
       {/* HEADER */}
       <div className="ap-header">
         <h2>🛍️ Gerenciar Produtos</h2>
-        <button className="ap-btn-new" onClick={openCreate}>➕ Novo Produto</button>
+        <div className="ap-header-actions">
+          <button className="ap-btn-import" onClick={() => setShowImport(true)}>📥 Importar planilha</button>
+          <button className="ap-btn-new" onClick={openCreate}>➕ Novo Produto</button>
+        </div>
       </div>
 
       {/* STATS (clicáveis = filtro) */}
@@ -241,6 +288,27 @@ function AdminProducts() {
         >
           <span className="ap-stat-label">🔴 Sem Estoque</span>
           <span className="ap-stat-value">{outOfStockCount}</span>
+        </button>
+        <button
+          className={`ap-stat ${stockFilter === 'promo' ? 'active' : ''}`}
+          onClick={() => setStockFilter(stockFilter === 'promo' ? '' : 'promo')}
+        >
+          <span className="ap-stat-label">🔥 Em Oferta</span>
+          <span className="ap-stat-value">{promoCount}</span>
+        </button>
+        <button
+          className={`ap-stat ${stockFilter === 'hidden' ? 'active' : ''}`}
+          onClick={() => setStockFilter(stockFilter === 'hidden' ? '' : 'hidden')}
+        >
+          <span className="ap-stat-label">🙈 Ocultos</span>
+          <span className="ap-stat-value">{hiddenCount}</span>
+        </button>
+        <button
+          className={`ap-stat ${stockFilter === 'nophoto' ? 'active' : ''}`}
+          onClick={() => setStockFilter(stockFilter === 'nophoto' ? '' : 'nophoto')}
+        >
+          <span className="ap-stat-label">📷 Sem foto</span>
+          <span className="ap-stat-value">{noPhotoCount}</span>
         </button>
       </div>
 
@@ -297,7 +365,7 @@ function AdminProducts() {
           {filteredProducts.map(product => {
             const status = getStockStatus(product.estoque);
             return (
-              <div key={product.id} className="ap-row" onClick={() => openEdit(product)}>
+              <div key={product.id} className={`ap-row ${product.active === false ? 'ap-row-hidden' : ''}`} onClick={() => openEdit(product)}>
                 <div className="ap-cell-product">
                   <div className="ap-thumb">
                     {product.image_url ? (
@@ -308,12 +376,23 @@ function AdminProducts() {
                   </div>
                   <div className="ap-product-text">
                     <strong className="ap-name">{product.name}</strong>
-                    <span className="ap-cat">{getCategoryName(product.category_id)}</span>
+                    <span className="ap-cat">
+                      {getCategoryName(product.category_id)}
+                      {product.active === false && <em className="ap-tag ap-tag-hidden">Oculto</em>}
+                      {isPromo(product) && <em className="ap-tag ap-tag-promo">Oferta</em>}
+                    </span>
                   </div>
                 </div>
 
                 <div className="ap-cell-price">
-                  <strong>R$ {parseFloat(product.price).toFixed(2)}</strong>
+                  {isPromo(product) ? (
+                    <>
+                      <s>R$ {parseFloat(product.price).toFixed(2)}</s>
+                      <strong>R$ {parseFloat(product.promo_price).toFixed(2)}</strong>
+                    </>
+                  ) : (
+                    <strong>R$ {parseFloat(product.price).toFixed(2)}</strong>
+                  )}
                   <span>/ {product.unit}</span>
                 </div>
 
@@ -325,6 +404,14 @@ function AdminProducts() {
 
                 <div className="ap-cell-actions" onClick={(e) => e.stopPropagation()}>
                   <button className="ap-btn-edit" onClick={() => openEdit(product)}>✏️ Editar</button>
+                  <button
+                    className="ap-btn-icon"
+                    onClick={() => toggleActive(product)}
+                    title={product.active === false ? 'Mostrar na loja' : 'Ocultar da loja'}
+                  >
+                    {product.active === false ? '🙈' : '👁️'}
+                  </button>
+                  <button className="ap-btn-icon" onClick={() => openDuplicate(product)} title="Duplicar">📄</button>
                   <button className="ap-btn-delete" onClick={() => deleteProduct(product)} title="Deletar">🗑️</button>
                 </div>
               </div>
@@ -333,12 +420,26 @@ function AdminProducts() {
         </div>
       )}
 
+      {showImport && (
+        <AdminImportProducts
+          products={products}
+          onClose={() => setShowImport(false)}
+          onDone={(text) => {
+            setShowImport(false);
+            fetchProducts();
+            fetchCategories();
+            setMessage(text);
+            setTimeout(() => setMessage(''), 8000);
+          }}
+        />
+      )}
+
       {/* JANELA DE CRIAR/EDITAR */}
       {modalMode && (
         <div className="ap-overlay" onClick={() => !saving && closeModal()}>
           <div className="ap-modal" onClick={(e) => e.stopPropagation()}>
             <div className="ap-modal-header">
-              <h3>{modalMode === 'create' ? '➕ Novo Produto' : '✏️ Editar Produto'}</h3>
+              <h3>{modalMode === 'create' ? (editingProduct?.duplicateOf ? '📄 Duplicar Produto' : '➕ Novo Produto') : '✏️ Editar Produto'}</h3>
               <button className="ap-close" onClick={closeModal} disabled={saving}>✕</button>
             </div>
 
@@ -368,6 +469,18 @@ function AdminProducts() {
                 />
               </div>
 
+              <div className="ap-form-group">
+                <label>Descrição (opcional)</label>
+                <textarea
+                  rows={2}
+                  maxLength={300}
+                  placeholder="Ex: Tipo 1, pacote econômico. Aparece no card do produto."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="ap-input"
+                />
+              </div>
+
               <div className="ap-form-row">
                 <div className="ap-form-group">
                   <label>Preço (R$) *</label>
@@ -381,14 +494,35 @@ function AdminProducts() {
                   />
                 </div>
                 <div className="ap-form-group">
+                  <label>🔥 Preço de oferta (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Vazio = sem oferta"
+                    value={formData.promo_price}
+                    onChange={(e) => setFormData({ ...formData, promo_price: e.target.value })}
+                    className="ap-input"
+                  />
+                  {formData.promo_price !== '' && parseFloat(formData.promo_price) < parseFloat(formData.price) && (
+                    <small>Aparece na loja com {Math.round((1 - formData.promo_price / formData.price) * 100)}% OFF e na seção 🔥 Ofertas.</small>
+                  )}
+                </div>
+              </div>
+
+              <div className="ap-form-row">
+                <div className="ap-form-group">
                   <label>Unidade *</label>
                   <input
                     type="text"
                     placeholder="Ex: kg, L, un"
+                    list="ap-units"
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                     className="ap-input"
                   />
+                  <datalist id="ap-units">
+                    {UNIT_SUGGESTIONS.map(u => <option key={u} value={u} />)}
+                  </datalist>
                   <small>Use <strong>kg</strong> para vender por peso: o cliente escolhe as gramas e o preço é por kg.</small>
                 </div>
               </div>
@@ -441,6 +575,17 @@ function AdminProducts() {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="ap-modal-visible">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={formData.active}
+                  onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                />
+                <span>👁️ Mostrar este produto na loja</span>
+              </label>
             </div>
 
             <div className="ap-modal-footer">

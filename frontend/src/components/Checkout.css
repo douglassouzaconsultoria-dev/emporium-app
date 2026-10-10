@@ -328,3 +328,170 @@
     font-size: 14px;
   }
 }
+/* 🎟️ Cupom */
+.order-item.discount {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.coupon-row {
+  display: flex;
+  gap: 8px;
+}
+
+.coupon-row input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+}
+
+.coupon-row button {
+  padding: 0 18px;
+  border: none;
+  border-radius: 8px;
+  background: #1a1a1a;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coupon-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.coupon-applied {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2px dashed #22c55e;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 14px;
+}
+
+.coupon-applied button {
+  width: auto ;
+  margin: 0 ;
+  padding: 6px 12px ;
+  background: #fff ;
+  color: #b91c1c ;
+  border: 1px solid #fca5a5 ;
+  font-size: 13px ;
+}
+
+.coupon-error {
+  display: block;
+  margin-top: 6px;
+  color: #b91c1c;
+}
+
+/* 💵 Troco */
+.change-box {
+  margin: 0 0 16px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.change-title {
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+
+.change-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.change-options button {
+  width: 100% ;
+  margin: 0 ;
+  padding: 12px 8px ;
+  background: #fff ;
+  color: #333 ;
+  border: 2px solid #d1d5db ;
+  border-radius: 10px ;
+  font-size: 14px ;
+  font-weight: 600 ;
+}
+
+.change-options button.active {
+  border-color: #16a34a ;
+  background: #16a34a ;
+  color: #fff ;
+}
+
+.change-for {
+  margin-top: 12px;
+}
+
+.change-for label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.change-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.change-input span {
+  font-weight: 700;
+}
+
+.change-input input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  font-size: 18px ;
+  font-weight: 700;
+}
+
+.change-quick {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+
+.change-quick button {
+  width: auto ;
+  margin: 0 ;
+  padding: 6px 12px ;
+  background: #fff ;
+  color: #166534 ;
+  border: 1px solid #86efac ;
+  border-radius: 999px ;
+  font-size: 13px ;
+}
+
+.change-for small {
+  display: block;
+  margin-top: 6px;
+  color: #166534;
+}
+
+.checkout-content textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.checkout-content textarea:focus {
+  outline: none;
+  border-color: #C41E3A;
+}

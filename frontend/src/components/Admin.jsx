@@ -9,6 +9,31 @@ import AdminStockConfig from './AdminStockConfig';
 import AdminMotoboys from './AdminMotoboys';
 import AdminDeliveryFees from './AdminDeliveryFees';
 import AdminCustomers from './AdminCustomers';
+import AdminStore from './AdminStore';
+import AdminCoupons from './AdminCoupons';
+import axios from 'axios';
+import { getAutoPrint, printOrderById } from '../utils/printOrder';
+
+// Ordem padrão das abas (o admin pode mudar em "Organizar abas")
+const DEFAULT_TABS = [
+  { id: 'dashboard', label: '📊 Dashboard' },
+  { id: 'orders', label: '📦 Pedidos' },
+  { id: 'store', label: '🏪 Loja' },
+  { id: 'coupons', label: '🎟️ Cupons' },
+  { id: 'motoboys', label: '🛵 Motoboys' },
+  { id: 'customers', label: '👥 Clientes' },
+  { id: 'fees', label: '🏘️ Taxas de entrega' },
+  { id: 'categories', label: '📁 Categorias' },
+  { id: 'products', label: '🛍️ Produtos' },
+  { id: 'stock', label: '⚙️ Estoque' },
+  { id: 'tabs', label: '🗂️ Organizar abas' }
+];
+
+// Aplica a ordem salva; abas novas (que não estão na lista salva) vão para o fim
+const sortTabs = (order) => [
+  ...order.map(id => DEFAULT_TABS.find(t => t.id === id)).filter(Boolean),
+  ...DEFAULT_TABS.filter(t => !order.includes(t.id))
+];
 
 // 🔔 Dois bipes curtos (não precisa de arquivo de som)
 const playBeep = () => {
@@ -30,7 +55,48 @@ const playBeep = () => {
 };
 
 function Admin() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(null);
+  const [tabs, setTabs] = useState(DEFAULT_TABS);
+  const [savedTabs, setSavedTabs] = useState(DEFAULT_TABS);
+
+  // 🗂️ Ordem das abas salva no servidor; a primeira é a que abre ao entrar
+  useEffect(() => {
+    axios.get(`${API_URL}/settings/admin-tabs`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+    })
+      .then(res => {
+        const sorted = sortTabs(res.data.order || []);
+        setTabs(sorted);
+        setSavedTabs(sorted);
+        setActiveTab(current => current || sorted[0].id);
+      })
+      .catch(err => {
+        console.error('Erro ao buscar ordem das abas:', err);
+        setActiveTab(current => current || DEFAULT_TABS[0].id);
+      });
+  }, []);
+
+  const moveTab = (index, step) => {
+    const target = index + step;
+    if (target < 0 || target >= tabs.length) return;
+    const next = [...tabs];
+    [next[index], next[target]] = [next[target], next[index]];
+    setTabs(next);
+  };
+
+  const saveTabs = async () => {
+    try {
+      await axios.put(`${API_URL}/settings/admin-tabs`, { order: tabs.map(t => t.id) }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      setSavedTabs(tabs);
+      alert('✅ Ordem das abas salva!');
+    } catch (err) {
+      alert('Erro ao salvar a ordem das abas');
+    }
+  };
+
+  const cancelTabs = () => setTabs(savedTabs);
   const [user, setUser] = useState(null);
   const [newOrders, setNewOrders] = useState(0);
   const knownIds = useRef(null);
@@ -45,10 +111,17 @@ function Admin() {
         if (!res.ok) return;
         const ids = (await res.json()).map(o => o.id);
         if (knownIds.current) {
-          const fresh = ids.filter(id => !knownIds.current.has(id)).length;
-          if (fresh > 0) {
+          const fresh = ids.filter(id => !knownIds.current.has(id));
+          knownIds.current = new Set(ids); // antes de imprimir: nunca imprime o mesmo pedido duas vezes
+          if (fresh.length > 0) {
             playBeep();
-            setNewOrders(n => n + fresh);
+            setNewOrders(n => n + fresh.length);
+            // 🖨️ Impressão automática (ligada na aba Loja, vale só neste computador)
+            if (getAutoPrint()) {
+              for (const id of [...fresh].sort((a, b) => a - b)) {
+                await printOrderById(id).catch(err => console.error('Erro ao imprimir:', err));
+              }
+            }
           }
         }
         knownIds.current = new Set(ids);
@@ -94,17 +167,6 @@ function Admin() {
     return <div>Carregando...</div>;
   }
 
-  const tabs = [
-    { id: 'dashboard', label: '📊 Dashboard' },
-    { id: 'orders', label: '📦 Pedidos' },
-    { id: 'motoboys', label: '🛵 Motoboys' },
-    { id: 'customers', label: '👥 Clientes' },
-    { id: 'fees', label: '🏘️ Taxas de entrega' },
-    { id: 'categories', label: '📁 Categorias' },
-    { id: 'products', label: '🛍️ Produtos' },
-    { id: 'stock', label: '⚙️ Estoque' }
-  ];
-
   return (
     <div className="admin-panel">
       <div className="admin-header-top">
@@ -135,12 +197,38 @@ function Admin() {
       <div className="admin-content">
         {activeTab === 'dashboard' && <AdminDashboard />}
         {activeTab === 'orders' && <AdminOrders />}
+        {activeTab === 'store' && <AdminStore />}
+        {activeTab === 'coupons' && <AdminCoupons />}
         {activeTab === 'motoboys' && <AdminMotoboys />}
         {activeTab === 'customers' && <AdminCustomers />}
         {activeTab === 'fees' && <AdminDeliveryFees />}
         {activeTab === 'categories' && <AdminCategories />}
         {activeTab === 'products' && <AdminProducts />}
         {activeTab === 'stock' && <AdminStockConfig />}
+        {/* 🗂️ Organizar abas: setas mudam a posição; a 1ª abre ao entrar no painel */}
+        {activeTab === 'tabs' && (
+          <div className="admin-tabs-editor">
+            <div className="ate-head">
+              <strong>🗂️ Organizar abas</strong>
+              <span>Use as setas para mudar a posição. A <b>1ª aba</b> é a que abre quando você entra no painel. A barra de cima já mostra como vai ficar.</span>
+            </div>
+            <ol className="ate-list">
+              {tabs.map((tab, i) => (
+                <li key={tab.id}>
+                  <span className="ate-pos">{i + 1}º</span>
+                  <span className="ate-label">{tab.label}</span>
+                  <button onClick={() => moveTab(i, -1)} disabled={i === 0} title="Subir">▲</button>
+                  <button onClick={() => moveTab(i, 1)} disabled={i === tabs.length - 1} title="Descer">▼</button>
+                </li>
+              ))}
+            </ol>
+            <div className="ate-actions">
+              <button className="ate-reset" onClick={() => setTabs(DEFAULT_TABS)}>↺ Ordem original</button>
+              <button className="ate-cancel" onClick={cancelTabs}>Desfazer</button>
+              <button className="ate-save" onClick={saveTabs}>💾 Salvar ordem</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
