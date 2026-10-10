@@ -5,6 +5,7 @@ import axios from 'axios';
 import './AdminProducts.css';
 import { getImageUrl } from '../utils/imageUrl';
 import AdminImportProducts from './AdminImportProducts';
+import AdminProductsGrid from './AdminProductsGrid';
 
 const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', estoque: '', active: true };
 
@@ -26,6 +27,7 @@ function AdminProducts() {
   const [message, setMessage] = useState('');
   const [formError, setFormError] = useState('');
   const [showImport, setShowImport] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -261,7 +263,8 @@ function AdminProducts() {
       <div className="ap-header">
         <h2>🛍️ Gerenciar Produtos</h2>
         <div className="ap-header-actions">
-          <button className="ap-btn-import" onClick={() => setShowImport(true)}>📥 Importar planilha</button>
+          <button className="ap-btn-import" onClick={() => setShowGrid(true)}>📝 Editar em planilha</button>
+          <button className="ap-btn-import" onClick={() => setShowImport(true)}>📥 Importar arquivo</button>
           <button className="ap-btn-new" onClick={openCreate}>➕ Novo Produto</button>
         </div>
       </div>
@@ -418,6 +421,21 @@ function AdminProducts() {
             );
           })}
         </div>
+      )}
+
+      {showGrid && (
+        <AdminProductsGrid
+          products={products}
+          categories={categories}
+          onClose={() => setShowGrid(false)}
+          onDone={(text) => {
+            setShowGrid(false);
+            fetchProducts();
+            fetchCategories();
+            setMessage(text);
+            setTimeout(() => setMessage(''), 8000);
+          }}
+        />
       )}
 
       {showImport && (

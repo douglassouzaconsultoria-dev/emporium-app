@@ -688,3 +688,109 @@ textarea.ap-input {
   padding-left: 18px;
   font-weight: 500;
 }
+
+/* 📝 Planilha dentro do app */
+.ap-grid-modal {
+  max-width: 1200px;
+  width: 96vw;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-grid-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px 0;
+}
+
+.ap-grid-toolbar .ap-input {
+  flex: 1;
+}
+
+.ap-grid-help {
+  margin: 8px 20px;
+  font-size: 13px;
+  color: #666;
+}
+
+.ap-grid-error {
+  margin: 0 20px 8px;
+}
+
+.ap-grid-wrap {
+  flex: 1;
+  overflow: auto;
+  margin: 0 20px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.ap-grid {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: 100%;
+}
+
+.ap-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px;
+  background: #f3f4f6;
+  border-bottom: 1px solid #d1d5db;
+  border-right: 1px solid #e5e7eb;
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #555;
+}
+
+.ap-grid td {
+  padding: 0;
+  border-bottom: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+}
+
+.ap-grid input {
+  width: 100%;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.ap-grid input:focus {
+  outline: 2px solid #C41E3A;
+  outline-offset: -2px;
+  background: #fff;
+}
+
+.ap-grid input.num {
+  text-align: right;
+}
+
+.ap-grid-n {
+  width: 40px;
+  min-width: 40px;
+  text-align: center !important;
+  color: #999;
+  font-size: 12px;
+  background: #f9fafb;
+}
+
+.ap-grid tr.edited td {
+  background: #fefce8;
+}
+
+.ap-grid tr.new td {
+  background: #f0fdf4;
+}
+
+.ap-grid-count {
+  margin-right: auto;
+  align-self: center;
+  font-size: 14px;
+  color: #555;
+}
