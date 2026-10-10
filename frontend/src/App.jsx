@@ -8,6 +8,7 @@ import ProductList from './components/ProductList';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import { roundQty, lineTotal, isPromo } from './utils/units';
+import { sortCategories, sortProducts } from './utils/storefront';
 import SearchBar from './components/SearchBar';
 import Admin from './components/Admin';
 import MyOrders from './components/MyOrders';
@@ -122,11 +123,19 @@ function AppContent() {
   );
 
   // Vitrine: 🔥 Ofertas primeiro, depois uma seção por categoria (só as que têm produto)
-  const offers = filteredProducts.filter(p => isPromo(p) && p.estoque > 0);
+  const hiddenCategories = new Set(categories.filter(c => c.active === false).map(c => c.id));
+  const offers = sortProducts(
+    filteredProducts.filter(p => isPromo(p) && p.estoque > 0 && !hiddenCategories.has(p.category_id)),
+    'bestsellers'
+  );
   const sections = [
     ...(offers.length ? [{ id: 'ofertas', name: '🔥 Ofertas', items: offers }] : []),
-    ...categories
-      .map(category => ({ ...category, items: filteredProducts.filter(p => p.category_id === category.id) }))
+    // Categorias na ordem escolhida no admin (🗂️ Organizar); ocultas não aparecem
+    ...sortCategories(categories.filter(c => c.active !== false), store?.category_sort)
+      .map(category => ({
+        ...category,
+        items: sortProducts(filteredProducts.filter(p => p.category_id === category.id), category.product_sort)
+      }))
       .filter(section => section.items.length > 0)
   ];
 

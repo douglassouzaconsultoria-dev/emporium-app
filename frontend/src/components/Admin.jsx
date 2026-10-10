@@ -11,6 +11,7 @@ import AdminDeliveryFees from './AdminDeliveryFees';
 import AdminCustomers from './AdminCustomers';
 import AdminStore from './AdminStore';
 import AdminCoupons from './AdminCoupons';
+import AdminStorefront from './AdminStorefront';
 import axios from 'axios';
 import { getAutoPrint, printOrderById } from '../utils/printOrder';
 
@@ -26,7 +27,7 @@ const DEFAULT_TABS = [
   { id: 'categories', label: '📁 Categorias' },
   { id: 'products', label: '🛍️ Produtos' },
   { id: 'stock', label: '⚙️ Estoque' },
-  { id: 'tabs', label: '🗂️ Organizar abas' }
+  { id: 'tabs', label: '🗂️ Organizar' }
 ];
 
 // Aplica a ordem salva; abas novas (que não estão na lista salva) vão para o fim
@@ -58,6 +59,7 @@ function Admin() {
   const [activeTab, setActiveTab] = useState(null);
   const [tabs, setTabs] = useState(DEFAULT_TABS);
   const [savedTabs, setSavedTabs] = useState(DEFAULT_TABS);
+  const [organizeSection, setOrganizeSection] = useState('admin'); // 'admin' | 'categories' | 'products'
 
   // 🗂️ Ordem das abas salva no servidor; a primeira é a que abre ao entrar
   useEffect(() => {
@@ -207,9 +209,17 @@ function Admin() {
         {activeTab === 'stock' && <AdminStockConfig />}
         {/* 🗂️ Organizar abas: setas mudam a posição; a 1ª abre ao entrar no painel */}
         {activeTab === 'tabs' && (
+          <div className="sf-switch">
+            <button className={organizeSection === 'admin' ? 'active' : ''} onClick={() => setOrganizeSection('admin')}>🔧 Abas do painel</button>
+            <button className={organizeSection === 'categories' ? 'active' : ''} onClick={() => setOrganizeSection('categories')}>📁 Vitrine: categorias</button>
+            <button className={organizeSection === 'products' ? 'active' : ''} onClick={() => setOrganizeSection('products')}>🛍️ Vitrine: produtos</button>
+          </div>
+        )}
+        {activeTab === 'tabs' && organizeSection !== 'admin' && <AdminStorefront section={organizeSection} />}
+        {activeTab === 'tabs' && organizeSection === 'admin' && (
           <div className="admin-tabs-editor">
             <div className="ate-head">
-              <strong>🗂️ Organizar abas</strong>
+              <strong>🔧 Abas do painel</strong>
               <span>Use as setas para mudar a posição. A <b>1ª aba</b> é a que abre quando você entra no painel. A barra de cima já mostra como vai ficar.</span>
             </div>
             <ol className="ate-list">
