@@ -66,9 +66,19 @@ const parseActive = (value) => value === undefined || value === true || value ==
 // 🔓 GET - Públicos (cliente pode ver). ?all=1 traz também os ocultos (admin)
 router.get('/', async (req, res) => {
   try {
+    // sold = em quantos pedidos (não cancelados) o produto saiu nos últimos 30 dias → "mais vendidos"
     const result = await pool.query(
-      `SELECT id, name, price, promo_price, description, active, unit, category_id, image_url, estoque
-       FROM products ${req.query.all ? '' : 'WHERE active IS NOT FALSE'} ORDER BY name`
+      `SELECT p.id, p.name, p.price, p.promo_price, p.description, p.active, p.unit, p.category_id,
+              p.image_url, p.estoque, p.sort_order, COALESCE(s.sold, 0)::int AS sold
+       FROM products p
+       LEFT JOIN (
+         SELECT oi.product_id, COUNT(DISTINCT oi.order_id) AS sold
+         FROM order_items oi JOIN orders o ON o.id = oi.order_id
+         WHERE o.status <> 'Cancelado' AND o.created_at >= NOW() - INTERVAL '30 days'
+         GROUP BY oi.product_id
+       ) s ON s.product_id = p.id
+       ${req.query.all ? '' : 'WHERE p.active IS NOT FALSE'}
+       ORDER BY p.name`
     );
     res.json(result.rows);
   } catch (err) {
@@ -147,6 +157,24 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
   }
 });
 
+// 🔒 PUT - Apenas ADMIN (ordem manual dos produtos dentro da categoria) — ids na ordem desejada
+router.put('/order', verifyAdmin, async (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : [];
+  if (ids.length === 0) return res.status(400).json({ error: 'Lista vazia' });
+  try {
+    await pool.query(
+      `UPDATE products p SET sort_order = o.pos
+       FROM unnest($1::int[]) WITH ORDINALITY AS o(id, pos)
+       WHERE p.id = o.id`,
+      [ids]
+    );
+    res.json({ message: 'Ordem salva' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar ordem dos produtos' });
+  }
+});
+
 // 🔒 PUT - Apenas ADMIN (editar produto)
 router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
   try {
@@ -197,6 +225,7 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
 // 📥 POST - Apenas ADMIN (importar produtos de planilha)
 // rows: [{ nome, preco, unidade, categoria, estoque?, preco_oferta?, descricao? }]
 // Mesmo nome de produto já cadastrado → atualiza; categoria que não existe → cria.
+// A planilha do app manda também id (permite renomear) e linha (para a mensagem de erro).
 // Foto fica para depois (no ✏️ Editar do produto).
 router.post('/import', verifyAdmin, async (req, res) => {
   const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
@@ -213,7 +242,7 @@ router.post('/import', verifyAdmin, async (req, res) => {
   // Confere tudo antes de gravar (ou grava tudo, ou nada)
   const errors = [];
   const clean = rows.map((r, i) => {
-    const line = i + 2; // linha 1 da planilha é o cabeçalho
+    const line = parseInt(r.linha) || i + 2; // linha 1 da planilha é o cabeçalho
     const name = String(r.nome || '').trim();
     const price = num(r.preco);
     const unit = String(r.unidade || '').trim() || 'un';
@@ -229,7 +258,9 @@ router.post('/import', verifyAdmin, async (req, res) => {
       name, price: Math.round(price * 100) / 100, unit, category,
       stock, promo: promo > 0 ? Math.round(promo * 100) / 100 : null,
       hasPromo: Object.prototype.hasOwnProperty.call(r, 'preco_oferta'), // sem a coluna → não mexe na oferta
-      description: String(r.descricao || '').trim() || null
+      hasDesc: Object.prototype.hasOwnProperty.call(r, 'descricao'), // coluna vazia → apaga a descrição
+      description: String(r.descricao || '').trim() || null,
+      id: parseInt(r.id) || null
     };
   });
   if (errors.length) return res.status(400).json({ error: 'Corrija a planilha', details: errors.slice(0, 30) });
@@ -239,7 +270,9 @@ router.post('/import', verifyAdmin, async (req, res) => {
     await client.query('BEGIN');
 
     const cats = new Map((await client.query('SELECT id, name FROM categories')).rows.map(c => [key(c.name), c.id]));
-    const prods = new Map((await client.query('SELECT id, name FROM products')).rows.map(p => [key(p.name), p.id]));
+    const all = (await client.query('SELECT id, name FROM products')).rows;
+    const prods = new Map(all.map(p => [key(p.name), p.id]));
+    const ids = new Set(all.map(p => p.id));
     let created = 0;
     let updated = 0;
     let newCategories = 0;
@@ -252,15 +285,17 @@ router.post('/import', verifyAdmin, async (req, res) => {
         newCategories++;
       }
 
-      const existingId = prods.get(key(r.name));
+      const existingId = r.id && ids.has(r.id) ? r.id : prods.get(key(r.name));
       if (existingId) {
         await client.query(
-          `UPDATE products SET price = $1, unit = $2, category_id = $3,
+          `UPDATE products SET name = $10, price = $1, unit = $2, category_id = $3,
                   promo_price = CASE WHEN $8 THEN $4 ELSE promo_price END,
-                  description = COALESCE($5, description), estoque = COALESCE($6, estoque)
+                  description = CASE WHEN $9 THEN $5 ELSE COALESCE($5, description) END,
+                  estoque = COALESCE($6, estoque)
            WHERE id = $7`,
-          [r.price, r.unit, categoryId, r.promo, r.description, r.stock, existingId, r.hasPromo]
+          [r.price, r.unit, categoryId, r.promo, r.description, r.stock, existingId, r.hasPromo, r.hasDesc, r.name]
         );
+        prods.set(key(r.name), existingId);
         updated++;
       } else {
         const stock = r.stock || 0;
@@ -289,6 +324,25 @@ router.post('/import', verifyAdmin, async (req, res) => {
     res.status(500).json({ error: 'Erro ao importar produtos' });
   } finally {
     client.release();
+  }
+});
+
+// 🔒 PUT - Apenas ADMIN (mover o produto para outra categoria)
+router.put('/:id/category', verifyAdmin, async (req, res) => {
+  try {
+    const categoryId = parseInt(req.body.category_id);
+    const cat = await pool.query('SELECT id FROM categories WHERE id = $1', [categoryId]);
+    if (cat.rows.length === 0) return res.status(400).json({ error: 'Categoria inválida' });
+    // Vai para o fim da ordem manual da nova categoria
+    const result = await pool.query(
+      'UPDATE products SET category_id = $1, sort_order = NULL WHERE id = $2 RETURNING *',
+      [categoryId, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Produto não encontrado' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao mover produto' });
   }
 });
 

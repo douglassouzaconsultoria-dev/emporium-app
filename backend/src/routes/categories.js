@@ -6,11 +6,51 @@ const { verifyAdmin } = require('../middleware/authMiddleware');
 // 🔓 GET - Públicos (cliente pode ver)
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM categories ORDER BY id');
+    const result = await pool.query('SELECT * FROM categories ORDER BY sort_order NULLS LAST, id');
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar categorias' });
+  }
+});
+
+// 🔒 PUT - Apenas ADMIN (ordem das categorias na vitrine) — ids na ordem desejada
+router.put('/order', verifyAdmin, async (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : [];
+  if (ids.length === 0) return res.status(400).json({ error: 'Lista vazia' });
+  try {
+    await pool.query(
+      `UPDATE categories c SET sort_order = o.pos
+       FROM unnest($1::int[]) WITH ORDINALITY AS o(id, pos)
+       WHERE c.id = o.id`,
+      [ids]
+    );
+    res.json({ message: 'Ordem salva' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar ordem das categorias' });
+  }
+});
+
+// 🔒 PUT - Apenas ADMIN (mostrar/ocultar na vitrine e como ordenar os produtos dela)
+router.put('/:id/display', verifyAdmin, async (req, res) => {
+  const { active, product_sort } = req.body;
+  if (product_sort !== undefined && !['az', 'bestsellers', 'manual'].includes(product_sort)) {
+    return res.status(400).json({ error: 'Ordenação inválida' });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE categories SET
+         active = COALESCE($1, active),
+         product_sort = COALESCE($2, product_sort)
+       WHERE id = $3 RETURNING *`,
+      [typeof active === 'boolean' ? active : null, product_sort || null, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar categoria' });
   }
 });
 

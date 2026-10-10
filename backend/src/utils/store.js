@@ -9,6 +9,7 @@ const DEFAULT_STORE = {
   hours: DAYS.map((_, i) => ({ closed: i === 0, open: '07:00', close: '20:00' })),
   closed_now: false,
   notice: '',
+  category_sort: 'manual', // vitrine: 'manual' (ordem do admin) ou 'az'
   default_motoboy_id: null // todo pedido novo já entra com esse motoboy (dá para trocar no pedido)
 };
 
@@ -31,6 +32,7 @@ const sanitize = (raw = {}) => {
     hours,
     closed_now: raw.closed_now === true,
     notice: typeof raw.notice === 'string' ? raw.notice.trim().slice(0, 200) : '',
+    category_sort: raw.category_sort === 'az' ? 'az' : 'manual',
     default_motoboy_id: parseInt(raw.default_motoboy_id) > 0 ? parseInt(raw.default_motoboy_id) : null
   };
 };
