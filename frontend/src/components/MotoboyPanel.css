@@ -452,3 +452,19 @@
   font-weight: 800;
   cursor: pointer;
 }
+
+.mb-sound small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mb-sound-on {
+  padding: 8px 14px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
