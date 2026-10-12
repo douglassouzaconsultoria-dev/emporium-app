@@ -272,3 +272,13 @@
   background: #fff7ed;
   font-size: 14px;
 }
+
+.pix-waiting {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 600;
+}

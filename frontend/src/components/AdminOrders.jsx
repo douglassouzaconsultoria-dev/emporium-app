@@ -145,6 +145,15 @@ const AdminOrders = () => {
     }
   };
 
+  // ▶ Preparar: PIX só depois de conferir no extrato que o pagamento caiu
+  const startPreparing = (order) => {
+    if (order.payment_method === 'pix' && order.status === 'Pendente' && !window.confirm(
+      `PIX do pedido #${order.id}: você conferiu no extrato do banco que caiu R$ ${parseFloat(order.total).toFixed(2)}` +
+      ` (identificação EMP${order.id})?\n\nOK = sim, liberar para preparar e entregar.`
+    )) return;
+    updateOrderStatus(order.id, 'Preparando');
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'Pendente': return '#fbbf24';
@@ -282,6 +291,16 @@ const AdminOrders = () => {
                     >
                       Ver
                     </button>
+                    {order.status === 'Pendente' && (
+                      <button
+                        className="details-btn"
+                        title={order.payment_method === 'pix' ? 'Conferir o PIX e liberar' : 'Mandar para preparo'}
+                        style={{ marginLeft: '6px', background: order.payment_method === 'pix' ? '#0369a1' : '#16a34a' }}
+                        onClick={() => startPreparing(order)}
+                      >
+                        {order.payment_method === 'pix' ? '✅ PIX ok' : '▶ Preparar'}
+                      </button>
+                    )}
                     <button
                       className="details-btn"
                       title="Imprimir pedido"
@@ -495,7 +514,7 @@ const AdminOrders = () => {
                       backgroundColor: selectedOrder.status === status ? getStatusColor(status) : '#e0e0e0',
                       color: selectedOrder.status === status ? 'white' : '#666'
                     }}
-                    onClick={() => updateOrderStatus(selectedOrder.id, status)}
+                    onClick={() => (status === 'Preparando' ? startPreparing(selectedOrder) : updateOrderStatus(selectedOrder.id, status))}
                   >
                     {status}
                   </button>

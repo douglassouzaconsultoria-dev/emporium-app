@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
+import PixNotice from './PixNotice';
 import './MyOrders.css';
 
 // ⭐ Avaliar a entrega (aparece quando o pedido foi entregue e ainda não foi avaliado)
@@ -253,6 +254,9 @@ const MyOrders = ({ user, onReorder }) => {
                 </div>
 
                 {canPayPix && (
+                  <p className="pix-waiting">⏳ Aguardando a conferência do PIX. Assim que confirmarmos o pagamento, seu pedido vai para preparo.</p>
+                )}
+                {canPayPix && (
                   <button
                     onClick={() => openPix(order)}
                     style={{
@@ -419,9 +423,7 @@ const MyOrders = ({ user, onReorder }) => {
             <p style={{ fontSize: '12px', color: '#888', margin: '4px 0' }}>
               Chave PIX (CNPJ): <strong>{PIX_CONFIG.keyDisplay}</strong>
             </p>
-            <p style={{ fontSize: '12px', color: '#888', margin: '4px 0 0' }}>
-              Seu pedido será separado assim que confirmarmos o pagamento.
-            </p>
+            <PixNotice orderId={pixOrder.id} />
           </div>
         </div>
       )}
