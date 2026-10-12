@@ -302,3 +302,39 @@
 
   .as-day > span { display: none; }
 }
+
+/* 🖨️ Passo a passo da impressora */
+.as-print-guide {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px dashed #C41E3A;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.as-print-guide ol {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+
+.as-print-guide li {
+  margin-bottom: 6px;
+}
+
+.as-flag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.as-flag code {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 14px;
+  user-select: all;
+}

@@ -63,3 +63,17 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
+## Empório Brumado: lembrete de impressão
+
+**Sempre que o usuário falar de impressão / imprimir / impressora / cupom do pedido, relembre este passo a passo** (impressora: Bematech MP-4200 TH, papel 80mm):
+
+1. Driver da Bematech instalado e a MP-4200 TH como **impressora padrão** do Windows.
+2. Atalho do Chrome com ` --kiosk-printing` no fim do campo **Destino** (Propriedades do atalho). Fechar todo o Chrome e abrir por esse atalho — assim imprime sem a janela de confirmação.
+3. No app: **Admin → 🏪 Loja → "Imprimir pedidos novos automaticamente"** (vale só naquele computador).
+4. Deixar o **painel Admin aberto**: confere pedidos novos a cada 20 s, apita e imprime.
+5. Impressão manual: **Admin → 📦 Pedidos → 🖨️** (primeira coluna, ao lado do "Ver").
+
+Problemas comuns: janela de impressão aparecendo → Chrome não foi aberto pelo atalho; saindo em outra impressora → Bematech não está como padrão; cupom cortado/pequeno → ajustar `frontend/src/utils/printOrder.js`.

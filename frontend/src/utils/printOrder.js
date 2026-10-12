@@ -35,9 +35,9 @@ const receiptHtml = (order) => {
   .c { text-align: center; }
   .r { text-align: right; white-space: nowrap; }
   hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
-  table { width: 100%; border-collapse: collapse; }
+  table { width: 100%; border-collapse: collapse; font-size: inherit; }
   td { vertical-align: top; padding: 2px 0; }
-  .total td { font-size: 16px; font-weight: bold; }
+  .total td { font-size: 15px; font-weight: bold; }
 </style></head><body>
   <h1>EMPÓRIO BRUMADO</h1>
   <div class="c">Delivery de Supermercado</div>

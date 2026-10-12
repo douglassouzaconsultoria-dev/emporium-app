@@ -1,8 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import axios from 'axios';
-import { getAutoPrint, setAutoPrint } from '../utils/printOrder';
+import { getAutoPrint, setAutoPrint, printOrder } from '../utils/printOrder';
 import './AdminStore.css';
+
+const KIOSK_FLAG = '--kiosk-printing';
+
+// Cupom de exemplo para testar a impressora sem fazer pedido
+const TEST_ORDER = {
+  id: 0,
+  created_at: new Date().toISOString(),
+  name: 'TESTE DE IMPRESSÃO',
+  phone_number: '(00) 00000-0000',
+  delivery_address: 'Rua de Teste, 123',
+  delivery_neighborhood: 'Centro',
+  notes: 'Se você está lendo isto, a impressora está funcionando!',
+  items: [
+    { quantity: 2, unit: 'un', product_name: 'Produto de teste', price: 5 },
+    { quantity: 0.5, unit: 'kg', product_name: 'Produto por peso', price: 20 }
+  ],
+  delivery_fee: 2,
+  discount: 0,
+  total: 22,
+  payment_method: 'dinheiro',
+  change_for: 50
+};
 
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
@@ -45,6 +67,18 @@ function AdminStore() {
 
   const setDay = (i, field, value) => {
     setStore({ ...store, hours: store.hours.map((h, idx) => (idx === i ? { ...h, [field]: value } : h)) });
+  };
+
+  const [copied, setCopied] = useState(false);
+
+  const copyFlag = async () => {
+    try {
+      await navigator.clipboard.writeText(` ${KIOSK_FLAG}`);
+    } catch {
+      window.prompt('Copie o comando:', ` ${KIOSK_FLAG}`);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   const toggleAutoPrint = () => {
@@ -122,10 +156,30 @@ function AdminStore() {
             <input type="checkbox" checked={autoPrint} onChange={toggleAutoPrint} />
             <span>Imprimir pedidos novos automaticamente <em>neste computador</em></span>
           </label>
-          <p className="as-help">
-            Deixe o painel Admin aberto. Para imprimir sem a janela de confirmação, abra o Chrome com o atalho
-            que tem <code>--kiosk-printing</code> e deixe a impressora (ex: Bematech MP-4200 TH) como padrão do Windows.
-          </p>
+          <div className="as-print-guide">
+            <strong>📋 Como deixar a impressão automática (Bematech MP-4200 TH)</strong>
+            <ol>
+              <li>Instale o driver da Bematech e deixe a <b>MP-4200 TH como impressora padrão</b> do Windows (papel 80mm).</li>
+              <li>
+                Crie um atalho do Chrome na área de trabalho. Clique com o botão direito → <b>Propriedades</b> e,
+                no fim do campo <b>Destino</b>, acrescente (com um espaço antes):
+                <div className="as-flag">
+                  <code>{KIOSK_FLAG}</code>
+                  <button type="button" className="as-btn-light" onClick={copyFlag}>{copied ? '✅ Copiado' : '📋 Copiar'}</button>
+                </div>
+              </li>
+              <li>Feche <b>todas</b> as janelas do Chrome e abra pelo atalho novo.</li>
+              <li>Marque a opção acima (<b>Imprimir pedidos novos automaticamente</b>).</li>
+              <li>Deixe o <b>painel Admin aberto</b> durante o expediente: a cada 20 s ele confere pedidos novos, apita e imprime.</li>
+            </ol>
+            <p className="as-help">
+              Manual: <b>📦 Pedidos → 🖨️</b> (primeira coluna). Se aparecer a janela de impressão, o Chrome não foi aberto pelo atalho.
+              Se sair em outra impressora, a Bematech não está como padrão.
+            </p>
+            <button type="button" className="as-btn-light" onClick={() => printOrder({ ...TEST_ORDER, created_at: new Date().toISOString() })}>
+              🖨️ Imprimir teste
+            </button>
+          </div>
         </div>
       </div>
 
