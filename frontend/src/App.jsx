@@ -141,6 +141,13 @@ function AppContent() {
 
   const inCart = Object.fromEntries(cart.map(item => [item.id, item.quantity]));
 
+  // Aviso que aparece embaixo e some sozinho (no lugar da janelinha do navegador)
+  const showToast = (text, ms = 1800) => {
+    setToast(text);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(''), ms);
+  };
+
   // qty: 1 para unidade; em kg para produto por peso (ex: 0.25 = 250 g)
   const addToCart = (product, qty = 1) => {
     const existingItem = cart.find(item => item.id === product.id);
@@ -153,9 +160,7 @@ function AppContent() {
     } else {
       setCart([...cart, { ...product, quantity: qty }]);
     }
-    setToast(`✓ ${product.name} no carrinho`);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(''), 1800);
+    showToast(`✓ ${product.name} no carrinho`);
   };
 
   const removeFromCart = (productId) => {
@@ -185,11 +190,11 @@ function AppContent() {
   // ✅ Finalizar direto da vitrine (sem precisar abrir o carrinho)
   const startCheckout = () => {
     if (!storeOpen) {
-      alert(store.status.message || 'A loja está fechada no momento.');
+      showToast(`🔒 ${store.status.message || 'A loja está fechada no momento.'}`, 4000);
       return;
     }
     if (missingForMin > 0) {
-      alert(`O pedido mínimo é R$ ${minOrder.toFixed(2)}. Faltam R$ ${missingForMin.toFixed(2)}.`);
+      showToast(`O pedido mínimo é R$ ${minOrder.toFixed(2)}. Faltam R$ ${missingForMin.toFixed(2)}.`, 4000);
       return;
     }
     setShowCheckout(true);
@@ -199,7 +204,7 @@ function AppContent() {
     setCart([]);
     setShowCheckout(false);
     setView('store');
-    alert('Pedido realizado com sucesso!');
+    showToast('✅ Pedido realizado com sucesso!', 3500);
   };
 
   // 🔁 Pedir de novo: coloca no carrinho os itens de um pedido antigo
@@ -221,7 +226,7 @@ function AppContent() {
     setCart(newCart);
     setView('cart');
     if (missing.length) {
-      alert(`Estes itens não estão disponíveis agora: ${missing.join(', ')}`);
+      showToast(`Indisponível agora: ${missing.join(', ')}`, 5000);
     }
   };
 
