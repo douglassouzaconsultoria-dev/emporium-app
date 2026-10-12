@@ -207,7 +207,8 @@ router.post('/', verifyToken, async (req, res) => {
       `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
        RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, created_at`,
-      [req.user.id, total, 'Pendente', delivery_address.trim(), method, delivery.fee, delivery.neighborhood, discount, couponCode, changeFor, notes || null]
+      // Dinheiro/cartão já entra em "Preparando" (motoboy vê na hora); PIX espera o admin conferir o pagamento
+      [req.user.id, total, method === 'pix' ? 'Pendente' : 'Preparando', delivery_address.trim(), method, delivery.fee, delivery.neighborhood, discount, couponCode, changeFor, notes || null]
     );
 
     const orderId = orderResult.rows[0].id;

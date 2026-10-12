@@ -29,15 +29,16 @@ const receiptHtml = (order) => {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Pedido #${order.id}</title>
 <style>
   @page { margin: 4mm; }
-  body { font-family: 'Courier New', monospace; font-size: 13px; width: 72mm; margin: 0 auto; color: #000; }
-  h1 { font-size: 18px; text-align: center; margin: 0; }
-  h2 { font-size: 22px; text-align: center; margin: 6px 0; }
+  /* Térmica: fonte de traço grosso e tudo em negrito para não sair apagado */
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: bold; width: 72mm; margin: 0 auto; color: #000; }
+  h1 { font-size: 20px; font-weight: 900; text-align: center; margin: 0; }
+  h2 { font-size: 26px; font-weight: 900; text-align: center; margin: 6px 0; }
   .c { text-align: center; }
   .r { text-align: right; white-space: nowrap; }
-  hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
-  table { width: 100%; border-collapse: collapse; font-size: inherit; }
+  hr { border: 0; border-top: 2px dashed #000; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: inherit; font-weight: inherit; }
   td { vertical-align: top; padding: 2px 0; }
-  .total td { font-size: 15px; font-weight: bold; }
+  .total td { font-size: 18px; font-weight: 900; }
 </style></head><body>
   <h1>EMPÓRIO BRUMADO</h1>
   <div class="c">Delivery de Supermercado</div>

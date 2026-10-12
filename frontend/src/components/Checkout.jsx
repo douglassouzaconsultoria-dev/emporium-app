@@ -4,6 +4,7 @@ import { AuthContext } from '../AuthContext';
 import { formatQty, lineTotal } from '../utils/units';
 import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
+import PixNotice from './PixNotice';
 import './Checkout.css';
 
 const OTHER = '__outro';
@@ -233,9 +234,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
                 <p style={{ fontSize: '12px', color: '#888', margin: '4px 0' }}>
                   Chave PIX (CNPJ): <strong>{PIX_CONFIG.keyDisplay}</strong>
                 </p>
-                <p style={{ fontSize: '12px', color: '#888', margin: '4px 0 14px' }}>
-                  Seu pedido será separado assim que confirmarmos o pagamento.
-                </p>
+                <PixNotice orderId={orderId} />
 
                 <button
                   type="button"
@@ -264,7 +263,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
                 {needChange ? ` — levaremos troco para R$ ${changeValue.toFixed(2)} (troco de R$ ${(changeValue - orderTotal).toFixed(2)})` : ' — valor certinho, sem troco'}
               </p>
             )}
-            {paymentMethod !== 'pix' && <p>Você pode acompanhar o status em "Meus Pedidos"</p>}
+            {paymentMethod !== 'pix' && <p>👨‍🍳 Seu pedido já foi para preparo! Acompanhe em "Meus Pedidos".</p>}
           </div>
         </div>
       </div>
@@ -479,6 +478,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
           {paymentMethod === 'pix' && (
             <div className="card-message">
               <p>📱 Após confirmar, vamos mostrar o QR Code e o código Copia e Cola com o valor do pedido.</p>
+              <PixNotice />
             </div>
           )}
 
