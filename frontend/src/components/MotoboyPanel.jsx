@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { API_URL } from '../config';
 import { formatQty } from '../utils/units';
 import { AuthContext } from '../AuthContext';
@@ -7,6 +7,30 @@ import './MotoboyPanel.css';
 
 const CITY = 'Patrocínio - MG';
 const REFRESH_MS = 20000; // atualiza a cada 20 segundos
+const ALERT_REPEAT_MS = 10000; // repete o alerta até o motoboy tocar na tela
+const ALERT_MAX_REPEATS = 6;
+
+// 🔔 Três bipes fortes (diferente do admin) + vibração
+const playAlert = (ctx) => {
+  if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]);
+  if (!ctx) return;
+  try {
+    if (ctx.state === 'suspended') ctx.resume();
+    [0, 0.35, 0.7].forEach(t => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = 1046;
+      gain.gain.value = 0.5;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.22);
+    });
+  } catch (err) {
+    console.error('Sem som:', err);
+  }
+};
 
 function MotoboyPanel({ onLogout }) {
   const { user, token } = useContext(AuthContext);
@@ -21,6 +45,26 @@ function MotoboyPanel({ onLogout }) {
   const [openMapId, setOpenMapId] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [lastUpdate, setLastUpdate] = useState(null);
+
+  // 🔔 Alerta de entrega nova
+  const audioRef = useRef(null);          // o celular só libera som depois de um toque na tela
+  const [soundOn, setSoundOn] = useState(false);
+  const [newAlert, setNewAlert] = useState(null); // { text, tab }
+  const knownRef = useRef(null);          // ids já vistos (disponíveis + minhas)
+  const mineRef = useRef(new Set());
+  const claimedRef = useRef(new Set());   // pegas pelo próprio motoboy: não apitam
+
+  const enableSound = () => {
+    try {
+      const ctx = audioRef.current || new (window.AudioContext || window.webkitAudioContext)();
+      ctx.resume();
+      audioRef.current = ctx;
+      setSoundOn(true);
+      playAlert(ctx); // toca uma vez para ele saber como é
+    } catch (err) {
+      console.error('Sem som:', err);
+    }
+  };
 
   const showMessage = (type, text) => {
     setMessage({ type, text });
@@ -42,6 +86,21 @@ function MotoboyPanel({ onLogout }) {
       if (!res.ok) throw new Error('Erro ao buscar entregas');
 
       const data = await res.json();
+
+      const availIds = data.available.map(o => o.id);
+      const mineIds = data.mine.map(o => o.id);
+      if (knownRef.current) {
+        const newAvail = availIds.filter(id => !knownRef.current.has(id));
+        const newMine = mineIds.filter(id => !mineRef.current.has(id) && !claimedRef.current.has(id));
+        if (newMine.length) {
+          setNewAlert({ text: `🛵 ${newMine.length > 1 ? `${newMine.length} entregas novas` : 'Entrega nova'} para você!`, tab: 'mine' });
+        } else if (newAvail.length) {
+          setNewAlert({ text: `📋 ${newAvail.length > 1 ? `${newAvail.length} entregas disponíveis` : 'Nova entrega disponível'}!`, tab: 'available' });
+        }
+      }
+      knownRef.current = new Set([...availIds, ...mineIds]);
+      mineRef.current = new Set(mineIds);
+
       setMine(data.mine);
       setAvailable(data.available);
       setDeliveredToday(data.delivered_today);
@@ -60,9 +119,32 @@ function MotoboyPanel({ onLogout }) {
     return () => clearInterval(timer);
   }, [fetchDeliveries]);
 
+  // Toca e repete até o motoboy tocar no aviso
+  useEffect(() => {
+    if (!newAlert) return;
+    document.title = `🔔 ${newAlert.text}`;
+    let count = 1;
+    playAlert(audioRef.current);
+    const timer = setInterval(() => {
+      if (count++ >= ALERT_MAX_REPEATS) return clearInterval(timer);
+      playAlert(audioRef.current);
+    }, ALERT_REPEAT_MS);
+    return () => {
+      clearInterval(timer);
+      document.title = 'EMPÓRIO BRUMADO - Motoboy';
+    };
+  }, [newAlert]);
+
+  const openAlert = () => {
+    setTab(newAlert.tab);
+    setView('deliveries');
+    setNewAlert(null);
+  };
+
   const claimDelivery = async (order) => {
     try {
       setBusyId(order.id);
+      claimedRef.current.add(order.id);
       const res = await fetch(`${API_URL}/motoboys/me/deliveries/${order.id}/claim`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -181,6 +263,19 @@ function MotoboyPanel({ onLogout }) {
           <button className="mb-logout" onClick={onLogout}>Sair</button>
         </div>
       </header>
+
+      {newAlert && (
+        <button className="mb-alert" onClick={openAlert}>
+          <strong>{newAlert.text}</strong>
+          <span>Toque para ver</span>
+        </button>
+      )}
+
+      {!soundOn && (
+        <button className="mb-sound" onClick={enableSound}>
+          🔔 Toque aqui para ativar o som dos alertas de entrega
+        </button>
+      )}
 
       <main className="mb-main">
         {view === 'profile' ? (
