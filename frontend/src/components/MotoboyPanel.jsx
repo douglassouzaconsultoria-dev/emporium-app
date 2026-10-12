@@ -271,10 +271,15 @@ function MotoboyPanel({ onLogout }) {
         </button>
       )}
 
-      {!soundOn && (
+      {!soundOn ? (
         <button className="mb-sound" onClick={enableSound}>
           🔔 Toque aqui para ativar o som dos alertas de entrega
+          <small>Deixe este app aberto e a tela ligada para ouvir quando chegar entrega.</small>
         </button>
+      ) : (
+        <div className="mb-sound-on">
+          🔔 Som ativado. Mantenha o app aberto e a tela ligada para receber os alertas.
+        </div>
       )}
 
       <main className="mb-main">
