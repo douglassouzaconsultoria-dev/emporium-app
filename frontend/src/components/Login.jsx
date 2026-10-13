@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../AuthContext';
+import { canInstall, requestInstall } from './InstallBanner';
 import './Auth.css';
 
 function Login({ onSwitchToRegister }) {
@@ -29,7 +30,14 @@ function Login({ onSwitchToRegister }) {
       <div className="auth-box">
         <img src="/logo-eb.svg" alt="" className="auth-logo" />
         <h1>EMPÓRIO BRUMADO</h1>
+        <p className="auth-tagline">Seu delivery de supermercado</p>
         <h2>Login</h2>
+
+        {canInstall() && (
+          <button type="button" className="auth-install" onClick={requestInstall}>
+            📲 Baixar o app no celular
+          </button>
+        )}
 
         {message && <div className={`auth-message ${message.includes('✅') ? 'success' : 'error'}`}>{message}</div>}
 

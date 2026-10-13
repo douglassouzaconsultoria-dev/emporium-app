@@ -133,3 +133,27 @@
   height: 88px;
   margin: 0 auto 12px;
 }
+
+/* 📲 Baixar o app (só no celular, se ainda não instalado) */
+.auth-install {
+  display: block;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 2px dashed #C41E3A;
+  border-radius: 10px;
+  background: #fff5f6;
+  color: #C41E3A;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.auth-tagline {
+  margin: -4px 0 14px;
+  text-align: center;
+  color: #C41E3A;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
