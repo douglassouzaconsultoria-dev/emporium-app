@@ -88,8 +88,8 @@ function InstallBanner() {
             <h3>📲 Instale o app em 3 passos</h3>
             {isIOS ? (
               <ol>
-                <li>Abra este site no <b>Safari</b>.</li>
-                <li>Toque em <b>Compartilhar</b> <span className="install-icon">⬆️</span> (na barra de baixo).</li>
+                <li>Abra este site no <b>Chrome</b>.</li>
+                <li>Toque em <b>Compartilhar</b> <span className="install-icon">⬆️</span> (no canto de cima, ao lado do endereço).</li>
                 <li>Toque em <b>"Adicionar à Tela de Início"</b> e depois em <b>Adicionar</b>.</li>
               </ol>
             ) : (
