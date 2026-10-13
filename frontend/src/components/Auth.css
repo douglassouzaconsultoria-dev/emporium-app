@@ -157,3 +157,39 @@
   font-weight: 700;
   letter-spacing: 0.3px;
 }
+
+/* 🛒 Chamada para cadastro */
+.auth-signup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #eee;
+  text-align: center;
+}
+
+.auth-signup span {
+  font-size: 14px;
+  color: #666;
+  font-weight: 600;
+}
+
+.auth-signup button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: #C41E3A;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
+}
+
+.auth-signup small {
+  font-size: 12px;
+  color: #888;
+}
