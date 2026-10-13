@@ -14,6 +14,7 @@ import Admin from './components/Admin';
 import MyOrders from './components/MyOrders';
 import Profile from './components/Profile';
 import MotoboyPanel from './components/MotoboyPanel';
+import InstallBanner from './components/InstallBanner';
 
 function AppContent() {
   const { user, token, loading, logout } = useContext(AuthContext);
@@ -428,6 +429,7 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
+      <InstallBanner />
       <AppContent />
     </AuthProvider>
   );
