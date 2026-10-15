@@ -7,7 +7,7 @@ import { getImageUrl } from '../utils/imageUrl';
 import AdminImportProducts from './AdminImportProducts';
 import AdminProductsGrid from './AdminProductsGrid';
 
-const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', estoque: '', active: true };
+const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true };
 
 // Sugestões de unidade (pode digitar outra)
 const UNIT_SUGGESTIONS = ['un', 'kg', 'pacote', 'caixa', 'litro', 'garrafa', 'lata', 'dúzia', 'bandeja', 'fardo'];
@@ -146,6 +146,7 @@ function AdminProducts() {
       description: product.description ?? '',
       unit: product.unit,
       category_id: product.category_id,
+      subcategory: product.subcategory || '',
       estoque: product.estoque ?? 0,
       active: product.active !== false
     });
@@ -204,6 +205,7 @@ function AdminProducts() {
       fd.append('category_id', parseInt(formData.category_id));
       fd.append('promo_price', formData.promo_price === '' ? '' : parseFloat(formData.promo_price));
       fd.append('description', formData.description || '');
+      fd.append('subcategory', formData.subcategory || '');
       fd.append('active', formData.active ? 'true' : 'false');
       if (imageFile) fd.append('image', imageFile);
       else if (modalMode === 'create' && editingProduct?.image_url) fd.append('image_url', editingProduct.image_url);
@@ -558,6 +560,24 @@ function AdminProducts() {
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
+                </div>
+                <div className="ap-form-group">
+                  <label>Subcategoria (opcional)</label>
+                  <input
+                    type="text"
+                    maxLength={60}
+                    list="ap-subcats"
+                    placeholder="Ex: Refrigerantes"
+                    value={formData.subcategory}
+                    onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                    className="ap-input"
+                  />
+                  <datalist id="ap-subcats">
+                    {[...new Set(products
+                      .filter(p => p.category_id === parseInt(formData.category_id) && p.subcategory)
+                      .map(p => p.subcategory))].map(sub => <option key={sub} value={sub} />)}
+                  </datalist>
+                  <small>Vira uma abinha dentro da categoria na loja (ex: Bebidas → Refrigerantes, Sucos).</small>
                 </div>
                 <div className="ap-form-group">
                   <label>Estoque{isKg(formData.unit) ? ' (em kg, ex: 2.5)' : ''}</label>

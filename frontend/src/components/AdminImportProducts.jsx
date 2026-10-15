@@ -9,6 +9,7 @@ const COLUMNS = {
   preco: ['preco', 'valor', 'preco_normal'],
   unidade: ['unidade', 'un', 'medida'],
   categoria: ['categoria', 'secao', 'setor'],
+  subcategoria: ['subcategoria', 'sub_categoria', 'subsecao'],
   estoque: ['estoque', 'quantidade', 'qtd'],
   preco_oferta: ['preco_oferta', 'oferta', 'promocao', 'preco_promocional'],
   descricao: ['descricao', 'detalhes', 'observacao']
@@ -18,10 +19,10 @@ const keyOf = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
 const TEMPLATE = [
-  'nome;preco;unidade;categoria;estoque;preco_oferta;descricao',
-  'Arroz Tipo 1 5kg;29,90;un;Mercearia;20;;Pacote 5kg',
-  'Queijo Mussarela;45,00;kg;Frios;8;39,90;Fatiado na hora',
-  'Refrigerante Cola 2L;9,99;garrafa;Bebidas;30;;'
+  'nome;preco;unidade;categoria;subcategoria;estoque;preco_oferta;descricao',
+  'Arroz Tipo 1 5kg;29,90;un;Mercearia;Arroz e Feijão;20;;Pacote 5kg',
+  'Queijo Mussarela;45,00;kg;Frios;Queijos;8;39,90;Fatiado na hora',
+  'Refrigerante Cola 2L;9,99;garrafa;Bebidas;Refrigerantes;30;;'
 ].join('\r\n');
 
 // CSV simples: aceita ; ou , e campos entre aspas
@@ -138,7 +139,7 @@ function AdminImportProducts({ products, onClose, onDone }) {
               Baixe o modelo e preencha no Excel (uma linha por produto).
               <button type="button" className="ap-btn-icon" onClick={downloadTemplate}>⬇️ Baixar modelo</button>
             </li>
-            <li>Colunas: <b>nome</b>, <b>preco</b>, <b>categoria</b> (obrigatórias), unidade, estoque, preco_oferta, descricao.</li>
+            <li>Colunas: <b>nome</b>, <b>preco</b>, <b>categoria</b> (obrigatórias), subcategoria, unidade, estoque, preco_oferta, descricao.</li>
             <li>Produto com o <b>mesmo nome</b> de um já cadastrado é <b>atualizado</b>. Categoria que não existe é criada.</li>
             <li>Salve como <b>.xlsx</b> ou <b>.csv</b> e escolha o arquivo abaixo.</li>
           </ol>
@@ -167,7 +168,7 @@ function AdminImportProducts({ products, onClose, onDone }) {
               <div className="ap-import-table">
                 <table>
                   <thead>
-                    <tr><th></th><th>Nome</th><th>Preço</th><th>Un.</th><th>Categoria</th><th>Estoque</th><th>Oferta</th></tr>
+                    <tr><th></th><th>Nome</th><th>Preço</th><th>Un.</th><th>Categoria</th><th>Subcategoria</th><th>Estoque</th><th>Oferta</th></tr>
                   </thead>
                   <tbody>
                     {rows.slice(0, 100).map((r, i) => (
@@ -177,6 +178,7 @@ function AdminImportProducts({ products, onClose, onDone }) {
                         <td>{String(r.preco)}</td>
                         <td>{String(r.unidade || 'un')}</td>
                         <td>{String(r.categoria)}</td>
+                        <td>{String(r.subcategoria ?? '')}</td>
                         <td>{String(r.estoque ?? '')}</td>
                         <td>{String(r.preco_oferta ?? '')}</td>
                       </tr>

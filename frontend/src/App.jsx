@@ -379,7 +379,7 @@ function AppContent() {
                   className="cat-section"
                   style={{ scrollMarginTop: headerHeight + 70 }}
                 >
-                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} inCart={inCart} row />
+                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} inCart={inCart} row subcats={section.id !== 'ofertas'} />
                 </section>
               ))
             )}
