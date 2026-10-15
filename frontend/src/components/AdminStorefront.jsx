@@ -241,6 +241,7 @@ function AdminStorefront({ section }) {
               </div>
               {prodMode !== 'manual' && (
                 <p className="sf-hint">
+                  As abinhas de subcategoria (🏷️) aparecem na loja na ordem em que os produtos dela aparecem aqui.{' '}
                   {prodMode === 'bestsellers' ? 'Ordem automática pelos pedidos dos últimos 30 dias.' : 'Ordem automática pelo nome.'}
                   {' '}Se mover algum produto com as setas e salvar, a categoria passa para "Do meu jeito".
                 </p>
@@ -258,7 +259,7 @@ function AdminStorefront({ section }) {
                       </span>
                       <span className="ate-label sf-prod">
                         {p.name}
-                        <small>{p.sold ? `${p.sold} pedido(s) em 30 dias` : 'sem pedidos em 30 dias'}{p.active === false ? ' · oculto' : ''}</small>
+                        <small>{p.subcategory ? `🏷️ ${p.subcategory} · ` : ''}{p.sold ? `${p.sold} pedido(s) em 30 dias` : 'sem pedidos em 30 dias'}{p.active === false ? ' · oculto' : ''}</small>
                       </span>
                       <select
                         className="sf-move"

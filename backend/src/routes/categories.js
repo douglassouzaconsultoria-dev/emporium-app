@@ -34,17 +34,22 @@ router.put('/order', verifyAdmin, async (req, res) => {
 
 // 🔒 PUT - Apenas ADMIN (mostrar/ocultar na vitrine e como ordenar os produtos dela)
 router.put('/:id/display', verifyAdmin, async (req, res) => {
-  const { active, product_sort } = req.body;
+  const { active, product_sort, subcategory_order } = req.body;
   if (product_sort !== undefined && !['az', 'bestsellers', 'manual'].includes(product_sort)) {
     return res.status(400).json({ error: 'Ordenação inválida' });
   }
+  // Ordem das abinhas de subcategoria na loja (lista de nomes)
+  const subOrder = Array.isArray(subcategory_order)
+    ? JSON.stringify([...new Set(subcategory_order.map(s => String(s).trim().slice(0, 60)).filter(Boolean))].slice(0, 50))
+    : null;
   try {
     const result = await pool.query(
       `UPDATE categories SET
          active = COALESCE($1, active),
-         product_sort = COALESCE($2, product_sort)
+         product_sort = COALESCE($2, product_sort),
+         subcategory_order = COALESCE($4, subcategory_order)
        WHERE id = $3 RETURNING *`,
-      [typeof active === 'boolean' ? active : null, product_sort || null, req.params.id]
+      [typeof active === 'boolean' ? active : null, product_sort || null, req.params.id, subOrder]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' });
     res.json(result.rows[0]);

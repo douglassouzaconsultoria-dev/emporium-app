@@ -29,3 +29,16 @@ export const PRODUCT_SORT_LABELS = {
   az: '🔤 A a Z',
   manual: '✋ Do meu jeito (manual)'
 };
+
+// 🏷️ Ordem das subcategorias de uma categoria: primeiro a ordem salva pelo admin,
+// depois as que ainda não estão nela, na ordem em que aparecem nos produtos
+export const subcategoryOrder = (category, products) => {
+  let saved = [];
+  try {
+    saved = JSON.parse(category?.subcategory_order || '[]');
+  } catch {
+    saved = [];
+  }
+  const present = [...new Set(products.map(p => p.subcategory).filter(Boolean))];
+  return [...saved.filter(s => present.includes(s)), ...present.filter(s => !saved.includes(s))];
+};

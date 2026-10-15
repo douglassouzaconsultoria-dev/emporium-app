@@ -60,6 +60,9 @@ const parsePromo = (value) => {
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
 };
 
+// Subcategoria (opcional): texto livre, ex: "Refrigerantes"
+const parseSub = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').slice(0, 60) || null;
+
 // Vem do formulário (multipart) como texto
 const parseActive = (value) => value === undefined || value === true || value === 'true';
 
@@ -69,7 +72,7 @@ router.get('/', async (req, res) => {
     // sold = em quantos pedidos (não cancelados) o produto saiu nos últimos 30 dias → "mais vendidos"
     const result = await pool.query(
       `SELECT p.id, p.name, p.price, p.promo_price, p.description, p.active, p.unit, p.category_id,
-              p.image_url, p.estoque, p.sort_order, COALESCE(s.sold, 0)::int AS sold
+              p.image_url, p.estoque, p.sort_order, p.subcategory, COALESCE(s.sold, 0)::int AS sold
        FROM products p
        LEFT JOIN (
          SELECT oi.product_id, COUNT(DISTINCT oi.order_id) AS sold
@@ -117,7 +120,7 @@ router.get('/:id', async (req, res) => {
 // 🔒 POST - Apenas ADMIN (criar produto)
 router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
   try {
-    const { name, price, unit, category_id, estoque, promo_price, description, active } = req.body;
+    const { name, price, unit, category_id, estoque, promo_price, description, active, subcategory } = req.body;
     if (!name || !price || !unit || !category_id) {
       return res.status(400).json({ error: 'Todos os campos obrigatórios não foram preenchidos' });
     }
@@ -135,9 +138,9 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
     const estoqueInicial = parseFloat(estoque) || 0;
 
     const result = await pool.query(
-      `INSERT INTO products (name, price, unit, category_id, image_url, estoque, promo_price, description, active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [name, price, unit, category_id, imageUrl, estoqueInicial, promo, (description || '').trim() || null, parseActive(active)]
+      `INSERT INTO products (name, price, unit, category_id, image_url, estoque, promo_price, description, active, subcategory)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [name, price, unit, category_id, imageUrl, estoqueInicial, promo, (description || '').trim() || null, parseActive(active), parseSub(subcategory)]
     );
 
     // ⚙️ Produto novo com estoque já nasce AUTOMÁTICO (renova toda semana para a quantidade cadastrada).
@@ -179,7 +182,7 @@ router.put('/order', verifyAdmin, async (req, res) => {
 router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, price, unit, category_id, promo_price, description, active } = req.body;
+    const { name, price, unit, category_id, promo_price, description, active, subcategory } = req.body;
 
     if (!name || !price || !unit || !category_id) {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
@@ -206,9 +209,11 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
 
     const result = await pool.query(
       `UPDATE products SET name = $1, price = $2, unit = $3, category_id = $4, image_url = $5,
-              promo_price = $6, description = $7, active = $8
+              promo_price = $6, description = $7, active = $8,
+              subcategory = CASE WHEN $11 THEN $10 ELSE subcategory END
        WHERE id = $9 RETURNING *`,
-      [name, price, unit, category_id, imageUrl, promo, (description || '').trim() || null, parseActive(active), id]
+      [name, price, unit, category_id, imageUrl, promo, (description || '').trim() || null, parseActive(active), id,
+        parseSub(subcategory), subcategory !== undefined]
     );
 
     if (result.rows.length === 0) {
@@ -260,6 +265,8 @@ router.post('/import', verifyAdmin, async (req, res) => {
       hasPromo: Object.prototype.hasOwnProperty.call(r, 'preco_oferta'), // sem a coluna → não mexe na oferta
       hasDesc: Object.prototype.hasOwnProperty.call(r, 'descricao'), // coluna vazia → apaga a descrição
       description: String(r.descricao || '').trim() || null,
+      hasSub: Object.prototype.hasOwnProperty.call(r, 'subcategoria'), // sem a coluna → não mexe
+      subcategory: parseSub(r.subcategoria),
       id: parseInt(r.id) || null
     };
   });
@@ -291,18 +298,20 @@ router.post('/import', verifyAdmin, async (req, res) => {
           `UPDATE products SET name = $10, price = $1, unit = $2, category_id = $3,
                   promo_price = CASE WHEN $8 THEN $4 ELSE promo_price END,
                   description = CASE WHEN $9 THEN $5 ELSE COALESCE($5, description) END,
-                  estoque = COALESCE($6, estoque)
+                  estoque = COALESCE($6, estoque),
+                  subcategory = CASE WHEN $12 THEN $11 ELSE subcategory END
            WHERE id = $7`,
-          [r.price, r.unit, categoryId, r.promo, r.description, r.stock, existingId, r.hasPromo, r.hasDesc, r.name]
+          [r.price, r.unit, categoryId, r.promo, r.description, r.stock, existingId, r.hasPromo, r.hasDesc, r.name,
+            r.subcategory, r.hasSub]
         );
         prods.set(key(r.name), existingId);
         updated++;
       } else {
         const stock = r.stock || 0;
         const id = (await client.query(
-          `INSERT INTO products (name, price, unit, category_id, estoque, promo_price, description, active)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING id`,
-          [r.name, r.price, r.unit, categoryId, stock, r.promo, r.description]
+          `INSERT INTO products (name, price, unit, category_id, estoque, promo_price, description, active, subcategory)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8) RETURNING id`,
+          [r.name, r.price, r.unit, categoryId, stock, r.promo, r.description, r.subcategory]
         )).rows[0].id;
         // Igual ao cadastro manual: com estoque já entra no automático (renova toda semana)
         await client.query(
@@ -327,6 +336,39 @@ router.post('/import', verifyAdmin, async (req, res) => {
   }
 });
 
+// 🔒 PUT - Apenas ADMIN (colocar o produto numa subcategoria; vazio = sem subcategoria)
+router.put('/:id/subcategory', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'UPDATE products SET subcategory = $1 WHERE id = $2 RETURNING *',
+      [parseSub(req.body.subcategory), req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Produto não encontrado' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao mudar subcategoria' });
+  }
+});
+
+// 🔒 POST - Apenas ADMIN (renomear ou apagar uma subcategoria da categoria; to vazio = apagar)
+router.post('/subcategories/rename', verifyAdmin, async (req, res) => {
+  const categoryId = parseInt(req.body.category_id);
+  const from = parseSub(req.body.from);
+  const to = parseSub(req.body.to);
+  if (!categoryId || !from) return res.status(400).json({ error: 'Dados inválidos' });
+  try {
+    const result = await pool.query(
+      'UPDATE products SET subcategory = $1 WHERE category_id = $2 AND subcategory = $3',
+      [to, categoryId, from]
+    );
+    res.json({ updated: result.rowCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao renomear subcategoria' });
+  }
+});
+
 // 🔒 PUT - Apenas ADMIN (mover o produto para outra categoria)
 router.put('/:id/category', verifyAdmin, async (req, res) => {
   try {
@@ -335,7 +377,7 @@ router.put('/:id/category', verifyAdmin, async (req, res) => {
     if (cat.rows.length === 0) return res.status(400).json({ error: 'Categoria inválida' });
     // Vai para o fim da ordem manual da nova categoria
     const result = await pool.query(
-      'UPDATE products SET category_id = $1, sort_order = NULL WHERE id = $2 RETURNING *',
+      'UPDATE products SET category_id = $1, sort_order = NULL, subcategory = NULL WHERE id = $2 RETURNING *',
       [categoryId, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Produto não encontrado' });

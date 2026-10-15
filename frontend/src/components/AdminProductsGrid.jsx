@@ -7,6 +7,7 @@ const COLS = [
   { key: 'preco', label: 'Preço *', width: 90, num: true },
   { key: 'unidade', label: 'Unidade', width: 90, list: 'grid-units' },
   { key: 'categoria', label: 'Categoria *', width: 150, list: 'grid-cats' },
+  { key: 'subcategoria', label: 'Subcategoria', width: 140, list: 'grid-subcats' },
   { key: 'estoque', label: 'Estoque', width: 80, num: true },
   { key: 'preco_oferta', label: 'Oferta', width: 90, num: true },
   { key: 'descricao', label: 'Descrição', width: 220 }
@@ -14,7 +15,7 @@ const COLS = [
 
 const UNITS = ['un', 'kg', 'pacote', 'caixa', 'litro', 'garrafa', 'lata', 'dúzia', 'bandeja', 'fardo'];
 
-const blank = () => ({ id: null, nome: '', preco: '', unidade: 'un', categoria: '', estoque: '', preco_oferta: '', descricao: '' });
+const blank = () => ({ id: null, nome: '', preco: '', unidade: 'un', categoria: '', subcategoria: '', estoque: '', preco_oferta: '', descricao: '' });
 
 const money = (v) => (v === null || v === undefined || v === '' ? '' : Number(v).toFixed(2).replace('.', ','));
 const qty = (v) => (v === null || v === undefined || v === '' ? '' : String(v).replace('.', ','));
@@ -31,6 +32,7 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
     preco: money(p.price),
     unidade: p.unit || 'un',
     categoria: catName(p.category_id),
+    subcategoria: p.subcategory || '',
     estoque: qty(p.estoque),
     preco_oferta: money(p.promo_price),
     descricao: p.description || ''
@@ -188,6 +190,9 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
           </table>
           <datalist id="grid-units">{UNITS.map(u => <option key={u} value={u} />)}</datalist>
           <datalist id="grid-cats">{categories.map(c => <option key={c.id} value={c.name} />)}</datalist>
+          <datalist id="grid-subcats">
+            {[...new Set(products.map(p => p.subcategory).filter(Boolean))].sort().map(s => <option key={s} value={s} />)}
+          </datalist>
         </div>
 
         <div className="ap-modal-footer">

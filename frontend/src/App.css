@@ -1037,3 +1037,36 @@ body {
   display: block;
   color: #1e40af;
 }
+
+/* 🏷️ Subcategorias dentro da categoria */
+.subcat-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: -4px 0 6px;
+  padding: 2px 2px 4px;
+}
+
+.subcat-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.subcat-chips button {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border: 1.5px solid var(--border-light);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--dark-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.subcat-chips button.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--white);
+}

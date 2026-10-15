@@ -75,12 +75,32 @@ function UnitPicker({ product, onAddToCart }) {
 
 // row: uma fileira que rola para o lado (vitrine por categoria)
 // inCart: { [productId]: quantidade } para mostrar o que já está no carrinho
-function ProductList({ products, onAddToCart, title = 'Produtos', row = false, inCart = {} }) {
+// subcats: mostra as abinhas de subcategoria (na ordem em que aparecem nos produtos)
+// subOrder: ordem das abinhas definida no admin (🗂️ Organizar → subcategorias)
+function ProductList({ products, onAddToCart, title = 'Produtos', row = false, inCart = {}, subcats = false, subOrder = null }) {
+  const [activeSub, setActiveSub] = useState(null);
+  const present = [...new Set(products.map(p => p.subcategory).filter(Boolean))];
+  const subs = !subcats ? [] : subOrder
+    ? [...subOrder.filter(s => present.includes(s)), ...present.filter(s => !subOrder.includes(s))]
+    : present;
+  const current = subs.includes(activeSub) ? activeSub : null; // a busca pode ter tirado a subcategoria
+  const visible = current ? products.filter(p => p.subcategory === current) : products;
+
   return (
     <div className="products">
       <h2>{title}</h2>
+      {subs.length > 0 && (
+        <div className="subcat-chips">
+          <button className={!current ? 'active' : ''} onClick={() => setActiveSub(null)}>Todos</button>
+          {subs.map(sub => (
+            <button key={sub} className={current === sub ? 'active' : ''} onClick={() => setActiveSub(sub)}>
+              {sub}
+            </button>
+          ))}
+        </div>
+      )}
       <div className={row ? 'product-row' : 'product-grid'}>
-        {products.map(product => {
+        {visible.map(product => {
           const promo = isPromo(product);
           const off = promo ? Math.round((1 - effectivePrice(product) / parseFloat(product.price)) * 100) : 0;
           const qtyInCart = inCart[product.id];
