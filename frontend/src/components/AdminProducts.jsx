@@ -9,6 +9,37 @@ import AdminProductsGrid from './AdminProductsGrid';
 
 const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true };
 
+// 📷 Foto de celular pode passar de 5 MB (limite do servidor): reduz para no máximo 1600px antes de enviar.
+// O servidor depois tira o fundo e centraliza em 800x800.
+const MAX_SIDE = 1600;
+const prepareImage = (file) => new Promise((resolve) => {
+  if (!file) return resolve(null);
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+    if (scale === 1 && file.size < 3 * 1024 * 1024) {
+      URL.revokeObjectURL(url);
+      return resolve(file);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(
+      (blob) => resolve(blob ? new File([blob], 'produto.jpg', { type: 'image/jpeg' }) : file),
+      'image/jpeg',
+      0.9
+    );
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    resolve(file);
+  };
+  img.src = url;
+});
+
 // Sugestões de unidade (pode digitar outra)
 const UNIT_SUGGESTIONS = ['un', 'kg', 'pacote', 'caixa', 'litro', 'garrafa', 'lata', 'dúzia', 'bandeja', 'fardo'];
 
@@ -598,13 +629,28 @@ function AdminProducts() {
 
               <div className="ap-form-group">
                 <label>{modalMode === 'create' ? 'Imagem' : 'Trocar Imagem (opcional)'}</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files[0] || null)}
-                  className="ap-input"
-                />
-                <small>Pode ser qualquer foto: o fundo é removido e o produto fica centralizado em 800x800 com fundo branco.</small>
+                <div className="ap-photo-buttons">
+                  <label className="ap-photo-btn ap-photo-camera">
+                    📷 Tirar foto
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={async (e) => { setImageFile(await prepareImage(e.target.files[0])); e.target.value = ''; }}
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="ap-photo-btn">
+                    🖼️ Escolher arquivo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => { setImageFile(await prepareImage(e.target.files[0])); e.target.value = ''; }}
+                      disabled={saving}
+                    />
+                  </label>
+                </div>
+                <small>No celular, "Tirar foto" abre a câmera. Pode ser qualquer foto: o fundo é removido e o produto fica centralizado em 800x800 com fundo branco.</small>
                 {previewUrl && (
                   <div className="ap-rotate">
                     <span>Produto deitado?</span>
