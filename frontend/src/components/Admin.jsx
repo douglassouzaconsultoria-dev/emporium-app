@@ -12,6 +12,7 @@ import AdminCustomers from './AdminCustomers';
 import AdminStore from './AdminStore';
 import AdminCoupons from './AdminCoupons';
 import AdminStorefront from './AdminStorefront';
+import AdminSubcategoryBoard from './AdminSubcategoryBoard';
 import axios from 'axios';
 import { getAutoPrint, printOrderById } from '../utils/printOrder';
 
@@ -213,9 +214,11 @@ function Admin() {
             <button className={organizeSection === 'admin' ? 'active' : ''} onClick={() => setOrganizeSection('admin')}>🔧 Abas do painel</button>
             <button className={organizeSection === 'categories' ? 'active' : ''} onClick={() => setOrganizeSection('categories')}>📁 Vitrine: categorias</button>
             <button className={organizeSection === 'products' ? 'active' : ''} onClick={() => setOrganizeSection('products')}>🛍️ Vitrine: produtos</button>
+            <button className={organizeSection === 'subcats' ? 'active' : ''} onClick={() => setOrganizeSection('subcats')}>🏷️ Vitrine: subcategorias</button>
           </div>
         )}
-        {activeTab === 'tabs' && organizeSection !== 'admin' && <AdminStorefront section={organizeSection} />}
+        {activeTab === 'tabs' && (organizeSection === 'categories' || organizeSection === 'products') && <AdminStorefront section={organizeSection} />}
+        {activeTab === 'tabs' && organizeSection === 'subcats' && <AdminSubcategoryBoard />}
         {activeTab === 'tabs' && organizeSection === 'admin' && (
           <div className="admin-tabs-editor">
             <div className="ate-head">

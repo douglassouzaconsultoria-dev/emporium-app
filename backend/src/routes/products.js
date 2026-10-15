@@ -336,6 +336,39 @@ router.post('/import', verifyAdmin, async (req, res) => {
   }
 });
 
+// 🔒 PUT - Apenas ADMIN (colocar o produto numa subcategoria; vazio = sem subcategoria)
+router.put('/:id/subcategory', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'UPDATE products SET subcategory = $1 WHERE id = $2 RETURNING *',
+      [parseSub(req.body.subcategory), req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Produto não encontrado' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao mudar subcategoria' });
+  }
+});
+
+// 🔒 POST - Apenas ADMIN (renomear ou apagar uma subcategoria da categoria; to vazio = apagar)
+router.post('/subcategories/rename', verifyAdmin, async (req, res) => {
+  const categoryId = parseInt(req.body.category_id);
+  const from = parseSub(req.body.from);
+  const to = parseSub(req.body.to);
+  if (!categoryId || !from) return res.status(400).json({ error: 'Dados inválidos' });
+  try {
+    const result = await pool.query(
+      'UPDATE products SET subcategory = $1 WHERE category_id = $2 AND subcategory = $3',
+      [to, categoryId, from]
+    );
+    res.json({ updated: result.rowCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao renomear subcategoria' });
+  }
+});
+
 // 🔒 PUT - Apenas ADMIN (mover o produto para outra categoria)
 router.put('/:id/category', verifyAdmin, async (req, res) => {
   try {
@@ -344,7 +377,7 @@ router.put('/:id/category', verifyAdmin, async (req, res) => {
     if (cat.rows.length === 0) return res.status(400).json({ error: 'Categoria inválida' });
     // Vai para o fim da ordem manual da nova categoria
     const result = await pool.query(
-      'UPDATE products SET category_id = $1, sort_order = NULL WHERE id = $2 RETURNING *',
+      'UPDATE products SET category_id = $1, sort_order = NULL, subcategory = NULL WHERE id = $2 RETURNING *',
       [categoryId, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Produto não encontrado' });

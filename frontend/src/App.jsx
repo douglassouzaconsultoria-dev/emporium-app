@@ -8,7 +8,7 @@ import ProductList from './components/ProductList';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import { roundQty, lineTotal, isPromo } from './utils/units';
-import { sortCategories, sortProducts } from './utils/storefront';
+import { sortCategories, sortProducts, subcategoryOrder } from './utils/storefront';
 import SearchBar from './components/SearchBar';
 import Admin from './components/Admin';
 import MyOrders from './components/MyOrders';
@@ -379,7 +379,7 @@ function AppContent() {
                   className="cat-section"
                   style={{ scrollMarginTop: headerHeight + 70 }}
                 >
-                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} inCart={inCart} row subcats={section.id !== 'ofertas'} />
+                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} inCart={inCart} row subcats={section.id !== 'ofertas'} subOrder={section.id !== 'ofertas' ? subcategoryOrder(section, section.items) : null} />
                 </section>
               ))
             )}

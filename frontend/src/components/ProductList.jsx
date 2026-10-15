@@ -76,9 +76,13 @@ function UnitPicker({ product, onAddToCart }) {
 // row: uma fileira que rola para o lado (vitrine por categoria)
 // inCart: { [productId]: quantidade } para mostrar o que já está no carrinho
 // subcats: mostra as abinhas de subcategoria (na ordem em que aparecem nos produtos)
-function ProductList({ products, onAddToCart, title = 'Produtos', row = false, inCart = {}, subcats = false }) {
+// subOrder: ordem das abinhas definida no admin (🗂️ Organizar → subcategorias)
+function ProductList({ products, onAddToCart, title = 'Produtos', row = false, inCart = {}, subcats = false, subOrder = null }) {
   const [activeSub, setActiveSub] = useState(null);
-  const subs = subcats ? [...new Set(products.map(p => p.subcategory).filter(Boolean))] : [];
+  const present = [...new Set(products.map(p => p.subcategory).filter(Boolean))];
+  const subs = !subcats ? [] : subOrder
+    ? [...subOrder.filter(s => present.includes(s)), ...present.filter(s => !subOrder.includes(s))]
+    : present;
   const current = subs.includes(activeSub) ? activeSub : null; // a busca pode ter tirado a subcategoria
   const visible = current ? products.filter(p => p.subcategory === current) : products;
 

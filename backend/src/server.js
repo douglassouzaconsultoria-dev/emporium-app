@@ -79,6 +79,7 @@ require('./utils/database').query(`
   ALTER TABLE categories ADD COLUMN IF NOT EXISTS product_sort VARCHAR(20) DEFAULT 'az';
   ALTER TABLE products ADD COLUMN IF NOT EXISTS sort_order INTEGER;
   ALTER TABLE products ADD COLUMN IF NOT EXISTS subcategory VARCHAR(60);
+  ALTER TABLE categories ADD COLUMN IF NOT EXISTS subcategory_order TEXT;
   UPDATE categories SET name = 'Inseticidas' WHERE name = 'Inceticidas';
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS rating SMALLINT;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS rating_comment TEXT;
