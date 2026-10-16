@@ -825,6 +825,14 @@ textarea.ap-input {
   color: #fff;
 }
 
+button.ap-photo-btn {
+  font-family: inherit;
+}
+
+.ap-photo-hidden {
+  display: none;
+}
+
 .ap-photo-btn input {
   position: absolute;
   width: 1px;

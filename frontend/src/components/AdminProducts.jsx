@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../config';
 import { isKg, isPromo } from '../utils/units';
 import axios from 'axios';
@@ -6,6 +6,7 @@ import './AdminProducts.css';
 import { getImageUrl } from '../utils/imageUrl';
 import AdminImportProducts from './AdminImportProducts';
 import AdminProductsGrid from './AdminProductsGrid';
+import ProductCamera from './ProductCamera';
 
 const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true };
 
@@ -59,6 +60,8 @@ function AdminProducts() {
   const [formError, setFormError] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const cameraInputRef = useRef(null);
 
   useEffect(() => {
     fetchProducts();
@@ -630,16 +633,18 @@ function AdminProducts() {
               <div className="ap-form-group">
                 <label>{modalMode === 'create' ? 'Imagem' : 'Trocar Imagem (opcional)'}</label>
                 <div className="ap-photo-buttons">
-                  <label className="ap-photo-btn ap-photo-camera">
+                  <button type="button" className="ap-photo-btn ap-photo-camera" onClick={() => setShowCamera(true)} disabled={saving}>
                     📷 Tirar foto
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={async (e) => { setImageFile(await prepareImage(e.target.files[0])); e.target.value = ''; }}
-                      disabled={saving}
-                    />
-                  </label>
+                  </button>
+                  {/* Reserva: se o navegador não deixar abrir a câmera dentro do app */}
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="ap-photo-hidden"
+                    onChange={async (e) => { setImageFile(await prepareImage(e.target.files[0])); e.target.value = ''; }}
+                  />
                   <label className="ap-photo-btn">
                     🖼️ Escolher arquivo
                     <input
@@ -650,7 +655,14 @@ function AdminProducts() {
                     />
                   </label>
                 </div>
-                <small>No celular, "Tirar foto" abre a câmera. Pode ser qualquer foto: o fundo é removido e o produto fica centralizado em 800x800 com fundo branco.</small>
+                <small>No celular, "Tirar foto" abre a câmera traseira (🔄 troca de câmera, se precisar). Pode ser qualquer foto: o fundo é removido e o produto fica centralizado em 800x800 com fundo branco.</small>
+                {showCamera && (
+                  <ProductCamera
+                    onCapture={(file) => { setImageFile(file); setShowCamera(false); }}
+                    onClose={() => setShowCamera(false)}
+                    onUnavailable={() => { setShowCamera(false); cameraInputRef.current && cameraInputRef.current.click(); }}
+                  />
+                )}
                 {previewUrl && (
                   <div className="ap-rotate">
                     <span>Produto deitado?</span>
