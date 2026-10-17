@@ -76,4 +76,27 @@ router.put('/admin-tabs', verifyAdmin, async (req, res) => {
   }
 });
 
+// 🔒 POST - zerar pedidos (apaga todos os pedidos e itens, numeração volta para #1, usos de cupom voltam a 0)
+// Clientes, produtos, estoque, motoboys e configurações ficam como estão.
+router.post('/reset-orders', verifyAdmin, async (req, res) => {
+  if (req.body.confirm !== 'ZERAR') {
+    return res.status(400).json({ error: 'Digite ZERAR para confirmar' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query('SELECT COUNT(*)::int AS total FROM orders');
+    await client.query('TRUNCATE order_items, orders RESTART IDENTITY');
+    await client.query('UPDATE coupons SET uses = 0');
+    await client.query('COMMIT');
+    res.json({ deleted: rows[0].total });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao zerar pedidos' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

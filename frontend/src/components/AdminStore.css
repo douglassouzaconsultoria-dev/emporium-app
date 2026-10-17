@@ -338,3 +338,39 @@
   font-size: 14px;
   user-select: all;
 }
+
+.as-danger {
+  border-color: #f5c2c7;
+  background: #fff5f5;
+}
+
+.as-reset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.as-reset-row input {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.as-btn-danger {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #C41E3A;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.as-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

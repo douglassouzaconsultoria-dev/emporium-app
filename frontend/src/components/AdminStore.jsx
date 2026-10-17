@@ -70,6 +70,22 @@ function AdminStore() {
   };
 
   const [copied, setCopied] = useState(false);
+  const [resetText, setResetText] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const [resetResult, setResetResult] = useState('');
+
+  const resetOrders = async () => {
+    try {
+      setResetting(true);
+      const res = await axios.post(`${API_URL}/settings/reset-orders`, { confirm: resetText }, authHeaders());
+      setResetText('');
+      setResetResult(`✅ Pedidos zerados (${res.data.deleted} apagados). O próximo pedido será o #1.`);
+    } catch (error) {
+      setResetResult(`❌ ${error.response?.data?.error || 'Erro ao zerar pedidos'}`);
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const copyFlag = async () => {
     try {
@@ -216,6 +232,28 @@ function AdminStore() {
       <button className="as-save" onClick={() => save()} disabled={saving}>
         {saving ? '⏳ Salvando...' : '💾 Salvar configurações'}
       </button>
+
+      {/* ZERAR PEDIDOS */}
+      <div className="as-card as-danger">
+        <h3>🧹 Zerar pedidos</h3>
+        <p className="as-help">
+          Apaga <b>todos os pedidos</b> e zera o Dashboard (vendas, faturamento, mais vendidos). A numeração volta para o #1
+          e os usos dos cupons voltam a 0. Clientes, produtos, estoque, motoboys e configurações continuam iguais.
+          <b> Não dá para desfazer.</b>
+        </p>
+        <div className="as-reset-row">
+          <input
+            type="text"
+            value={resetText}
+            onChange={(e) => setResetText(e.target.value.toUpperCase())}
+            placeholder="Digite ZERAR"
+          />
+          <button type="button" className="as-btn-danger" onClick={resetOrders} disabled={resetText !== 'ZERAR' || resetting}>
+            {resetting ? '⏳ Zerando...' : '🧹 Zerar pedidos'}
+          </button>
+        </div>
+        {resetResult && <div className={`as-message ${resetResult.includes('✅') ? 'ok' : 'err'}`}>{resetResult}</div>}
+      </div>
     </div>
   );
 }
