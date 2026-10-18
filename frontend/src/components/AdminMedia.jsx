@@ -59,35 +59,60 @@ const saveBlob = (blob, filename) => {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 };
 
+// 🏪 Dados do mercado usados no adesivo e no cartão
+const STORE = {
+  phones: ['(34) 3831-8572', '(34) 98861-1448'],
+  street: 'Alameda das Imbuias, 776',
+  district: 'Morada Nova · Patrocínio - MG'
+};
+
 // 🛵 Adesivo do baú: medidas em milímetros (1 unidade do SVG = 1 mm)
-function BoxSticker({ svgRef, widthCm, heightCm, radiusCm, logo }) {
+// Texto à esquerda (nome, delivery, telefones, endereço) e QR "Baixe o app" num cartão branco
+function BoxSticker({ svgRef, widthCm, heightCm, radiusCm }) {
   const W = widthCm * 10;
   const H = heightCm * 10;
   const R = Math.min(radiusCm * 10, W / 2, H / 2);
   const landscape = W >= H * 1.15;
-  const pad = Math.min(W, H) * 0.07;
+  const pad = Math.max(R * 0.55, Math.min(W, H) * 0.07);
 
-  // Lado da marca (vermelho) e lado do QR (branco)
-  const brand = landscape ? { x: 0, y: 0, w: W * 0.56, h: H } : { x: 0, y: 0, w: W, h: H * 0.5 };
-  const qrBox = landscape ? { x: brand.w, y: 0, w: W - brand.w, h: H } : { x: 0, y: brand.h, w: W, h: H - brand.h };
+  // Áreas: texto e QR lado a lado (deitado) ou um embaixo do outro (em pé)
+  const text = landscape
+    ? { x: pad, y: pad, w: W * 0.58 - pad * 1.3, h: H - pad * 2 }
+    : { x: pad, y: pad, w: W - pad * 2, h: H * 0.5 - pad };
+  const qrArea = landscape
+    ? { x: W * 0.58, y: pad, w: W * 0.42 - pad, h: H - pad * 2 }
+    : { x: pad, y: H * 0.52, w: W - pad * 2, h: H * 0.48 - pad };
 
-  const innerW = brand.w - pad * 2;
-  const logoSize = Math.min(brand.h * (landscape ? 0.34 : 0.4), innerW * 0.45);
-  const nameSize = Math.min(innerW / (7 * 0.78), brand.h * 0.16);
-  const tagSize = Math.min(innerW / (24 * 0.6), nameSize * 0.42);
-  const blockH = logoSize + nameSize * 2.15 + tagSize * 1.9;
-  const top = brand.y + (brand.h - blockH) / 2;
+  const ARIAL = 'Arial, Helvetica, sans-serif';
+  const lines = [
+    { t: 'EMPÓRIO BRUMADO', rel: 1, k: 0.74, font: FONT, color: '#ffffff', stretch: true },
+    { t: 'DELIVERY DE SUPERMERCADO', rel: 0.5, k: 0.66, font: FONT, color: YELLOW, stretch: true, gap: 0.9 },
+    { t: 'TELEFONE', rel: 0.3, k: 0.62, font: ARIAL, bold: true, color: YELLOW },
+    { t: STORE.phones[0], rel: 0.72, k: 0.6, font: FONT, color: '#ffffff' },
+    { t: STORE.phones[1], rel: 0.72, k: 0.6, font: FONT, color: '#ffffff', gap: 0.6 },
+    { t: STORE.street, rel: 0.42, k: 0.55, font: ARIAL, bold: true, color: '#ffffff' },
+    { t: STORE.district, rel: 0.42, k: 0.52, font: ARIAL, color: '#ffffff' }
+  ];
+  const LEAD = 1.25;
+  const unit = text.h / lines.reduce((sum, l) => sum + l.rel * LEAD + (l.gap || 0), 0);
+  const sized = lines.map(l => {
+    const byWidth = text.w / (l.t.length * l.k);
+    return { ...l, size: Math.min(l.rel * unit, byWidth), fits: byWidth <= l.rel * unit };
+  });
+  const totalH = sized.reduce((sum, l) => sum + l.size * LEAD + (l.gap ? l.gap * unit * (l.size / (l.rel * unit)) : 0), 0);
+  let cursor = text.y + (text.h - totalH) / 2;
+  const anchor = landscape ? 'start' : 'middle';
+  const tx = landscape ? text.x : text.x + text.w / 2;
 
-  const qrSize = Math.min(qrBox.w * 0.62, qrBox.h * (landscape ? 0.56 : 0.6));
-  const qrTitle = Math.min(qrBox.w * 0.8 / (11 * 0.72), qrSize * 0.17);
-  const qrText = Math.min(qrBox.w * 0.85 / (26 * 0.55), qrTitle * 0.55);
-  const quiet = qrSize * 0.05;
-  const qrBlockH = qrTitle * 1.35 + qrSize + quiet * 2 + qrText * 3.3;
-  const qrTop = qrBox.y + (qrBox.h - qrBlockH) / 2;
-  const frameTop = qrTop + qrTitle * 1.35;
-  const frameBottom = frameTop + qrSize + quiet * 2;
-  const cx = qrBox.x + qrBox.w / 2;
-  const bx = brand.x + brand.w / 2;
+  // Cartão branco com o QR
+  const qrSize = Math.min(qrArea.w * 0.72, qrArea.h * (landscape ? 0.62 : 0.6));
+  const title = Math.min(qrSize * 0.17, qrArea.w * 0.85 / (11 * 0.72));
+  const caption = title * 0.48;
+  const cardW = Math.max(qrSize, title * 11 * 0.72) + qrSize * 0.2;
+  const cardH = title * 1.6 + qrSize + caption * 2.6 + qrSize * 0.1;
+  const cardX = qrArea.x + (qrArea.w - cardW) / 2;
+  const cardY = qrArea.y + (qrArea.h - cardH) / 2;
+  const cx = cardX + cardW / 2;
 
   return (
     <svg
@@ -106,49 +131,37 @@ function BoxSticker({ svgRef, widthCm, heightCm, radiusCm, logo }) {
         </linearGradient>
       </defs>
       <g clipPath="url(#bau-shape)">
-        <rect width={W} height={H} fill="#ffffff" />
-        <rect x={brand.x} y={brand.y} width={brand.w} height={brand.h} fill="url(#bau-red)" />
+        <rect width={W} height={H} fill="url(#bau-red)" />
 
-        <circle cx={bx} cy={top + logoSize / 2} r={logoSize * 0.53} fill="#ffffff" />
-        {logo && (
-          <image href={logo} x={bx - logoSize / 2} y={top} width={logoSize} height={logoSize} />
-        )}
-        <text x={bx} y={top + logoSize + nameSize * 1.0} textAnchor="middle" fill="#ffffff"
-          fontFamily={FONT} fontWeight="900" fontSize={nameSize} textLength={innerW * 0.92} lengthAdjust="spacingAndGlyphs">
-          EMPÓRIO
-        </text>
-        <text x={bx} y={top + logoSize + nameSize * 2.0} textAnchor="middle" fill="#ffffff"
-          fontFamily={FONT} fontWeight="900" fontSize={nameSize} textLength={innerW * 0.92} lengthAdjust="spacingAndGlyphs">
-          BRUMADO
-        </text>
-        <text x={bx} y={top + logoSize + nameSize * 2.15 + tagSize * 1.5} textAnchor="middle" fill={YELLOW}
-          fontFamily={FONT} fontWeight="900" fontSize={tagSize} textLength={innerW * 0.92} lengthAdjust="spacingAndGlyphs">
-          DELIVERY DE SUPERMERCADO
-        </text>
+        {sized.map((l, i) => {
+          const y = cursor + l.size;
+          cursor += l.size * LEAD + (l.gap ? l.gap * unit * (l.size / (l.rel * unit)) : 0);
+          return (
+            <text key={i} x={tx} y={y} textAnchor={anchor} fill={l.color} fontFamily={l.font}
+              fontWeight={l.font === FONT || l.bold ? '900' : '400'} fontSize={l.size}
+              {...(l.stretch && l.fits ? { textLength: text.w, lengthAdjust: 'spacingAndGlyphs' } : {})}>
+              {l.t}
+            </text>
+          );
+        })}
 
-        <text x={cx} y={qrTop + qrTitle} textAnchor="middle" fill={RED}
-          fontFamily={FONT} fontWeight="900" fontSize={qrTitle}>
+        <rect x={cardX} y={cardY} width={cardW} height={cardH} rx={qrSize * 0.08} fill="#ffffff" />
+        <text x={cx} y={cardY + title * 1.25} textAnchor="middle" fill={RED} fontFamily={FONT} fontWeight="900" fontSize={title}>
           BAIXE O APP
         </text>
-        <rect x={cx - qrSize / 2 - quiet} y={frameTop} width={qrSize + quiet * 2} height={qrSize + quiet * 2}
-          rx={quiet} fill="#ffffff" stroke={RED} strokeWidth={quiet * 0.35} />
         <QRCodeSVG
           value={APP_URL}
           size={qrSize}
           x={cx - qrSize / 2}
-          y={frameTop + quiet}
+          y={cardY + title * 1.6}
           level="M"
           marginSize={0}
           fgColor="#1a1a1a"
           bgColor="#ffffff"
         />
-        <text x={cx} y={frameBottom + qrText * 1.6} textAnchor="middle" fill="#1a1a1a"
-          fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize={qrText}>
+        <text x={cx} y={cardY + title * 1.6 + qrSize + caption * 1.7} textAnchor="middle" fill="#333"
+          fontFamily={ARIAL} fontWeight="700" fontSize={caption}>
           Aponte a câmera do celular
-        </text>
-        <text x={cx} y={frameBottom + qrText * 3.0} textAnchor="middle" fill={RED}
-          fontFamily={FONT} fontWeight="900" fontSize={qrText * 1.05}>
-          emporiobrumado.com
         </text>
       </g>
     </svg>
@@ -157,11 +170,6 @@ function BoxSticker({ svgRef, widthCm, heightCm, radiusCm, logo }) {
 
 // 💳 Cartão de visita: 9 × 5 cm + 3 mm de sangria em cada lado (a gráfica corta na linha tracejada)
 const CARD = { w: 90, h: 50, bleed: 3 };
-const STORE = {
-  phone: '(34) 3831-8572',
-  street: 'Alameda das Imbuias, 776',
-  district: 'Morada Nova · Patrocínio - MG'
-};
 
 function BusinessCard({ svgRef, side, logo }) {
   const B = CARD.bleed;
@@ -197,13 +205,14 @@ function BusinessCard({ svgRef, side, logo }) {
         <text x={col} y={B + 13} fill="#ffffff" fontFamily={FONT} fontWeight="900" fontSize="5"
           textLength={CARD.w + B - col - 4} lengthAdjust="spacingAndGlyphs">EMPÓRIO BRUMADO</text>
         <text x={col} y={B + 18.2} fill={YELLOW} fontFamily={FONT} fontWeight="900" fontSize="2.7"
-          textLength={CARD.w + B - col - 4} lengthAdjust="spacingAndGlyphs">SUPERMERCADO DE BAIRRO</text>
+          textLength={CARD.w + B - col - 4} lengthAdjust="spacingAndGlyphs">DELIVERY DE SUPERMERCADO</text>
         <line x1={col} x2={CARD.w + B - 4} y1={B + 21.5} y2={B + 21.5} stroke="#ffffff" strokeOpacity="0.45" strokeWidth="0.3" />
 
-        <text x={col} y={B + 26} fill={YELLOW} fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="2">TELEFONE</text>
-        <text x={col} y={B + 31.5} fill="#ffffff" fontFamily={FONT} fontWeight="900" fontSize="5">{STORE.phone}</text>
-        <text x={col} y={B + 38} fill="#ffffff" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="2.6">{STORE.street}</text>
-        <text x={col} y={B + 41.6} fill="#ffffff" fontFamily="Arial, Helvetica, sans-serif" fontSize="2.6">{STORE.district}</text>
+        <text x={col} y={B + 25.2} fill={YELLOW} fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="2">TELEFONE</text>
+        <text x={col} y={B + 29.6} fill="#ffffff" fontFamily={FONT} fontWeight="900" fontSize="3.9">{STORE.phones[0]}</text>
+        <text x={col} y={B + 34.2} fill="#ffffff" fontFamily={FONT} fontWeight="900" fontSize="3.9">{STORE.phones[1]}</text>
+        <text x={col} y={B + 39.4} fill="#ffffff" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="2.6">{STORE.street}</text>
+        <text x={col} y={B + 42.9} fill="#ffffff" fontFamily="Arial, Helvetica, sans-serif" fontSize="2.6">{STORE.district}</text>
         {cut}
       </svg>
     );
@@ -212,12 +221,7 @@ function BusinessCard({ svgRef, side, logo }) {
   const qr = 29;
   const qx = B + 5;
   const qy = B + 4;
-  const col = B + 41;
-  const line = (y, text, opts = {}) => (
-    <text x={col} y={y} fill={opts.fill || '#1a1a1a'} fontFamily="Arial, Helvetica, sans-serif"
-      fontWeight={opts.bold ? '700' : '400'} fontSize={opts.size || 2.4}>{text}</text>
-  );
-  const dot = (y) => <circle cx={col - 2} cy={y - 0.85} r="0.75" fill={RED} />;
+  const col = B + 40;
   return (
     <svg {...svgProps}>
       <rect width={W} height={H} fill="#ffffff" />
@@ -234,17 +238,9 @@ function BusinessCard({ svgRef, side, logo }) {
         aponte a câmera do celular
       </text>
 
-      <text x={col - 3} y={B + 8.5} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="3.9">Peça pelo app</text>
-      <text x={col - 3} y={B + 13} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="3.9">e receba em casa!</text>
-
-      {dot(B + 19)}
-      {line(B + 19, 'Entrega a partir de R$ 1', { bold: true })}
-      {line(B + 22, '(só uma ajuda na gasolina)', { size: 2, fill: '#555' })}
-      {dot(B + 27)}
-      {line(B + 27, 'Os itens do mercado no app', { bold: true })}
-      {dot(B + 32)}
-      {line(B + 32, 'Ambiente família: compras,', { bold: true })}
-      {line(B + 35, 'cervejinha gelada e boa conversa', { size: 2.2, fill: '#555' })}
+      <text x={col} y={B + 19} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="5.2">Peça pelo app</text>
+      <text x={col} y={B + 26} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="5.2">e receba</text>
+      <text x={col} y={B + 33} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="5.2">em casa!</text>
       {cut}
     </svg>
   );
@@ -488,7 +484,7 @@ function AdminMedia() {
         {validSize ? (
           <>
             <div className="amd-preview">
-              <BoxSticker svgRef={stickerRef} widthCm={size.width} heightCm={size.height} radiusCm={size.radius} logo={logo} />
+              <BoxSticker svgRef={stickerRef} widthCm={size.width} heightCm={size.height} radiusCm={size.radius} />
             </div>
             <div className="amd-actions row">
               <button className="amd-btn-main" onClick={() => downloadSticker('png')}>⬇️ Baixar PNG ({DPI} DPI)</button>
