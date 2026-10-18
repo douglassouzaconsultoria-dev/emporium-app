@@ -84,6 +84,14 @@ require('./utils/database').query(`
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS rating SMALLINT;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS rating_comment TEXT;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMP;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS out_at TIMESTAMP;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS settled_at TIMESTAMP;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS problem TEXT;
+  ALTER TABLE orders ADD COLUMN IF NOT EXISTS problem_at TIMESTAMP;
+  ALTER TABLE customers ADD COLUMN IF NOT EXISTS online BOOLEAN DEFAULT false;
+  ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_lat NUMERIC(9,6);
+  ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_lng NUMERIC(9,6);
+  ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_location_at TIMESTAMP;
   CREATE TABLE IF NOT EXISTS coupons (
     id SERIAL PRIMARY KEY,
     code VARCHAR(30) UNIQUE NOT NULL,
@@ -110,14 +118,21 @@ require('./utils/database').query(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+    endpoint TEXT UNIQUE NOT NULL,
+    keys TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
 `)
   .then(() => console.log('🧱 Banco atualizado'))
   .then(() => require('./utils/stockRestock').startStockRestock())
   .then(() => {
     // 🔎 Confere se o banco tem todas as colunas que o código usa (só leitura)
     const expected = {
-      customers: ['id', 'name', 'username', 'email', 'password', 'phone_number', 'address', 'neighborhood', 'role', 'active', 'avatar_url', 'created_at'],
-      orders: ['id', 'customer_id', 'total', 'status', 'delivery_address', 'payment_method', 'created_at', 'motoboy_id', 'delivered_at', 'delivery_fee', 'delivery_neighborhood', 'discount', 'coupon_code', 'change_for', 'notes', 'rating', 'rating_comment', 'rated_at'],
+      customers: ['id', 'name', 'username', 'email', 'password', 'phone_number', 'address', 'neighborhood', 'role', 'active', 'avatar_url', 'created_at', 'online', 'last_lat', 'last_lng', 'last_location_at'],
+      orders: ['id', 'customer_id', 'total', 'status', 'delivery_address', 'payment_method', 'created_at', 'motoboy_id', 'delivered_at', 'delivery_fee', 'delivery_neighborhood', 'discount', 'coupon_code', 'change_for', 'notes', 'rating', 'rating_comment', 'rated_at', 'out_at', 'settled_at', 'problem', 'problem_at'],
       order_items: ['order_id', 'product_id', 'quantity', 'price'],
       products: ['id', 'name', 'price', 'unit', 'category_id', 'image_url', 'estoque', 'promo_price', 'description', 'active'],
       categories: ['id', 'name', 'created_at'],

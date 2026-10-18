@@ -413,3 +413,139 @@
     grid-column: span 2;
   }
 }
+/* 💰 Dinheiro e acerto */
+.am-stat-value small {
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+}
+
+.am-money {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.am-money div {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.am-money span {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.am-money strong {
+  font-size: 16px;
+}
+
+.am-money .due {
+  background: #fff7ed;
+  box-shadow: inset 0 0 0 1px #fdba74;
+}
+
+.am-money .due strong {
+  color: #9a3412;
+}
+
+.am-btn-settle {
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #ea580c;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.am-btn-settle.confirm {
+  background: #f59e0b;
+  color: #1a1a1a;
+}
+
+/* 📊 Relatório */
+.am-report {
+  margin-top: 24px;
+  padding: 18px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.am-report-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.am-report-head h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.am-periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.am-periods button {
+  padding: 7px 12px;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  color: #555;
+  cursor: pointer;
+}
+
+.am-periods button.active {
+  border-color: #1a1a1a;
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.am-report-empty {
+  margin: 8px 0 0;
+  color: #777;
+}
+
+.am-report-table {
+  overflow-x: auto;
+}
+
+.am-report-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.am-report-table th,
+.am-report-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #f1f1f1;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.am-report-table th {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.am-report-table tfoot td {
+  font-weight: 800;
+  border-bottom: none;
+}

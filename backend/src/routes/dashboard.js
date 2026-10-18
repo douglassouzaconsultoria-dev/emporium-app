@@ -59,6 +59,10 @@ const summary = async (from, to) => {
         COALESCE(SUM(o.total) FILTER (WHERE ${VALID}), 0) AS gross,
         COALESCE(SUM(COALESCE(o.delivery_fee, 0)) FILTER (WHERE ${VALID}), 0) AS fees,
         COUNT(DISTINCT o.customer_id) FILTER (WHERE ${VALID})::int AS buyers,
+        ROUND(AVG(EXTRACT(EPOCH FROM (o.delivered_at - o.created_at)) / 60)
+          FILTER (WHERE o.status = 'Entregue' AND o.delivered_at IS NOT NULL))::int AS avg_total_min,
+        ROUND(AVG(EXTRACT(EPOCH FROM (o.delivered_at - o.out_at)) / 60)
+          FILTER (WHERE o.status = 'Entregue' AND o.delivered_at IS NOT NULL AND o.out_at IS NOT NULL))::int AS avg_route_min,
         COUNT(DISTINCT o.customer_id) FILTER (WHERE ${VALID} AND EXISTS (
           SELECT 1 FROM orders prev
           WHERE prev.customer_id = o.customer_id AND prev.status <> 'Cancelado'
@@ -91,6 +95,8 @@ const summary = async (from, to) => {
     cancel_rate: o.orders_total > 0 ? Math.round((o.cancelado / o.orders_total) * 1000) / 10 : 0,
     status: { Pendente: o.pendente, Preparando: o.preparando, 'Saído': o.saido, Entregue: o.entregue, Cancelado: o.cancelado },
     buyers: o.buyers,
+    avg_total_min: o.avg_total_min,
+    avg_route_min: o.avg_route_min,
     returning_buyers: o.returning_buyers,
     new_customers: c.new_customers,
     total_customers: c.total_customers,
