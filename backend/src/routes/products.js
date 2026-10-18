@@ -141,7 +141,8 @@ router.get('/barcode/:code', verifyAdmin, async (req, res) => {
 
     const base = (info.product_name_pt || info.product_name || info.generic_name_pt || '').trim();
     const brand = (info.brands || '').split(',')[0].trim();
-    const qty = (info.quantity || '').trim();
+    // "16 g - 0.56 oz" → "16 g" (tira a medida americana)
+    const qty = (info.quantity || '').split(/\s*[-–(/]\s*/)[0].trim();
     const has = (txt) => base.toLowerCase().includes(txt.toLowerCase());
     const name = [base, brand && !has(brand) ? brand : '', qty && !has(qty) ? qty : ''].filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 120);
     res.json({

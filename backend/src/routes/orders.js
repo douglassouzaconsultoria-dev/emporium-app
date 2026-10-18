@@ -377,11 +377,11 @@ router.post('/bulk-status', verifyAdmin, async (req, res) => {
     const result = await pool.query(
       `UPDATE orders
        SET status = $1,
-           out_at = CASE WHEN $1 = 'Saído' AND out_at IS NULL THEN NOW() ELSE out_at END,
-           delivered_at = CASE WHEN $1 = 'Entregue' THEN NOW() ELSE delivered_at END
+           out_at = CASE WHEN $4 AND out_at IS NULL THEN NOW() ELSE out_at END,
+           delivered_at = CASE WHEN $5 THEN NOW() ELSE delivered_at END
        WHERE id = ANY($2::int[]) AND status = $3 AND problem IS NULL
        RETURNING id`,
-      [status, ids, fromOf[status]]
+      [status, ids, fromOf[status], status === 'Saído', status === 'Entregue']
     );
     res.json({ updated: result.rows.map(r => r.id) });
   } catch (err) {
@@ -522,12 +522,12 @@ router.put('/:id', verifyAdmin, async (req, res) => {
       `UPDATE orders
        SET status = $1,
            delivered_at = CASE WHEN $3 THEN NOW() ELSE delivered_at END,
-           out_at = CASE WHEN $1 = 'Saído' AND out_at IS NULL THEN NOW() ELSE out_at END,
+           out_at = CASE WHEN $5 AND out_at IS NULL THEN NOW() ELSE out_at END,
            motoboy_id = CASE WHEN $4 THEN NULL ELSE motoboy_id END,
            problem = NULL
        WHERE id = $2
        RETURNING *`,
-      [status, req.params.id, status === 'Entregue', status === 'Cancelado']
+      [status, req.params.id, status === 'Entregue', status === 'Cancelado', status === 'Saído']
     );
 
     await client.query('COMMIT');
