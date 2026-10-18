@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../config';
-import { confirmDialog } from '../utils/dialog';
+import { confirmDialog, notify } from '../utils/dialog';
 import { isKg, isPromo } from '../utils/units';
 import axios from 'axios';
 import './AdminProducts.css';
@@ -8,8 +8,9 @@ import { getImageUrl } from '../utils/imageUrl';
 import AdminImportProducts from './AdminImportProducts';
 import AdminProductsGrid from './AdminProductsGrid';
 import ProductCamera from './ProductCamera';
+import BarcodeScanner from './BarcodeScanner';
 
-const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true };
+const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true, barcode: '' };
 
 // 📷 Foto de celular pode passar de 5 MB (limite do servidor): reduz para no máximo 1600px antes de enviar.
 // O servidor depois tira o fundo e centraliza em 800x800.
@@ -143,7 +144,8 @@ function AdminProducts() {
 
   // 🔍 FILTROS
   const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase())
+      || (searchTerm.trim().length >= 4 && (p.barcode || '').includes(searchTerm.trim()));
     const matchesCategory = filterCategory === '' || p.category_id === parseInt(filterCategory);
     const matchesStock =
       stockFilter === '' ||
@@ -183,10 +185,45 @@ function AdminProducts() {
       category_id: product.category_id,
       subcategory: product.subcategory || '',
       estoque: product.estoque ?? 0,
-      active: product.active !== false
+      active: product.active !== false,
+      barcode: product.barcode || ''
     });
     setImageFile(null);
     setFormError('');
+  };
+
+  // 📷 Código de barras: já cadastrado → abre para editar; senão busca nome e foto na base aberta
+  const [scanFor, setScanFor] = useState(null); // null | 'new' | 'form'
+  const [lookingUp, setLookingUp] = useState(false);
+
+  const lookupBarcode = async (code, fromForm) => {
+    setScanFor(null);
+    const auth = { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } };
+    try {
+      setLookingUp(true);
+      const { data } = await axios.get(`${API_URL}/products/barcode/${encodeURIComponent(code)}`, auth);
+      if (data.existing && !(fromForm && editingProduct && data.existing.id === editingProduct.id)) {
+        openEdit(data.existing);
+        notify(`ℹ️ Esse código já é do produto "${data.existing.name}". Abri ele para você.`);
+        return;
+      }
+      if (!fromForm) openCreate();
+      setFormData(f => ({ ...f, barcode: data.barcode, name: fromForm && f.name ? f.name : (data.name || f.name) }));
+      if (data.existing) return;
+      notify(data.found
+        ? `✅ Achei: ${data.name}. Confira preço, unidade e categoria.`
+        : 'ℹ️ Não achei esse código na base. Preencha o nome e tire a foto.');
+      // Foto do produto: entra como se você tivesse escolhido o arquivo (o fundo é tirado ao salvar)
+      const needsPhoto = !fromForm || (!imageFile && !editingProduct?.image_url);
+      if (data.image_url && needsPhoto) {
+        const img = await axios.get(`${API_URL}/products/barcode/image`, { ...auth, params: { url: data.image_url }, responseType: 'blob' });
+        setImageFile(await prepareImage(new File([img.data], 'produto.jpg', { type: img.data.type || 'image/jpeg' })));
+      }
+    } catch (err) {
+      notify(`❌ ${err.response?.data?.error || 'Erro ao buscar o código de barras'}`, 'error');
+    } finally {
+      setLookingUp(false);
+    }
   };
 
   // 📄 Duplicar: abre "Novo produto" já preenchido (útil para variações: 1kg, 5kg...)
@@ -242,6 +279,7 @@ function AdminProducts() {
       fd.append('description', formData.description || '');
       fd.append('subcategory', formData.subcategory || '');
       fd.append('active', formData.active ? 'true' : 'false');
+      fd.append('barcode', formData.barcode || '');
       if (imageFile) fd.append('image', imageFile);
       else if (modalMode === 'create' && editingProduct?.image_url) fd.append('image_url', editingProduct.image_url);
 
@@ -302,6 +340,9 @@ function AdminProducts() {
         <div className="ap-header-actions">
           <button className="ap-btn-import" onClick={() => setShowGrid(true)}>📝 Editar em planilha</button>
           <button className="ap-btn-import" onClick={() => setShowImport(true)}>📥 Importar arquivo</button>
+          <button className="ap-btn-import ap-btn-barcode" onClick={() => setScanFor('new')} disabled={lookingUp}>
+            {lookingUp ? '⏳ Buscando...' : '📷 Cadastrar pelo código de barras'}
+          </button>
           <button className="ap-btn-new" onClick={openCreate}>➕ Novo Produto</button>
         </div>
       </div>
@@ -525,6 +566,23 @@ function AdminProducts() {
               </div>
 
               <div className="ap-form-group">
+                <label>Código de barras (opcional)</label>
+                <div className="ap-barcode-row">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Ex: 7891000100103"
+                    value={formData.barcode}
+                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value.replace(/\D/g, '').slice(0, 14) })}
+                    className="ap-input"
+                  />
+                  <button type="button" className="ap-btn-scan" onClick={() => setScanFor('form')} disabled={saving || lookingUp}>
+                    {lookingUp ? '⏳' : '📷 Ler'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="ap-form-group">
                 <label>Descrição (opcional)</label>
                 <textarea
                   rows={2}
@@ -693,6 +751,9 @@ function AdminProducts() {
             </div>
           </div>
         </div>
+      )}
+      {scanFor && (
+        <BarcodeScanner onResult={(code) => lookupBarcode(code, scanFor === 'form')} onClose={() => setScanFor(null)} />
       )}
     </div>
   );

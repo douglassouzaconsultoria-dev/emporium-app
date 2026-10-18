@@ -3,6 +3,7 @@ import { API_URL } from '../config';
 import { formatQty } from '../utils/units';
 import { printOrder, printOrderById } from '../utils/printOrder';
 import { confirmDialog, notify } from '../utils/dialog';
+import OrderItemsEditor from './OrderItemsEditor';
 import './AdminOrders.css';
 
 const AdminOrders = () => {
@@ -12,6 +13,7 @@ const AdminOrders = () => {
   const [error, setError] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
+  const [editingItems, setEditingItems] = useState(false);
   const [savingMotoboy, setSavingMotoboy] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState(null); // 'Saído' | 'Entregue' esperando o 2º toque
   const [bulkMessage, setBulkMessage] = useState('');
@@ -72,6 +74,7 @@ const AdminOrders = () => {
       const details = await response.json();
       setOrderDetails(details);
       setSelectedOrder(order);
+      setEditingItems(false);
     } catch (err) {
       notify('❌ Erro ao carregar detalhes: ' + err.message, 'error');
     }
@@ -621,8 +624,24 @@ const AdminOrders = () => {
             </div>
 
             <div className="order-items-section">
-              <h4>Itens do Pedido:</h4>
-              {orderDetails.items && orderDetails.items.length > 0 ? (
+              <div className="oie-head">
+                <h4>Itens do Pedido:</h4>
+                {!editingItems && !['Entregue', 'Cancelado'].includes(selectedOrder.status) && (
+                  <button type="button" className="oie-edit-btn" onClick={() => setEditingItems(true)}>✏️ Editar itens</button>
+                )}
+              </div>
+              {editingItems ? (
+                <OrderItemsEditor
+                  order={{ ...selectedOrder, ...orderDetails }}
+                  items={orderDetails.items || []}
+                  onCancel={() => setEditingItems(false)}
+                  onSaved={(updated) => {
+                    const merged = { ...selectedOrder, total: updated.total, discount: updated.discount };
+                    setOrders(list => list.map(o => (o.id === updated.id ? { ...o, total: updated.total, discount: updated.discount } : o)));
+                    openOrderDetails(merged);
+                  }}
+                />
+              ) : orderDetails.items && orderDetails.items.length > 0 ? (
                 <div className="items-list">
                   {orderDetails.items.map((item, index) => (
                     <div key={index} className="item-detail">

@@ -48,7 +48,7 @@
 .dlg-notes {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  top: 16px;
   z-index: 5001;
   display: flex;
   flex-direction: column;

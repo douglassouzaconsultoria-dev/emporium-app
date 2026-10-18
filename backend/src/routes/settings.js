@@ -77,6 +77,50 @@ router.put('/admin-tabs', verifyAdmin, async (req, res) => {
   }
 });
 
+// 🖼️ Banners da vitrine: { enabled, items: [{ image_url, link_type: 'none'|'category'|'product', link_id }] }
+const readBanners = async () => {
+  const { rows } = await pool.query(`SELECT value FROM app_settings WHERE key = 'banners'`);
+  try {
+    const data = rows[0] ? JSON.parse(rows[0].value) : {};
+    return { enabled: data.enabled === true, items: Array.isArray(data.items) ? data.items : [] };
+  } catch {
+    return { enabled: false, items: [] };
+  }
+};
+
+router.get('/banners', async (req, res) => {
+  try {
+    const banners = await readBanners();
+    // Vitrine só recebe quando está ligado; o admin pede tudo com ?all=1
+    res.json(req.query.all ? banners : { enabled: banners.enabled, items: banners.enabled ? banners.items : [] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar banners' });
+  }
+});
+
+router.put('/banners', verifyAdmin, async (req, res) => {
+  try {
+    const items = (Array.isArray(req.body.items) ? req.body.items : [])
+      .filter(b => typeof b.image_url === 'string' && /^https?:\/\//.test(b.image_url))
+      .slice(0, 8)
+      .map(b => ({
+        image_url: b.image_url.slice(0, 500),
+        link_type: ['category', 'product'].includes(b.link_type) ? b.link_type : 'none',
+        link_id: parseInt(b.link_id) || null
+      }));
+    const value = { enabled: req.body.enabled === true, items };
+    await pool.query(
+      `INSERT INTO app_settings (key, value) VALUES ('banners', $1) ON CONFLICT (key) DO UPDATE SET value = $1`,
+      [JSON.stringify(value)]
+    );
+    res.json(value);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar banners' });
+  }
+});
+
 // 🔔 Avisos de pedido novo no celular do admin
 router.get('/push-key', verifyAdmin, keyHandler);
 router.post('/push-subscribe', verifyAdmin, subscribeHandler);

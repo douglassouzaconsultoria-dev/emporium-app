@@ -279,6 +279,88 @@ router.post('/:id/rating', verifyToken, async (req, res) => {
   }
 });
 
+// 🔒 PUT editar os itens do pedido (APENAS ADMIN) — faltou produto, cliente pediu mais algo...
+// items: [{ product_id, quantity }]. Item que já estava mantém o preço do pedido; item novo entra com o preço de hoje.
+// O estoque volta e sai de novo, e o total é recalculado (taxa de entrega e desconto continuam).
+router.put('/:id/items', verifyAdmin, async (req, res) => {
+  const items = Array.isArray(req.body.items) ? req.body.items : [];
+  if (items.length === 0) return res.status(400).json({ error: 'O pedido precisa de pelo menos um item. Para tirar tudo, cancele o pedido.' });
+  if (new Set(items.map(i => Number(i.product_id))).size !== items.length) {
+    return res.status(400).json({ error: 'Produto repetido na lista' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: [order] } = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [req.params.id]);
+    if (!order) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    if (['Entregue', 'Cancelado'].includes(order.status)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Pedido entregue ou cancelado não pode ser editado' });
+    }
+
+    // Devolve ao estoque o que estava no pedido
+    const { rows: oldItems } = await client.query('SELECT product_id, quantity, price FROM order_items WHERE order_id = $1', [order.id]);
+    const oldPrice = Object.fromEntries(oldItems.map(i => [i.product_id, parseFloat(i.price)]));
+    for (const it of oldItems) {
+      await client.query('UPDATE products SET estoque = estoque + $1 WHERE id = $2', [it.quantity, it.product_id]);
+    }
+
+    let subtotal = 0;
+    const priced = [];
+    for (const item of items) {
+      const { rows: [product] } = await client.query(
+        'SELECT id, name, price, promo_price, unit, estoque FROM products WHERE id = $1 FOR UPDATE', [item.product_id]
+      );
+      if (!product) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Um dos produtos não existe mais' });
+      }
+      const qty = isKg(product.unit) ? Math.round(parseFloat(item.quantity) * 1000) / 1000 : parseFloat(item.quantity);
+      if (!(qty > 0) || (!isKg(product.unit) && !Number.isInteger(qty))) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Quantidade inválida para "${product.name}"` });
+      }
+      if (parseFloat(product.estoque) < qty) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Estoque insuficiente para "${product.name}". Disponível: ${parseFloat(product.estoque)}` });
+      }
+      let price = oldPrice[product.id];
+      if (price === undefined) {
+        const promo = parseFloat(product.promo_price);
+        price = promo > 0 && promo < parseFloat(product.price) ? promo : parseFloat(product.price);
+      }
+      subtotal += Math.round(price * qty * 100) / 100;
+      priced.push({ product_id: product.id, quantity: qty, price });
+    }
+    subtotal = Math.round(subtotal * 100) / 100;
+
+    await client.query('DELETE FROM order_items WHERE order_id = $1', [order.id]);
+    for (const it of priced) {
+      await client.query('INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ($1, $2, $3, $4)',
+        [order.id, it.product_id, it.quantity, it.price]);
+      await client.query('UPDATE products SET estoque = estoque - $1 WHERE id = $2', [it.quantity, it.product_id]);
+    }
+
+    const discount = Math.min(parseFloat(order.discount) || 0, subtotal);
+    const total = Math.round((subtotal - discount + (parseFloat(order.delivery_fee) || 0)) * 100) / 100;
+    const { rows: [updated] } = await client.query(
+      'UPDATE orders SET total = $1, discount = $2 WHERE id = $3 RETURNING *', [total, discount, order.id]
+    );
+    await client.query('COMMIT');
+    res.json({ message: 'Pedido atualizado', order: updated, subtotal });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao editar o pedido' });
+  } finally {
+    client.release();
+  }
+});
+
 // 🔒 POST marcar vários pedidos de uma vez (APENAS ADMIN)
 // "Saído": só os que estão em Preparando · "Entregue": só os que estão em Saído
 router.post('/bulk-status', verifyAdmin, async (req, res) => {

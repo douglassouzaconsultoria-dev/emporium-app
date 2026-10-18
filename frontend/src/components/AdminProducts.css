@@ -840,3 +840,31 @@ button.ap-photo-btn {
   opacity: 0;
   pointer-events: none;
 }
+
+/* 📷 Código de barras */
+.ap-btn-barcode {
+  background: #0f766e !important;
+  color: #fff !important;
+  border-color: #0f766e !important;
+}
+
+.ap-barcode-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ap-barcode-row .ap-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ap-btn-scan {
+  flex-shrink: 0;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: #0f766e;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}

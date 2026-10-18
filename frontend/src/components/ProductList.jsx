@@ -105,7 +105,7 @@ function ProductList({ products, onAddToCart, title = 'Produtos', row = false, i
           const off = promo ? Math.round((1 - effectivePrice(product) / parseFloat(product.price)) * 100) : 0;
           const qtyInCart = inCart[product.id];
           return (
-          <div key={product.id} className={`product-card ${product.estoque <= 0 ? 'sold-out' : ''}`}>
+          <div key={product.id} data-product-id={product.id} className={`product-card ${product.estoque <= 0 ? 'sold-out' : ''}`}>
             <div className="product-media">
               {product.image_url ? (
                 <img

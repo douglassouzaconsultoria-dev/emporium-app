@@ -1,0 +1,68 @@
+.bnr {
+  position: relative;
+  margin: 10px 0 6px;
+}
+
+.bnr-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  border-radius: 14px;
+  scrollbar-width: none;
+}
+
+.bnr-track::-webkit-scrollbar {
+  display: none;
+}
+
+.bnr-slide {
+  flex: 0 0 100%;
+  padding: 0;
+  border: none;
+  background: #f3f4f6;
+  scroll-snap-align: start;
+  aspect-ratio: 3 / 1;
+}
+
+.bnr-slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bnr-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.bnr-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.bnr-dots button.active {
+  width: 20px;
+  border-radius: 4px;
+  background: #fff;
+}
+
+/* Produto aberto pelo banner pisca para chamar atenção */
+.product-card.bnr-flash {
+  animation: bnr-flash 0.6s ease-in-out 3;
+}
+
+@keyframes bnr-flash {
+  50% { box-shadow: 0 0 0 4px #ffd23f; transform: scale(1.03); }
+}

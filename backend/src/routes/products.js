@@ -5,6 +5,7 @@ const pool = require('../utils/database');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const { verifyAdmin } = require('../middleware/authMiddleware');
+const axios = require('axios');
 
 // ☁️ CONFIGURAÇÃO CLOUDINARY (lê do .env)
 cloudinary.config({
@@ -66,13 +67,26 @@ const parseSub = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').slic
 // Vem do formulário (multipart) como texto
 const parseActive = (value) => value === undefined || value === true || value === 'true';
 
+// Código de barras: só números (EAN-8 a EAN-14 / GTIN); qualquer outra coisa = sem código
+const parseBarcode = (value) => {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits.length >= 6 && digits.length <= 14 ? digits : null;
+};
+
+// Outro produto já usa esse código?
+const barcodeOwner = async (barcode, exceptId = null) => {
+  if (!barcode) return null;
+  const { rows } = await pool.query('SELECT id, name FROM products WHERE barcode = $1 AND ($2::int IS NULL OR id <> $2) LIMIT 1', [barcode, exceptId]);
+  return rows[0] || null;
+};
+
 // 🔓 GET - Públicos (cliente pode ver). ?all=1 traz também os ocultos (admin)
 router.get('/', async (req, res) => {
   try {
     // sold = em quantos pedidos (não cancelados) o produto saiu nos últimos 30 dias → "mais vendidos"
     const result = await pool.query(
       `SELECT p.id, p.name, p.price, p.promo_price, p.description, p.active, p.unit, p.category_id,
-              p.image_url, p.estoque, p.sort_order, p.subcategory, COALESCE(s.sold, 0)::int AS sold
+              p.image_url, p.estoque, p.sort_order, p.subcategory, p.barcode, COALESCE(s.sold, 0)::int AS sold
        FROM products p
        LEFT JOIN (
          SELECT oi.product_id, COUNT(DISTINCT oi.order_id) AS sold
@@ -87,6 +101,58 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar produtos' });
+  }
+});
+
+// 🔒 📷 Código de barras: já está cadastrado? Senão, busca nome e foto na base aberta Open Food Facts
+const OFF_HOST = /^https:\/\/([a-z0-9-]+\.)*openfoodfacts\.org\//i;
+
+router.get('/barcode/image', verifyAdmin, async (req, res) => {
+  const url = String(req.query.url || '');
+  if (!OFF_HOST.test(url)) return res.status(400).json({ error: 'Imagem inválida' });
+  try {
+    const img = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000, maxContentLength: 8 * 1024 * 1024 });
+    res.set('Content-Type', img.headers['content-type'] || 'image/jpeg');
+    res.send(Buffer.from(img.data));
+  } catch (err) {
+    res.status(502).json({ error: 'Não consegui baixar a foto' });
+  }
+});
+
+router.get('/barcode/:code', verifyAdmin, async (req, res) => {
+  const code = parseBarcode(req.params.code);
+  if (!code) return res.status(400).json({ error: 'Código de barras inválido' });
+  try {
+    const existing = await pool.query('SELECT * FROM products WHERE barcode = $1 LIMIT 1', [code]);
+    if (existing.rows[0]) return res.json({ barcode: code, existing: existing.rows[0] });
+
+    let info = null;
+    try {
+      const { data } = await axios.get(`https://world.openfoodfacts.org/api/v2/product/${code}.json`, {
+        params: { fields: 'product_name_pt,product_name,generic_name_pt,brands,quantity,image_front_url,image_url' },
+        headers: { 'User-Agent': 'EmporioBrumado/1.0 (emporiobrumado.com)' },
+        timeout: 8000
+      });
+      if (data && data.status === 1 && data.product) info = data.product;
+    } catch (err) {
+      console.error('Open Food Facts:', err.message);
+    }
+    if (!info) return res.json({ barcode: code, found: false });
+
+    const base = (info.product_name_pt || info.product_name || info.generic_name_pt || '').trim();
+    const brand = (info.brands || '').split(',')[0].trim();
+    const qty = (info.quantity || '').trim();
+    const has = (txt) => base.toLowerCase().includes(txt.toLowerCase());
+    const name = [base, brand && !has(brand) ? brand : '', qty && !has(qty) ? qty : ''].filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 120);
+    res.json({
+      barcode: code,
+      found: Boolean(name),
+      name,
+      image_url: name ? info.image_front_url || info.image_url || null : null
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar o código' });
   }
 });
 
@@ -124,6 +190,9 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
     if (!name || !price || !unit || !category_id) {
       return res.status(400).json({ error: 'Todos os campos obrigatórios não foram preenchidos' });
     }
+    const barcode = parseBarcode(req.body.barcode);
+    const owner = await barcodeOwner(barcode);
+    if (owner) return res.status(400).json({ error: `Esse código de barras já é do produto "${owner.name}"` });
 
     const promo = parsePromo(promo_price);
     if (promo !== null && promo >= parseFloat(price)) {
@@ -138,9 +207,9 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
     const estoqueInicial = parseFloat(estoque) || 0;
 
     const result = await pool.query(
-      `INSERT INTO products (name, price, unit, category_id, image_url, estoque, promo_price, description, active, subcategory)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [name, price, unit, category_id, imageUrl, estoqueInicial, promo, (description || '').trim() || null, parseActive(active), parseSub(subcategory)]
+      `INSERT INTO products (name, price, unit, category_id, image_url, estoque, promo_price, description, active, subcategory, barcode)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [name, price, unit, category_id, imageUrl, estoqueInicial, promo, (description || '').trim() || null, parseActive(active), parseSub(subcategory), barcode]
     );
 
     // ⚙️ Produto novo com estoque já nasce AUTOMÁTICO (renova toda semana para a quantidade cadastrada).
@@ -187,6 +256,9 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
     if (!name || !price || !unit || !category_id) {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
     }
+    const barcode = parseBarcode(req.body.barcode);
+    const owner = await barcodeOwner(barcode, parseInt(id));
+    if (owner) return res.status(400).json({ error: `Esse código de barras já é do produto "${owner.name}"` });
 
     const promo = parsePromo(promo_price);
     if (promo !== null && promo >= parseFloat(price)) {
@@ -210,10 +282,11 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
     const result = await pool.query(
       `UPDATE products SET name = $1, price = $2, unit = $3, category_id = $4, image_url = $5,
               promo_price = $6, description = $7, active = $8,
-              subcategory = CASE WHEN $11 THEN $10 ELSE subcategory END
+              subcategory = CASE WHEN $11 THEN $10 ELSE subcategory END,
+              barcode = CASE WHEN $13 THEN $12 ELSE barcode END
        WHERE id = $9 RETURNING *`,
       [name, price, unit, category_id, imageUrl, promo, (description || '').trim() || null, parseActive(active), id,
-        parseSub(subcategory), subcategory !== undefined]
+        parseSub(subcategory), subcategory !== undefined, barcode, req.body.barcode !== undefined]
     );
 
     if (result.rows.length === 0) {
