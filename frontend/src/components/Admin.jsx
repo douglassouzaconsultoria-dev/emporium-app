@@ -6,6 +6,7 @@ import AdminOrders from './AdminOrders';
 import AdminDashboard from './AdminDashboard';
 import AdminCategories from './AdminCategories';
 import AdminStockConfig from './AdminStockConfig';
+import AdminMedia from './AdminMedia';
 import AdminMotoboys from './AdminMotoboys';
 import AdminDeliveryFees from './AdminDeliveryFees';
 import AdminCustomers from './AdminCustomers';
@@ -28,6 +29,7 @@ const DEFAULT_TABS = [
   { id: 'categories', label: '📁 Categorias' },
   { id: 'products', label: '🛍️ Produtos' },
   { id: 'stock', label: '⚙️ Estoque' },
+  { id: 'media', label: '🖼️ Imagens' },
   { id: 'tabs', label: '🗂️ Organizar' }
 ];
 
@@ -226,6 +228,7 @@ function Admin() {
         {activeTab === 'categories' && <AdminCategories />}
         {activeTab === 'products' && <AdminProducts />}
         {activeTab === 'stock' && <AdminStockConfig />}
+        {activeTab === 'media' && <AdminMedia />}
         {/* 🗂️ Organizar abas: setas mudam a posição; a 1ª abre ao entrar no painel */}
         {activeTab === 'tabs' && (
           <div className="sf-switch">

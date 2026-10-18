@@ -1,0 +1,264 @@
+/* 🖼️ Imagens e divulgação (prefixo amd-) */
+.amd-container h2 {
+  margin: 0 0 16px;
+}
+
+.amd-card {
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.amd-card h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.amd-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.amd-help {
+  margin: 0 0 12px;
+  color: #555;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.amd-help.small {
+  font-size: 12px;
+  color: #777;
+}
+
+.amd-message {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.amd-message.success { background: #dcfce7; color: #166534; }
+.amd-message.error { background: #fee2e2; color: #991b1b; }
+
+.amd-empty {
+  margin: 8px 0 0;
+  color: #777;
+}
+
+/* Upload */
+.amd-btn-upload {
+  position: relative;
+  flex-shrink: 0;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: #C41E3A;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.amd-btn-upload.busy { opacity: 0.6; cursor: wait; }
+
+.amd-btn-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Grade de arquivos */
+.amd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.amd-file {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.amd-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 130px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: repeating-conic-gradient(#f3f4f6 0% 25%, #fff 0% 50%) 50% / 16px 16px;
+}
+
+.amd-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.amd-pdf {
+  font-size: 22px;
+  font-weight: 800;
+  color: #991b1b;
+}
+
+.amd-file strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.amd-file small {
+  font-size: 11px;
+  color: #777;
+}
+
+.amd-file-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.amd-btn {
+  padding: 7px 9px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.amd-btn.dl {
+  flex: 1;
+  text-align: center;
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
+}
+
+.amd-btn.del.confirm {
+  border-color: #dc2626;
+  background: #dc2626;
+  color: #fff;
+}
+
+/* QR code e adesivo */
+.amd-qr-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+}
+
+.amd-qr {
+  padding: 6px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  background: #fff;
+  line-height: 0;
+}
+
+.amd-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.amd-actions.row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin: 14px 0 10px;
+}
+
+.amd-btn-main,
+.amd-btn-light {
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.amd-btn-main {
+  border: none;
+  background: #C41E3A;
+  color: #fff;
+}
+
+.amd-btn-light {
+  border: 2px solid #e5e7eb;
+  background: #fff;
+  color: #333;
+}
+
+.amd-btn-light:disabled { opacity: 0.6; cursor: wait; }
+
+.amd-measures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.amd-measures label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #444;
+}
+
+.amd-measures input {
+  width: 150px;
+  padding: 9px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.amd-preview {
+  padding: 16px;
+  border-radius: 12px;
+  background: #e5e7eb;
+  text-align: center;
+}
+
+.amd-preview-svg {
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.18));
+}
+
+/* 💳 Cartão de visita */
+.amd-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.amd-cards .amd-preview small {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700;
+  color: #555;
+}
+
+.amd-card-svg {
+  max-width: 420px;
+}
