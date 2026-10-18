@@ -278,6 +278,35 @@ router.post('/:id/rating', verifyToken, async (req, res) => {
   }
 });
 
+// 🔒 POST marcar vários pedidos de uma vez (APENAS ADMIN)
+// "Saído": só os que estão em Preparando · "Entregue": só os que estão em Saído
+router.post('/bulk-status', verifyAdmin, async (req, res) => {
+  const fromOf = { 'Saído': 'Preparando', 'Entregue': 'Saído' };
+  const { status } = req.body;
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isInteger).slice(0, 500) : [];
+  if (!fromOf[status]) {
+    return res.status(400).json({ error: 'Status inválido' });
+  }
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'Nenhum pedido para atualizar' });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE orders
+       SET status = $1,
+           out_at = CASE WHEN $1 = 'Saído' AND out_at IS NULL THEN NOW() ELSE out_at END,
+           delivered_at = CASE WHEN $1 = 'Entregue' THEN NOW() ELSE delivered_at END
+       WHERE id = ANY($2::int[]) AND status = $3 AND problem IS NULL
+       RETURNING id`,
+      [status, ids, fromOf[status]]
+    );
+    res.json({ updated: result.rows.map(r => r.id) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar pedidos' });
+  }
+});
+
 // 🔒 POST reenviar entrega que voltou com problema (volta para a fila dos motoboys)
 router.post('/:id/resend', verifyAdmin, async (req, res) => {
   try {
