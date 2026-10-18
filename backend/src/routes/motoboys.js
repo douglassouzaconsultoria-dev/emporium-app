@@ -162,10 +162,10 @@ me.put('/deliveries/:id/status', async (req, res) => {
       `UPDATE orders
        SET status = $1,
            delivered_at = CASE WHEN $4 THEN NOW() ELSE delivered_at END,
-           out_at = CASE WHEN $1 = 'Saído' THEN NOW() ELSE out_at END
+           out_at = CASE WHEN $6 THEN NOW() ELSE out_at END
        WHERE id = $2 AND motoboy_id = $3 AND status = $5
        RETURNING id, status`,
-      [status, req.params.id, req.user.id, status === 'Entregue', allowedFrom[status]]
+      [status, req.params.id, req.user.id, status === 'Entregue', allowedFrom[status], status === 'Saído']
     );
 
     if (result.rows.length === 0) {
