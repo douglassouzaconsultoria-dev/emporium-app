@@ -1,0 +1,70 @@
+.dlg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.dlg-box {
+  width: 100%;
+  max-width: 420px;
+  padding: 20px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.dlg-box p {
+  margin: 0 0 18px;
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-line;
+  color: #1a1a1a;
+}
+
+.dlg-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.dlg-actions button {
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dlg-cancel { background: #e5e7eb; color: #374151; }
+.dlg-ok { background: #16a34a; color: #fff; }
+.dlg-ok.danger { background: #dc2626; }
+
+.dlg-notes {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 5001;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: calc(100% - 32px);
+  max-width: 440px;
+  transform: translateX(-50%);
+}
+
+.dlg-note {
+  padding: 12px 16px;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.dlg-note.success { background: #166534; }
+.dlg-note.error { background: #b91c1c; }

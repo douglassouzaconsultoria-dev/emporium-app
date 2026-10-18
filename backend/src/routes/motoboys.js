@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const pool = require('../utils/database');
 const { verifyAdmin, verifyMotoboy } = require('../middleware/authMiddleware');
-const { getPublicKey, notifyDelivery } = require('../utils/push');
+const { notifyDelivery, notifyAdmins, keyHandler, subscribeHandler, unsubscribeHandler } = require('../utils/push');
 
 const isValidUsername = (u) => /^[a-z0-9._]{3,20}$/.test(u);
 const clean = (v) => (typeof v === 'string' ? v.trim() : '');
@@ -209,6 +209,11 @@ me.put('/deliveries/:id/problem', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(400).json({ error: 'Não foi possível registrar o problema' });
     }
+    notifyAdmins({
+      title: `⚠️ Pedido #${req.params.id} voltou`,
+      body: details ? `${label}: ${details}` : label,
+      tag: `admin-problema-${req.params.id}`
+    });
 
     res.json({ message: 'Problema enviado ao Empório' });
   } catch (err) {
@@ -270,45 +275,9 @@ me.put('/location', motoboyOnly, async (req, res) => {
 });
 
 // 🔔 Notificações com o app fechado
-me.get('/push-key', motoboyOnly, async (req, res) => {
-  try {
-    res.json({ key: await getPublicKey() });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Notificações indisponíveis' });
-  }
-});
-
-me.post('/push-subscribe', motoboyOnly, async (req, res) => {
-  const sub = req.body.subscription || {};
-  if (typeof sub.endpoint !== 'string' || !/^https:\/\//.test(sub.endpoint) || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
-    return res.status(400).json({ error: 'Inscrição inválida' });
-  }
-  try {
-    await pool.query(
-      `INSERT INTO push_subscriptions (customer_id, endpoint, keys) VALUES ($1, $2, $3)
-       ON CONFLICT (endpoint) DO UPDATE SET customer_id = $1, keys = $3`,
-      [req.user.id, sub.endpoint, JSON.stringify({ p256dh: sub.keys.p256dh, auth: sub.keys.auth })]
-    );
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao ativar notificações' });
-  }
-});
-
-me.post('/push-unsubscribe', motoboyOnly, async (req, res) => {
-  try {
-    await pool.query(
-      'DELETE FROM push_subscriptions WHERE endpoint = $1 AND customer_id = $2',
-      [String(req.body.endpoint || ''), req.user.id]
-    );
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao desativar notificações' });
-  }
-});
+me.get('/push-key', motoboyOnly, keyHandler);
+me.post('/push-subscribe', motoboyOnly, subscribeHandler);
+me.post('/push-unsubscribe', motoboyOnly, unsubscribeHandler);
 
 router.use('/me', verifyMotoboy, me);
 

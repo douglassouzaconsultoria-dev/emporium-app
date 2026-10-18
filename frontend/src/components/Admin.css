@@ -642,3 +642,30 @@
 .admin-problem-orders {
   background: #ea580c;
 }
+
+/* 🔔 Avisos de pedido no celular */
+.admin-push {
+  margin-top: 12px;
+}
+
+.admin-push-btn {
+  padding: 9px 14px;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  background: #fff;
+  color: #C41E3A;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.admin-push-btn.on {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.admin-push-info {
+  display: inline-block;
+  font-size: 13px;
+  opacity: 0.95;
+}

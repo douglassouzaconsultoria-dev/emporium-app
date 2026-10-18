@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../config';
+import { confirmDialog } from '../utils/dialog';
 import { isKg, isPromo } from '../utils/units';
 import axios from 'axios';
 import './AdminProducts.css';
@@ -277,7 +278,7 @@ function AdminProducts() {
   };
 
   const deleteProduct = async (product) => {
-    if (!window.confirm(`Deletar "${product.name}"? Essa ação não pode ser desfeita.`)) return;
+    if (!(await confirmDialog(`Apagar "${product.name}"? Não dá para desfazer.`, { okText: '🗑️ Apagar', danger: true }))) return;
     try {
       const token = localStorage.getItem('authToken');
       await axios.delete(`${API_URL}/products/${product.id}`, {

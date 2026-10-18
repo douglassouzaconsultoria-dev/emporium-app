@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
+import { confirmDialog } from '../utils/dialog';
 import { getImageUrl } from '../utils/imageUrl';
 import { sortCategories } from '../utils/storefront';
 
@@ -119,7 +120,7 @@ function AdminSubcategoryBoard({ categorySort }) {
 
   const remove = async (col) => {
     const count = catProducts.filter(p => p.subcategory === col).length;
-    if (count && !window.confirm(`Apagar "${col}"? Os ${count} produto(s) dela voltam para "Sem subcategoria".`)) return;
+    if (count && !(await confirmDialog(`Apagar "${col}"? Os ${count} produto(s) dela voltam para "Sem subcategoria".`, { okText: '🗑️ Apagar', danger: true }))) return;
     try {
       if (count) await axios.post(`${API_URL}/products/subcategories/rename`, { category_id: catId, from: col, to: '' }, auth());
       setProducts(list => list.map(p => (p.category_id === catId && p.subcategory === col ? { ...p, subcategory: null } : p)));

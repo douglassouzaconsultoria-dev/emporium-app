@@ -9,7 +9,9 @@ router.get('/', verifyAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT c.id, c.name, c.username, c.email, c.phone_number, c.address, c.neighborhood, c.created_at,
-        (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.status <> 'Cancelado')::int AS total_orders
+        (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.status <> 'Cancelado')::int AS total_orders,
+        (SELECT MAX(o.created_at) FROM orders o WHERE o.customer_id = c.id AND o.status <> 'Cancelado') AS last_order_at,
+        (SELECT COALESCE(SUM(o.total), 0) FROM orders o WHERE o.customer_id = c.id AND o.status <> 'Cancelado') AS total_spent
       FROM customers c
       WHERE c.role = 'client'
       ORDER BY c.name

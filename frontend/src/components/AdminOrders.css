@@ -296,3 +296,35 @@
 
 .ao-bulk-msg.ok { background: #dcfce7; color: #166534; }
 .ao-bulk-msg.err { background: #fee2e2; color: #991b1b; }
+
+/* 🔎 Busca e filtros */
+.ao-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ao-filters input,
+.ao-filters select {
+  padding: 10px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.ao-filters input[type="search"] {
+  flex: 1;
+  min-width: 240px;
+}
+
+.ao-filters-clear {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #1a1a1a;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}

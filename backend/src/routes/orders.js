@@ -6,7 +6,7 @@ const { getDeliveryFee } = require('../utils/deliveryFee');
 const { isKg } = require('../utils/units');
 const { getStore, storeStatus } = require('../utils/store');
 const { applyCoupon } = require('../utils/coupons');
-const { notifyDelivery } = require('../utils/push');
+const { notifyDelivery, notifyNewOrder } = require('../utils/push');
 
 const VALID_PAYMENT_METHODS = ['dinheiro', 'cartao', 'pix'];
 
@@ -238,6 +238,7 @@ router.post('/', verifyToken, async (req, res) => {
 
     await client.query('COMMIT');
     notifyDelivery(orderId); // 🔔 só avisa se já foi para "Preparando" (dinheiro/cartão)
+    notifyNewOrder(orderId); // 🛒 avisa o celular do admin
 
     res.status(201).json({
       id: orderId,

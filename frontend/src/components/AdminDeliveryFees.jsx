@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import { confirmDialog } from '../utils/dialog';
 import axios from 'axios';
 import './AdminCategories.css';
 
@@ -67,7 +68,7 @@ function AdminDeliveryFees() {
   };
 
   const deleteFee = async (fee) => {
-    if (!window.confirm(`Remover "${fee.neighborhood}" da lista? Ele passa a pagar a taxa padrão.`)) return;
+    if (!(await confirmDialog(`Remover "${fee.neighborhood}" da lista? Ele passa a pagar a taxa padrão.`, { okText: '🗑️ Remover', danger: true }))) return;
     try {
       await axios.delete(`${API_URL}/delivery-fees/${fee.id}`, authHeaders());
       showMessage('✅ Bairro removido!');

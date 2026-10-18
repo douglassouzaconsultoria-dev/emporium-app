@@ -15,6 +15,7 @@ import MyOrders from './components/MyOrders';
 import Profile from './components/Profile';
 import MotoboyPanel from './components/MotoboyPanel';
 import InstallBanner from './components/InstallBanner';
+import DialogHost from './components/DialogHost';
 
 function AppContent() {
   const { user, token, loading, logout } = useContext(AuthContext);
@@ -430,6 +431,7 @@ function App() {
   return (
     <AuthProvider>
       <InstallBanner />
+      <DialogHost />
       <AppContent />
     </AuthProvider>
   );

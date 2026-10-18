@@ -89,4 +89,81 @@ const notifyDelivery = async (orderId) => {
   }
 };
 
-module.exports = { getPublicKey, notifyDelivery };
+// 🛒 Avisa os admins (pedido novo, entrega que voltou...)
+const notifyAdmins = async (payload) => {
+  try {
+    const { rows } = await pool.query(`SELECT id FROM customers WHERE role = 'admin'`);
+    await sendTo(rows.map(r => r.id), payload);
+  } catch (err) {
+    console.error('Erro ao avisar o admin:', err.message);
+  }
+};
+
+const PAY = { pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro' };
+
+const notifyNewOrder = async (orderId) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT o.id, o.total, o.payment_method, c.name,
+              COALESCE(NULLIF(o.delivery_neighborhood, ''), c.neighborhood) AS neighborhood
+       FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = $1`,
+      [orderId]
+    );
+    const o = rows[0];
+    if (!o) return;
+    const place = o.neighborhood && o.neighborhood !== '-' ? ` · ${o.neighborhood}` : '';
+    await notifyAdmins({
+      title: `🛒 Pedido novo #${o.id}`,
+      body: `R$ ${parseFloat(o.total).toFixed(2).replace('.', ',')} · ${PAY[o.payment_method] || 'Dinheiro'} · ${(o.name || '').split(' ')[0]}${place}`,
+      tag: `admin-pedido-${o.id}`
+    });
+  } catch (err) {
+    console.error('Erro ao avisar pedido novo:', err.message);
+  }
+};
+
+// Rotas de inscrição (motoboy e admin usam as mesmas): o mesmo celular pode receber avisos de duas contas
+const subscribeHandler = async (req, res) => {
+  const sub = req.body.subscription || {};
+  if (typeof sub.endpoint !== 'string' || !/^https:\/\//.test(sub.endpoint) || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+    return res.status(400).json({ error: 'Inscrição inválida' });
+  }
+  try {
+    await pool.query(
+      `INSERT INTO push_subscriptions (customer_id, endpoint, keys) VALUES ($1, $2, $3)
+       ON CONFLICT (endpoint, customer_id) DO UPDATE SET keys = $3`,
+      [req.user.id, sub.endpoint, JSON.stringify({ p256dh: sub.keys.p256dh, auth: sub.keys.auth })]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao ativar notificações' });
+  }
+};
+
+const unsubscribeHandler = async (req, res) => {
+  try {
+    await pool.query(
+      'DELETE FROM push_subscriptions WHERE endpoint = $1 AND customer_id = $2',
+      [String(req.body.endpoint || ''), req.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao desativar notificações' });
+  }
+};
+
+const keyHandler = async (req, res) => {
+  try {
+    res.json({ key: await getPublicKey() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Notificações indisponíveis' });
+  }
+};
+
+module.exports = {
+  getPublicKey, notifyDelivery, notifyAdmins, notifyNewOrder,
+  subscribeHandler, unsubscribeHandler, keyHandler
+};

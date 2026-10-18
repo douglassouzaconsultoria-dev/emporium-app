@@ -138,6 +138,8 @@ require('./utils/database').query(`
     keys TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
+  ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_endpoint_key;
+  CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_customer ON push_subscriptions (endpoint, customer_id);
 `)
   .then(() => console.log('🧱 Banco atualizado'))
   .then(() => require('./utils/stockRestock').startStockRestock())

@@ -6,6 +6,7 @@ import './AdminCategories.css';
 function AdminCustomers() {
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [view, setView] = useState('all'); // 'all' | 'away' | 'never'
   const [resetId, setResetId] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -23,10 +24,18 @@ function AdminCustomers() {
       .catch(err => console.error('Erro ao buscar clientes:', err));
   }, []);
 
+  // 💤 Clientes sumidos: compraram, mas não pedem há 30 dias ou mais
+  const AWAY_DAYS = 30;
+  const daysSince = (d) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / 864e5) : null);
+  const isAway = (c) => c.last_order_at && daysSince(c.last_order_at) >= AWAY_DAYS;
+  const awayCount = customers.filter(isAway).length;
+  const neverCount = customers.filter(c => !c.last_order_at).length;
+
   const term = searchTerm.toLowerCase();
-  const filtered = customers.filter(c =>
-    [c.name, c.username, c.phone_number, c.neighborhood].some(v => (v || '').toLowerCase().includes(term))
-  );
+  const filtered = customers
+    .filter(c => (view === 'away' ? isAway(c) : view === 'never' ? !c.last_order_at : true))
+    .filter(c => [c.name, c.username, c.phone_number, c.neighborhood].some(v => (v || '').toLowerCase().includes(term)))
+    .sort((a, b) => (view === 'away' ? daysSince(b.last_order_at) - daysSince(a.last_order_at) : 0));
 
   const whatsappLink = (phone) => {
     const digits = (phone || '').replace(/\D/g, '');
@@ -62,6 +71,11 @@ function AdminCustomers() {
 
       {message && <div className={`admin-message ${message.includes('✅') ? 'success' : 'error'}`}>{message}</div>}
 
+      <div className="cu-views">
+        <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}>Todos ({customers.length})</button>
+        <button className={view === 'away' ? 'active' : ''} onClick={() => setView('away')}>💤 Sumidos há {AWAY_DAYS}+ dias ({awayCount})</button>
+        <button className={view === 'never' ? 'active' : ''} onClick={() => setView('never')}>🆕 Nunca pediram ({neverCount})</button>
+      </div>
       <div className="filters-section">
         <div className="search-box">
           <input
@@ -91,7 +105,13 @@ function AdminCustomers() {
                   <p className="category-id">@{c.username}</p>
                   <p>📞 {c.phone_number}</p>
                   <p>🏘️ {c.neighborhood}</p>
-                  <p>📦 {c.total_orders} {c.total_orders === 1 ? 'pedido' : 'pedidos'}</p>
+                  <p>📦 {c.total_orders} {c.total_orders === 1 ? 'pedido' : 'pedidos'}
+                    {parseFloat(c.total_spent) > 0 && ` · R$ ${parseFloat(c.total_spent).toFixed(2).replace('.', ',')}`}</p>
+                  <p className={isAway(c) ? 'cu-away' : ''}>
+                    🕒 {c.last_order_at
+                      ? `Último pedido: ${new Date(c.last_order_at).toLocaleDateString('pt-BR')} (${daysSince(c.last_order_at) === 0 ? 'hoje' : `há ${daysSince(c.last_order_at)} ${daysSince(c.last_order_at) === 1 ? 'dia' : 'dias'}`})`
+                      : 'Ainda não fez pedido'}
+                  </p>
 
                   {resetId === c.id ? (
                     <div className="edit-form">
