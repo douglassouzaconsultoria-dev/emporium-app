@@ -12,6 +12,8 @@ const AdminOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
   const [savingMotoboy, setSavingMotoboy] = useState(false);
+  const [bulkConfirm, setBulkConfirm] = useState(null); // 'Saído' | 'Entregue' esperando o 2º toque
+  const [bulkMessage, setBulkMessage] = useState('');
 
   const statuses = ['Pendente', 'Preparando', 'Saído', 'Entregue'];
 
@@ -101,6 +103,36 @@ const AdminOrders = () => {
       }
     } catch (err) {
       alert('Erro ao atualizar status: ' + err.message);
+    }
+  };
+
+  // ⚡ Todos de uma vez: Preparando → Saído e Saído → Entregue (toca uma vez para confirmar, de novo para fazer)
+  const toSend = orders.filter(o => o.status === 'Preparando' && !o.problem);
+  const toDeliver = orders.filter(o => o.status === 'Saído');
+
+  const bulkUpdate = async (status) => {
+    const list = status === 'Saído' ? toSend : toDeliver;
+    if (bulkConfirm !== status) {
+      setBulkConfirm(status);
+      setTimeout(() => setBulkConfirm(c => (c === status ? null : c)), 5000);
+      return;
+    }
+    setBulkConfirm(null);
+    try {
+      const response = await fetch(`${API_URL}/orders/bulk-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ status, ids: list.map(o => o.id) })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro ao atualizar');
+      const n = data.updated.length;
+      setBulkMessage(`✅ ${n} ${n === 1 ? 'pedido marcado' : 'pedidos marcados'} como ${status === 'Saído' ? 'Saiu para entrega' : 'Entregue'}`);
+      setTimeout(() => setBulkMessage(''), 4000);
+      fetchOrders(true);
+    } catch (err) {
+      setBulkMessage(`❌ ${err.message}`);
+      setTimeout(() => setBulkMessage(''), 4000);
     }
   };
 
@@ -288,6 +320,33 @@ const AdminOrders = () => {
           🔄 Atualizar
         </button>
       </div>
+
+      {/* ⚡ AÇÕES EM LOTE */}
+      <div className="ao-bulk">
+        <button
+          className={`ao-bulk-btn go ${bulkConfirm === 'Saído' ? 'confirm' : ''}`}
+          onClick={() => bulkUpdate('Saído')}
+          disabled={toSend.length === 0}
+          title="Todos os pedidos em Preparando passam para Saiu para entrega"
+        >
+          {bulkConfirm === 'Saído'
+            ? `👆 Clique de novo: ${toSend.length} saindo para entrega`
+            : `🛵 Todos saíram para entrega (${toSend.length})`}
+        </button>
+        <button
+          className={`ao-bulk-btn done ${bulkConfirm === 'Entregue' ? 'confirm' : ''}`}
+          onClick={() => bulkUpdate('Entregue')}
+          disabled={toDeliver.length === 0}
+          title="Todos os pedidos em Saído passam para Entregue"
+        >
+          {bulkConfirm === 'Entregue'
+            ? `👆 Clique de novo: ${toDeliver.length} entregues`
+            : `✅ Todos entregues (${toDeliver.length})`}
+        </button>
+      </div>
+      {bulkMessage && (
+        <div className={`ao-bulk-msg ${bulkMessage.startsWith('✅') ? 'ok' : 'err'}`}>{bulkMessage}</div>
+      )}
 
       {error && <div className="admin-orders-error">{error}</div>}
 
