@@ -714,3 +714,16 @@
   text-align: right;
   flex-shrink: 0;
 }
+
+/* 👁️ Admin vendo o painel de um motoboy */
+.mb-admin-view {
+  padding: 10px 14px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+}
+
+.mb-chip-static {
+  cursor: default;
+}

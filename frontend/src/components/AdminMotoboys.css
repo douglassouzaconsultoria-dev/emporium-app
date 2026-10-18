@@ -549,3 +549,28 @@
   font-weight: 800;
   border-bottom: none;
 }
+
+/* 👁️ Painel do motoboy aberto pelo admin */
+.am-btn-panel {
+  padding: 10px;
+  border: 2px solid #1a1a1a;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1a1a;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.am-btn-panel:hover {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.am-panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  overflow-y: auto;
+  background: #f3f4f6;
+}

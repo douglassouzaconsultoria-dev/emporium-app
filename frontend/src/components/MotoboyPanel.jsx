@@ -60,8 +60,11 @@ const playAlert = (ctx) => {
   }
 };
 
-function MotoboyPanel({ onLogout }) {
+// asAdmin = { id, name }: o admin abrindo o painel de um motoboy (Admin → Motoboys)
+function MotoboyPanel({ onLogout, asAdmin, onClose }) {
   const { user, token } = useContext(AuthContext);
+  const base = asAdmin ? `${API_URL}/motoboys/${asAdmin.id}/panel` : `${API_URL}/motoboys/me`;
+  const exit = asAdmin ? onClose : onLogout;
 
   const [view, setView] = useState('deliveries'); // 'deliveries' | 'profile'
   const [tab, setTab] = useState('mine');         // 'mine' | 'available' | 'history'
@@ -108,13 +111,13 @@ function MotoboyPanel({ onLogout }) {
 
   const fetchDeliveries = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/motoboys/me/deliveries`, {
+      const res = await fetch(`${base}/deliveries`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (res.status === 401 || res.status === 403) {
-        alert('Sua conta foi desativada ou o login expirou. Fale com o Empório.');
-        onLogout();
+        if (!asAdmin) alert('Sua conta foi desativada ou o login expirou. Fale com o Empório.');
+        exit();
         return;
       }
 
@@ -151,7 +154,7 @@ function MotoboyPanel({ onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, [token, onLogout]);
+  }, [token, base, exit, asAdmin]);
 
   // Carrega e atualiza sozinho
   useEffect(() => {
@@ -182,7 +185,7 @@ function MotoboyPanel({ onLogout }) {
     setNewAlert(null);
   };
 
-  const api = (path, method = 'GET', body) => fetch(`${API_URL}/motoboys/me${path}`, {
+  const api = (path, method = 'GET', body) => fetch(`${base}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: body ? JSON.stringify(body) : undefined
@@ -220,11 +223,11 @@ function MotoboyPanel({ onLogout }) {
       if (permission !== 'granted') return;
 
       const reg = await navigator.serviceWorker.ready;
-      const keyRes = await fetch(`${API_URL}/motoboys/me/push-key`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const keyRes = await fetch(`${base}/push-key`, { headers: { 'Authorization': `Bearer ${token}` } });
       const { key } = await keyRes.json();
       const sub = (await reg.pushManager.getSubscription())
         || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(key) });
-      const res = await fetch(`${API_URL}/motoboys/me/push-subscribe`, {
+      const res = await fetch(`${base}/push-subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ subscription: sub.toJSON() })
@@ -239,8 +242,8 @@ function MotoboyPanel({ onLogout }) {
   }, [token]);
 
   useEffect(() => {
-    enablePush(true);
-  }, [enablePush]);
+    if (!asAdmin) enablePush(true);
+  }, [enablePush, asAdmin]);
 
   // Sair = encerra o turno e para de receber notificações neste celular
   const handleLogout = async () => {
@@ -263,7 +266,7 @@ function MotoboyPanel({ onLogout }) {
   // 📍 Com entrega em rota, manda a localização para o cliente acompanhar
   const hasRoute = mine.some(o => o.status === 'Saído');
   useEffect(() => {
-    if (!hasRoute || !navigator.geolocation) return undefined;
+    if (asAdmin || !hasRoute || !navigator.geolocation) return undefined;
     let lastSent = 0;
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
@@ -277,19 +280,19 @@ function MotoboyPanel({ onLogout }) {
     );
     return () => navigator.geolocation.clearWatch(watchId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasRoute, token]);
+  }, [hasRoute, token, asAdmin]);
 
   // 📜 Histórico
   const fetchHistory = useCallback(async (days) => {
     try {
       setHistory(null);
-      const res = await fetch(`${API_URL}/motoboys/me/history?days=${days}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${base}/history?days=${days}`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) throw new Error('Erro ao buscar histórico');
       setHistory(await res.json());
     } catch (err) {
       showMessage('error', `❌ ${err.message}`);
     }
-  }, [token]);
+  }, [token, base]);
 
   useEffect(() => {
     if (tab === 'history') fetchHistory(historyDays);
@@ -316,7 +319,7 @@ function MotoboyPanel({ onLogout }) {
     try {
       setBusyId(order.id);
       claimedRef.current.add(order.id);
-      const res = await fetch(`${API_URL}/motoboys/me/deliveries/${order.id}/claim`, {
+      const res = await fetch(`${base}/deliveries/${order.id}/claim`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -345,7 +348,7 @@ function MotoboyPanel({ onLogout }) {
 
     try {
       setBusyId(order.id);
-      const res = await fetch(`${API_URL}/motoboys/me/deliveries/${order.id}/status`, {
+      const res = await fetch(`${base}/deliveries/${order.id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -425,7 +428,7 @@ function MotoboyPanel({ onLogout }) {
     }
   };
 
-  const firstName = (user?.name || 'Motoboy').split(' ')[0];
+  const firstName = ((asAdmin ? asAdmin.name : user?.name) || 'Motoboy').split(' ')[0];
   const list = tab === 'mine' ? mine : tab === 'available' ? available : [];
 
   return (
@@ -436,6 +439,15 @@ function MotoboyPanel({ onLogout }) {
           <strong>🛵 EMPÓRIO BRUMADO</strong>
           <span>Área do Motoboy</span>
         </div>
+        {asAdmin ? (
+          <div className="mb-header-actions">
+            <span className="mb-chip mb-chip-static">
+              <span className="mb-chip-initial">{firstName.charAt(0).toUpperCase()}</span>
+              <span className="mb-chip-name">{firstName}</span>
+            </span>
+            <button className="mb-logout" onClick={onClose}>← Voltar ao Admin</button>
+          </div>
+        ) : (
         <div className="mb-header-actions">
           <button
             className={`mb-chip ${view === 'profile' ? 'active' : ''}`}
@@ -448,6 +460,7 @@ function MotoboyPanel({ onLogout }) {
           </button>
           <button className="mb-logout" onClick={handleLogout}>Sair</button>
         </div>
+        )}
       </header>
 
       {newAlert && (
@@ -455,6 +468,12 @@ function MotoboyPanel({ onLogout }) {
           <strong>{newAlert.text}</strong>
           <span>Toque para ver</span>
         </button>
+      )}
+
+      {asAdmin && (
+        <div className="mb-admin-view">
+          👁️ Você está vendo o painel de <strong>{asAdmin.name}</strong>. O que fizer aqui vale como se fosse ele.
+        </div>
       )}
 
       {online !== null && (
@@ -469,20 +488,20 @@ function MotoboyPanel({ onLogout }) {
         </div>
       )}
 
-      {pushState === 'off' && (
+      {!asAdmin && pushState === 'off' && (
         <button className="mb-push" onClick={() => enablePush(false)}>
           📲 Ativar notificações
           <small>Avisa de entrega nova mesmo com o app fechado ou a tela bloqueada.</small>
         </button>
       )}
-      {pushState === 'denied' && (
+      {!asAdmin && pushState === 'denied' && (
         <div className="mb-push-info">🔕 Notificações bloqueadas. Libere em Configurações do celular → Notificações → navegador/app do Empório.</div>
       )}
-      {pushState === 'ios-install' && (
+      {!asAdmin && pushState === 'ios-install' && (
         <div className="mb-push-info">📲 No iPhone, para receber notificações com o app fechado, adicione o app à Tela de Início e abra por lá.</div>
       )}
 
-      {!soundOn ? (
+      {asAdmin ? null : !soundOn ? (
         <button className="mb-sound" onClick={enableSound}>
           🔔 Toque aqui para ativar o som dos alertas de entrega
           <small>Deixe este app aberto e a tela ligada para ouvir quando chegar entrega.</small>
@@ -494,7 +513,7 @@ function MotoboyPanel({ onLogout }) {
       )}
 
       <main className="mb-main">
-        {view === 'profile' ? (
+        {view === 'profile' && !asAdmin ? (
           <Profile onClose={() => setView('deliveries')} />
         ) : (
           <>
@@ -594,7 +613,7 @@ function MotoboyPanel({ onLogout }) {
                   <button onClick={fetchDeliveries}>🔄 Atualizar</button>
                 </div>
 
-                {tab === 'mine' && hasRoute && (
+                {tab === 'mine' && hasRoute && !asAdmin && (
                   <div className={`mb-location ${locationError ? 'err' : ''}`}>
                     {locationError || '📍 O cliente acompanha sua localização enquanto a entrega está em rota (com o app aberto).'}
                   </div>
