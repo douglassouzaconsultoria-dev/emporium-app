@@ -26,6 +26,7 @@ app.use('/api/customers', require('./routes/customers'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/coupons', require('./routes/coupons'));
+app.use('/api/media', require('./routes/media'));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -117,6 +118,18 @@ require('./utils/database').query(`
     auto_frequency VARCHAR(20) DEFAULT 'SEMANAL',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS media_files (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    public_id TEXT NOT NULL,
+    resource_type VARCHAR(20) DEFAULT 'image',
+    format VARCHAR(20),
+    bytes INTEGER,
+    width INTEGER,
+    height INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
   CREATE TABLE IF NOT EXISTS push_subscriptions (
     id SERIAL PRIMARY KEY,
