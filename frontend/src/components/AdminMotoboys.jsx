@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import MotoboyPanel from './MotoboyPanel';
 import './AdminMotoboys.css';
 
 const emptyForm = { name: '', username: '', phone_number: '', password: '' };
@@ -36,6 +37,7 @@ function AdminMotoboys() {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [settleId, setSettleId] = useState(null);
+  const [panelOf, setPanelOf] = useState(null); // 👁️ motoboy cujo painel está aberto
   const [period, setPeriod] = useState('today');
   const [report, setReport] = useState(null);
 
@@ -342,6 +344,10 @@ function AdminMotoboys() {
                 </button>
               )}
 
+              <button className="am-btn-panel" onClick={() => setPanelOf(m)}>
+                👁️ Ver painel do motoboy
+              </button>
+
               <a className="am-whats" href={whatsappLink(m.phone_number)} target="_blank" rel="noopener noreferrer">
                 💬 {m.phone_number}
               </a>
@@ -358,6 +364,16 @@ function AdminMotoboys() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 👁️ PAINEL DO MOTOBOY (o mesmo que ele vê no celular) */}
+      {panelOf && (
+        <div className="am-panel-overlay">
+          <MotoboyPanel
+            asAdmin={{ id: panelOf.id, name: panelOf.name }}
+            onClose={() => { setPanelOf(null); fetchMotoboys(); }}
+          />
         </div>
       )}
 

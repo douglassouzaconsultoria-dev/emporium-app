@@ -28,6 +28,14 @@ const DELIVERY_SELECT = `
 // 🛵 ÁREA DO MOTOBOY
 // ======================================================
 
+// 🛵 Rotas da área do motoboy: usadas pelo próprio motoboy (/me) e pelo admin vendo o painel dele (/:id/panel)
+const me = express.Router();
+
+// Celular do motoboy apenas (o admin não manda localização nem recebe notificações por ele)
+const motoboyOnly = (req, res, next) => (req.actingAdmin
+  ? res.status(403).json({ error: 'Disponível só no celular do motoboy' })
+  : next());
+
 // 🕒 Datas gravadas sem fuso → dia de Brasília (igual ao dashboard)
 const BR_DATE = (col) => `(${col}::timestamptz AT TIME ZONE 'America/Sao_Paulo')::date`;
 const BR_TODAY = `(NOW() AT TIME ZONE 'America/Sao_Paulo')::date`;
@@ -55,7 +63,7 @@ const moneySummary = async (motoboyId) => {
 };
 
 // Minhas entregas + disponíveis
-router.get('/me/deliveries', verifyMotoboy, async (req, res) => {
+me.get('/deliveries', async (req, res) => {
   try {
     const me = await pool.query('SELECT online FROM customers WHERE id = $1', [req.user.id]);
     const online = me.rows[0].online === true;
@@ -91,7 +99,7 @@ router.get('/me/deliveries', verifyMotoboy, async (req, res) => {
 });
 
 // 🟢 Disponível / ⚪ Offline
-router.put('/me/online', verifyMotoboy, async (req, res) => {
+me.put('/online', async (req, res) => {
   try {
     const online = req.body.online === true;
     await pool.query('UPDATE customers SET online = $1 WHERE id = $2', [online, req.user.id]);
@@ -115,7 +123,7 @@ router.put('/me/online', verifyMotoboy, async (req, res) => {
 });
 
 // Pegar entrega (só se ainda estiver livre)
-router.post('/me/deliveries/:id/claim', verifyMotoboy, async (req, res) => {
+me.post('/deliveries/:id/claim', async (req, res) => {
   try {
     const me = await pool.query('SELECT online FROM customers WHERE id = $1', [req.user.id]);
     if (me.rows[0].online !== true) {
@@ -141,7 +149,7 @@ router.post('/me/deliveries/:id/claim', verifyMotoboy, async (req, res) => {
 });
 
 // Atualizar status (Saído / Entregue) — só nas próprias entregas
-router.put('/me/deliveries/:id/status', verifyMotoboy, async (req, res) => {
+me.put('/deliveries/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
     const allowedFrom = { 'Saído': 'Preparando', 'Entregue': 'Saído' };
@@ -179,7 +187,7 @@ const PROBLEMS = {
   outro: 'Outro problema'
 };
 
-router.put('/me/deliveries/:id/problem', verifyMotoboy, async (req, res) => {
+me.put('/deliveries/:id/problem', async (req, res) => {
   try {
     const label = PROBLEMS[req.body.reason];
     const details = clean(req.body.details).slice(0, 200);
@@ -210,7 +218,7 @@ router.put('/me/deliveries/:id/problem', verifyMotoboy, async (req, res) => {
 });
 
 // 📜 Histórico de entregas (1, 7 ou 30 dias)
-router.get('/me/history', verifyMotoboy, async (req, res) => {
+me.get('/history', async (req, res) => {
   try {
     const days = [1, 7, 30].includes(parseInt(req.query.days)) ? parseInt(req.query.days) : 7;
     const { rows } = await pool.query(
@@ -243,7 +251,7 @@ router.get('/me/history', verifyMotoboy, async (req, res) => {
 });
 
 // 📍 Localização (só enquanto o app está aberto): o cliente acompanha o pedido em rota
-router.put('/me/location', verifyMotoboy, async (req, res) => {
+me.put('/location', motoboyOnly, async (req, res) => {
   const lat = parseFloat(req.body.lat);
   const lng = parseFloat(req.body.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
@@ -262,7 +270,7 @@ router.put('/me/location', verifyMotoboy, async (req, res) => {
 });
 
 // 🔔 Notificações com o app fechado
-router.get('/me/push-key', verifyMotoboy, async (req, res) => {
+me.get('/push-key', motoboyOnly, async (req, res) => {
   try {
     res.json({ key: await getPublicKey() });
   } catch (err) {
@@ -271,7 +279,7 @@ router.get('/me/push-key', verifyMotoboy, async (req, res) => {
   }
 });
 
-router.post('/me/push-subscribe', verifyMotoboy, async (req, res) => {
+me.post('/push-subscribe', motoboyOnly, async (req, res) => {
   const sub = req.body.subscription || {};
   if (typeof sub.endpoint !== 'string' || !/^https:\/\//.test(sub.endpoint) || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
     return res.status(400).json({ error: 'Inscrição inválida' });
@@ -289,7 +297,7 @@ router.post('/me/push-subscribe', verifyMotoboy, async (req, res) => {
   }
 });
 
-router.post('/me/push-unsubscribe', verifyMotoboy, async (req, res) => {
+me.post('/push-unsubscribe', motoboyOnly, async (req, res) => {
   try {
     await pool.query(
       'DELETE FROM push_subscriptions WHERE endpoint = $1 AND customer_id = $2',
@@ -301,6 +309,23 @@ router.post('/me/push-unsubscribe', verifyMotoboy, async (req, res) => {
     res.status(500).json({ error: 'Erro ao desativar notificações' });
   }
 });
+
+router.use('/me', verifyMotoboy, me);
+
+// 👁️ Admin abre o painel de um motoboy e pode agir por ele
+router.use('/:motoboyId/panel', verifyAdmin, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.motoboyId);
+    const { rows } = await pool.query(`SELECT id FROM customers WHERE id = $1 AND role = 'motoboy'`, [id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Motoboy não encontrado' });
+    req.user = { id, role: 'motoboy' };
+    req.actingAdmin = true;
+    next();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao abrir o painel do motoboy' });
+  }
+}, me);
 
 // ======================================================
 // 🔧 ADMIN: GERENCIAR MOTOBOYS
