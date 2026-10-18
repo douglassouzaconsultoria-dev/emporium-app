@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { formatQty } from '../utils/units';
 import { printOrder, printOrderById } from '../utils/printOrder';
+import { confirmDialog, notify } from '../utils/dialog';
 import './AdminOrders.css';
 
 const AdminOrders = () => {
@@ -14,6 +15,10 @@ const AdminOrders = () => {
   const [savingMotoboy, setSavingMotoboy] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState(null); // 'Saído' | 'Entregue' esperando o 2º toque
   const [bulkMessage, setBulkMessage] = useState('');
+  // 🔎 Busca e filtros
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState(''); // '' | 'today' | 'yesterday' | '7d' | 'AAAA-MM-DD'
 
   const statuses = ['Pendente', 'Preparando', 'Saído', 'Entregue'];
 
@@ -68,7 +73,7 @@ const AdminOrders = () => {
       setOrderDetails(details);
       setSelectedOrder(order);
     } catch (err) {
-      alert('Erro ao carregar detalhes: ' + err.message);
+      notify('❌ Erro ao carregar detalhes: ' + err.message, 'error');
     }
   };
 
@@ -102,7 +107,7 @@ const AdminOrders = () => {
         setOrderDetails({ ...orderDetails, status: newStatus });
       }
     } catch (err) {
-      alert('Erro ao atualizar status: ' + err.message);
+      notify('❌ Erro ao atualizar status: ' + err.message, 'error');
     }
   };
 
@@ -136,6 +141,30 @@ const AdminOrders = () => {
     }
   };
 
+  // 🔎 Pedidos que aparecem na tabela (busca por nº, cliente, telefone ou endereço + status + data)
+  const dayKey = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // AAAA-MM-DD
+  const todayKey = dayKey(new Date());
+  const yesterdayKey = dayKey(Date.now() - 864e5);
+  const weekAgoKey = dayKey(Date.now() - 6 * 864e5);
+  const term = search.trim().toLowerCase().replace(/^#/, '');
+  const digits = term.replace(/\D/g, '');
+  const filteredOrders = orders.filter(o => {
+    if (statusFilter === 'problem' ? !o.problem : statusFilter && o.status !== statusFilter) return false;
+    if (dateFilter) {
+      const k = dayKey(o.created_at);
+      if (dateFilter === 'today' && k !== todayKey) return false;
+      if (dateFilter === 'yesterday' && k !== yesterdayKey) return false;
+      if (dateFilter === '7d' && k < weekAgoKey) return false;
+      if (/^\d{4}-/.test(dateFilter) && k !== dateFilter) return false;
+    }
+    if (!term) return true;
+    if (String(o.id) === term) return true;
+    const text = `${o.name || ''} ${o.delivery_address || ''} ${o.delivery_neighborhood || ''}`.toLowerCase();
+    if (text.includes(term)) return true;
+    return digits.length >= 3 && (o.phone_number || '').replace(/\D/g, '').includes(digits);
+  });
+  const filtering = Boolean(term || statusFilter || dateFilter);
+
   // 🔁 Entrega voltou com problema → manda de novo para a fila dos motoboys
   const resendOrder = async (order) => {
     try {
@@ -145,13 +174,13 @@ const AdminOrders = () => {
       setOrders(list => list.map(o => (o.id === order.id ? { ...o, problem: null } : o)));
       if (selectedOrder && selectedOrder.id === order.id) setSelectedOrder({ ...selectedOrder, problem: null });
     } catch (err) {
-      alert('Erro: ' + err.message);
+      notify('❌ ' + err.message, 'error');
     }
   };
 
   // ❌ Cancelar: o backend devolve os itens ao estoque
-  const cancelOrder = (order) => {
-    if (window.confirm(`Cancelar o pedido #${order.id}? Os itens voltam para o estoque.`)) {
+  const cancelOrder = async (order) => {
+    if (await confirmDialog(`Cancelar o pedido #${order.id}? Os itens voltam para o estoque.`, { okText: '❌ Cancelar pedido', danger: true })) {
       updateOrderStatus(order.id, 'Cancelado');
     }
   };
@@ -185,18 +214,19 @@ const AdminOrders = () => {
         setSelectedOrder({ ...selectedOrder, motoboy_id: newId, motoboy_name: motoboyName, problem: problemAfter(selectedOrder) });
       }
     } catch (err) {
-      alert('Erro: ' + err.message);
+      notify('❌ ' + err.message, 'error');
     } finally {
       setSavingMotoboy(false);
     }
   };
 
   // ▶ Preparar: PIX só depois de conferir no extrato que o pagamento caiu
-  const startPreparing = (order) => {
-    if (order.payment_method === 'pix' && order.status === 'Pendente' && !window.confirm(
+  const startPreparing = async (order) => {
+    if (order.payment_method === 'pix' && order.status === 'Pendente' && !(await confirmDialog(
       `PIX do pedido #${order.id}: você conferiu no extrato do banco que caiu R$ ${parseFloat(order.total).toFixed(2)}` +
-      ` (identificação EMP${order.id})?\n\nOK = sim, liberar para preparar e entregar.`
-    )) return;
+      ` (identificação EMP${order.id})?`,
+      { okText: '✅ Caiu, liberar' }
+    ))) return;
     updateOrderStatus(order.id, 'Preparando');
   };
 
@@ -350,6 +380,36 @@ const AdminOrders = () => {
 
       {error && <div className="admin-orders-error">{error}</div>}
 
+      {/* 🔎 BUSCA E FILTROS */}
+      <div className="ao-filters">
+        <input
+          type="search"
+          placeholder="🔎 Buscar nº do pedido, cliente, telefone ou endereço"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">Todos os status</option>
+          {['Pendente', 'Preparando', 'Saído', 'Entregue', 'Cancelado'].map(st => <option key={st} value={st}>{st}</option>)}
+          <option value="problem">⚠️ Com problema</option>
+        </select>
+        <select value={/^\d{4}-/.test(dateFilter) ? 'day' : dateFilter} onChange={(e) => setDateFilter(e.target.value === 'day' ? todayKey : e.target.value)}>
+          <option value="">Qualquer data</option>
+          <option value="today">Hoje</option>
+          <option value="yesterday">Ontem</option>
+          <option value="7d">Últimos 7 dias</option>
+          <option value="day">Escolher dia...</option>
+        </select>
+        {/^\d{4}-/.test(dateFilter) && (
+          <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value || '')} />
+        )}
+        {filtering && (
+          <button className="ao-filters-clear" onClick={() => { setSearch(''); setStatusFilter(''); setDateFilter(''); }}>
+            ✕ Limpar ({filteredOrders.length} de {orders.length})
+          </button>
+        )}
+      </div>
+
       {orders.length === 0 ? (
         <p>Nenhum pedido ainda</p>
       ) : (
@@ -370,7 +430,10 @@ const AdminOrders = () => {
               </tr>
             </thead>
             <tbody>
-              {orders.map(order => (
+              {filteredOrders.length === 0 && (
+                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '24px', color: '#777' }}>Nenhum pedido encontrado com esses filtros.</td></tr>
+              )}
+              {filteredOrders.map(order => (
                 <tr key={order.id} className="order-row">
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button
@@ -393,7 +456,7 @@ const AdminOrders = () => {
                       className="details-btn"
                       title="Imprimir pedido"
                       style={{ marginLeft: '6px', background: '#1a1a1a' }}
-                      onClick={() => printOrderById(order.id).catch(err => alert(err.message))}
+                      onClick={() => printOrderById(order.id).catch(err => notify('❌ ' + err.message, 'error'))}
                     >
                       🖨️
                     </button>
@@ -417,7 +480,10 @@ const AdminOrders = () => {
                     </span>
                   </td>
                   <td><MotoboyCell order={order} /></td>
-                  <td>{new Date(order.created_at).toLocaleDateString('pt-BR')}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {new Date(order.created_at).toLocaleDateString('pt-BR')}
+                    <br /><small style={{ color: '#666' }}>{new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import { confirmDialog } from '../utils/dialog';
 import axios from 'axios';
 import './AdminCategories.css';
 
@@ -81,7 +82,7 @@ function AdminCategories() {
   };
 
   const deleteCategory = async (id) => {
-    if (window.confirm('Tem certeza que deseja deletar esta categoria?')) {
+    if (await confirmDialog('Apagar esta categoria?', { okText: '🗑️ Apagar', danger: true })) {
       try {
         const token = localStorage.getItem('authToken');
         await axios.delete(`${API_URL}/categories/${id}`, {

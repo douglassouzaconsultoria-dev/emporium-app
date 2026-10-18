@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import { confirmDialog } from '../utils/dialog';
 import axios from 'axios';
 import './AdminStore.css';
 
@@ -81,7 +82,7 @@ function AdminCoupons() {
   };
 
   const remove = async (c) => {
-    if (!window.confirm(`Apagar o cupom ${c.code}?`)) return;
+    if (!(await confirmDialog(`Apagar o cupom ${c.code}?`, { okText: '🗑️ Apagar', danger: true }))) return;
     try {
       await axios.delete(`${API_URL}/coupons/${c.id}`, authHeaders());
       fetchCoupons();

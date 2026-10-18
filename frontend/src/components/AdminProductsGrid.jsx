@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
+import { confirmDialog } from '../utils/dialog';
 
 const COLS = [
   { key: 'nome', label: 'Nome *', width: 240 },
@@ -117,9 +118,9 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
 
   const term = filter.trim().toLowerCase();
 
-  const close = () => {
+  const close = async () => {
     if (saving) return;
-    if (toSave.length && !window.confirm('Tem alterações sem salvar. Fechar mesmo assim?')) return;
+    if (toSave.length && !(await confirmDialog('Tem alterações sem salvar. Fechar mesmo assim?', { okText: 'Fechar sem salvar', danger: true }))) return;
     onClose();
   };
 

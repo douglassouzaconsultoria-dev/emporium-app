@@ -90,6 +90,95 @@ function BarList({ rows, empty }) {
   );
 }
 
+// 💰 Fechamento de caixa do período (escolha "Hoje" para o fechamento do dia)
+const PAY_ICON = { pix: '📱', dinheiro: '💵', cartao: '💳' };
+function Closing({ rows }) {
+  if (!rows.length) return <p className="db-empty">Nenhum pedido no período.</p>;
+  const sum = (k) => rows.reduce((t, r) => t + r[k], 0);
+  return (
+    <div className="db-table-wrap">
+      <table className="db-table">
+        <thead>
+          <tr>
+            <th>Forma</th><th>Pedidos</th><th>Total</th><th>Taxas de entrega</th><th>Descontos</th><th>Já entregue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.method}>
+              <td>{PAY_ICON[r.method] || ''} {PAYMENT_LABEL[r.method] || r.method}</td>
+              <td>{int(r.orders)}</td>
+              <td><strong>{brl(r.total)}</strong></td>
+              <td>{brl(r.fees)}</td>
+              <td>{r.discounts > 0 ? `− ${brl(r.discounts)}` : '—'}</td>
+              <td>{brl(r.delivered_total)} <small>({int(r.delivered)})</small></td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Total</td>
+            <td>{int(sum('orders'))}</td>
+            <td><strong>{brl(sum('total'))}</strong></td>
+            <td>{brl(sum('fees'))}</td>
+            <td>{sum('discounts') > 0 ? `− ${brl(sum('discounts'))}` : '—'}</td>
+            <td>{brl(sum('delivered_total'))} <small>({int(sum('delivered'))})</small></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+// 📦 Quanto vendeu de cada produto, separado por categoria
+function ProductSales({ rows }) {
+  const [term, setTerm] = useState('');
+  const q = term.trim().toLowerCase();
+  const filtered = q ? rows.filter(r => r.name.toLowerCase().includes(q) || r.category.toLowerCase().includes(q)) : rows;
+  const groups = [];
+  filtered.forEach(r => {
+    let g = groups.find(x => x.name === r.category);
+    if (!g) groups.push(g = { name: r.category, items: [], revenue: 0 });
+    g.items.push(r);
+    g.revenue += r.revenue;
+  });
+  groups.sort((a, b) => b.revenue - a.revenue);
+
+  if (!rows.length) return <p className="db-empty">Nenhuma venda no período.</p>;
+  return (
+    <>
+      <input className="db-search" type="search" placeholder="🔎 Buscar produto ou categoria" value={term} onChange={(e) => setTerm(e.target.value)} />
+      {groups.length === 0 && <p className="db-empty">Nada encontrado.</p>}
+      {groups.map(g => (
+        <details key={g.name} className="db-sales-group" open={Boolean(q) || groups.length <= 3}>
+          <summary>
+            <span>{g.name}</span>
+            <span>{brl(g.revenue)} · {int(g.items.length)} {g.items.length === 1 ? 'produto' : 'produtos'}</span>
+          </summary>
+          <div className="db-table-wrap">
+            <table className="db-table">
+              <thead>
+                <tr><th>Produto</th><th>Vendido</th><th>Faturou</th><th>Pedidos</th><th>Estoque agora</th></tr>
+              </thead>
+              <tbody>
+                {g.items.map((r, i) => (
+                  <tr key={r.id ?? i}>
+                    <td>{r.name}</td>
+                    <td><strong>{qtyText(r.quantity, r.unit)}</strong></td>
+                    <td>{brl(r.revenue)}</td>
+                    <td>{int(r.orders)}</td>
+                    <td className={r.estoque <= 0 ? 'db-now-bad' : ''}>{qtyText(r.estoque, r.unit)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ))}
+    </>
+  );
+}
+
 function StockList({ title, items, empty, render }) {
   return (
     <div className="db-stock-col">
@@ -234,6 +323,18 @@ const AdminDashboard = () => {
               hint="Do pedido feito até o motoboy marcar Entregue, nos pedidos entregues do período." />
           </div>
 
+          {/* 💰 FECHAMENTO DE CAIXA */}
+          <section className="db-card">
+            <div className="db-card-head">
+              <h3>💰 Fechamento de caixa</h3>
+              <span className="db-muted">
+                {data.period.from === data.period.to ? `Dia ${dateBR(data.period.from)}` : `${dateBR(data.period.from)} a ${dateBR(data.period.to)} · escolha "Hoje" para o fechamento do dia`}
+              </span>
+            </div>
+            <Closing rows={data.closing || []} />
+            <p className="db-muted">Pedidos não cancelados, pelo dia em que foram feitos. "Já entregue" mostra quanto desse total já chegou ao cliente.</p>
+          </section>
+
           {/* INTELIGÊNCIA */}
           <section className="db-card">
             <div className="db-card-head">
@@ -325,6 +426,15 @@ const AdminDashboard = () => {
               />
             </section>
           </div>
+
+          {/* 📦 VENDAS POR PRODUTO */}
+          <section className="db-card">
+            <div className="db-card-head">
+              <h3>📦 Quanto vendeu de cada produto</h3>
+              <span className="db-muted">separado por categoria · ajuda a saber o que comprar</span>
+            </div>
+            <ProductSales rows={data.product_sales || []} />
+          </section>
 
           {/* PAGAMENTOS E BAIRROS */}
           <div className="db-grid-2">

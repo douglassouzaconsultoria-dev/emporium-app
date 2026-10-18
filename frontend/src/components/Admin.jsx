@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../config';
+import { notify } from '../utils/dialog';
 import './Admin.css';
 import AdminProducts from './AdminProducts';
 import AdminOrders from './AdminOrders';
@@ -7,6 +8,7 @@ import AdminDashboard from './AdminDashboard';
 import AdminCategories from './AdminCategories';
 import AdminStockConfig from './AdminStockConfig';
 import AdminMedia from './AdminMedia';
+import AdminPushButton from './AdminPushButton';
 import AdminMotoboys from './AdminMotoboys';
 import AdminDeliveryFees from './AdminDeliveryFees';
 import AdminCustomers from './AdminCustomers';
@@ -95,9 +97,9 @@ function Admin() {
         headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
       });
       setSavedTabs(tabs);
-      alert('✅ Ordem das abas salva!');
+      notify('✅ Ordem das abas salva!');
     } catch (err) {
-      alert('Erro ao salvar a ordem das abas');
+      notify('❌ Erro ao salvar a ordem das abas', 'error');
     }
   };
 
@@ -187,6 +189,7 @@ function Admin() {
       <div className="admin-header-top">
         <h1>🔧 Painel de Administração</h1>
         <p className="admin-welcome">Bem-vindo, {user.username || user.email} (Admin)</p>
+        <div className="admin-push"><AdminPushButton /></div>
       </div>
 
       {newOrders > 0 && (

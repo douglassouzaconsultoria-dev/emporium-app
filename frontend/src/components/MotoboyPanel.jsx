@@ -239,7 +239,7 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
       console.error('Push:', err);
       if (!silent) showMessage('error', '❌ Não foi possível ativar as notificações neste celular.');
     }
-  }, [token]);
+  }, [token, base]);
 
   useEffect(() => {
     if (!asAdmin) enablePush(true);
@@ -252,10 +252,8 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
       if (pushSupported()) {
         const reg = await navigator.serviceWorker.getRegistration();
         const sub = reg && await reg.pushManager.getSubscription();
-        if (sub) {
-          await api('/push-unsubscribe', 'POST', { endpoint: sub.endpoint });
-          await sub.unsubscribe();
-        }
+        // Só tira o motoboy da lista: o celular pode continuar recebendo os avisos do admin
+        if (sub) await api('/push-unsubscribe', 'POST', { endpoint: sub.endpoint });
       }
     } catch (err) {
       console.error(err);

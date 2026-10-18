@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../utils/database');
 const { verifyAdmin } = require('../middleware/authMiddleware');
 const { sanitize, getStore, storeStatus } = require('../utils/store');
+const { keyHandler, subscribeHandler, unsubscribeHandler } = require('../utils/push');
 
 // 🔓 GET - configurações da loja + se está aberta agora (vitrine e checkout usam)
 router.get('/store', async (req, res) => {
@@ -75,6 +76,11 @@ router.put('/admin-tabs', verifyAdmin, async (req, res) => {
     res.status(500).json({ error: 'Erro ao salvar ordem das abas' });
   }
 });
+
+// 🔔 Avisos de pedido novo no celular do admin
+router.get('/push-key', verifyAdmin, keyHandler);
+router.post('/push-subscribe', verifyAdmin, subscribeHandler);
+router.post('/push-unsubscribe', verifyAdmin, unsubscribeHandler);
 
 // 🔒 POST - zerar pedidos (apaga todos os pedidos e itens, numeração volta para #1, usos de cupom voltam a 0)
 // Clientes, produtos, estoque, motoboys e configurações ficam como estão.

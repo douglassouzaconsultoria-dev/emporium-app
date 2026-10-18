@@ -34,6 +34,7 @@ const receiptHtml = (order) => {
   h1 { font-size: 20px; font-weight: 900; text-align: center; margin: 0; }
   h2 { font-size: 26px; font-weight: 900; text-align: center; margin: 6px 0; }
   .c { text-align: center; }
+  .hora { font-size: 20px; font-weight: 900; }
   .r { text-align: right; white-space: nowrap; }
   hr { border: 0; border-top: 2px dashed #000; margin: 6px 0; }
   table { width: 100%; border-collapse: collapse; font-size: inherit; font-weight: inherit; }
@@ -44,7 +45,8 @@ const receiptHtml = (order) => {
   <div class="c">Delivery de Supermercado</div>
   <hr>
   <h2>PEDIDO #${order.id}</h2>
-  <div class="c">${esc(new Date(order.created_at).toLocaleString('pt-BR'))}</div>
+  <div class="c">Data: ${esc(new Date(order.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }))}</div>
+  <div class="c hora">Hora: ${esc(new Date(order.created_at).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }))}</div>
   <hr>
   <b>Cliente:</b> ${esc(order.name)}<br>
   <b>Telefone:</b> ${esc(order.phone_number)}<br>

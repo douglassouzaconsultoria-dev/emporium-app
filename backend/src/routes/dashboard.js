@@ -137,7 +137,7 @@ router.get('/', verifyAdmin, async (req, res) => {
 
     const [
       current, previous, orderSeries, customerSeries, topProducts, categories, prevCategories,
-      payments, neighborhoods, fees, products, openOrders
+      payments, neighborhoods, fees, products, openOrders, closing, productSales
     ] = await Promise.all([
       summary(from, to),
       summary(prevFrom, prevTo),
@@ -215,7 +215,33 @@ router.get('/', verifyAdmin, async (req, res) => {
         FROM orders o
         WHERE o.status IN ('Pendente', 'Preparando', 'Saído')
         ORDER BY o.created_at
-      `)
+      `),
+      // 💰 Fechamento de caixa: por forma de pagamento
+      pool.query(`
+        SELECT COALESCE(o.payment_method, 'dinheiro') AS method,
+               COUNT(*)::int AS orders,
+               COALESCE(SUM(o.total), 0) AS total,
+               COALESCE(SUM(COALESCE(o.delivery_fee, 0)), 0) AS fees,
+               COALESCE(SUM(COALESCE(o.discount, 0)), 0) AS discounts,
+               COUNT(*) FILTER (WHERE o.status = 'Entregue')::int AS delivered,
+               COALESCE(SUM(o.total) FILTER (WHERE o.status = 'Entregue'), 0) AS delivered_total
+        FROM orders o
+        WHERE ${VALID} AND ${IN_PERIOD('o.created_at')}
+        GROUP BY 1
+      `, [from, to]),
+      // 📦 Quanto vendeu de cada produto, por categoria
+      pool.query(`
+        SELECT COALESCE(c.name, 'Sem categoria') AS category, p.id, COALESCE(p.name, 'Produto removido') AS name, p.unit,
+               p.estoque, SUM(oi.quantity) AS quantity, SUM(oi.price * oi.quantity) AS revenue,
+               COUNT(DISTINCT o.id)::int AS orders
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        LEFT JOIN products p ON p.id = oi.product_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE ${VALID} AND ${IN_PERIOD('o.created_at')}
+        GROUP BY c.name, p.id, p.name, p.unit, p.estoque
+        ORDER BY category, revenue DESC
+      `, [from, to])
     ]);
 
     // 📈 Série completa (dias sem venda = 0)
@@ -275,6 +301,14 @@ router.get('/', verifyAdmin, async (req, res) => {
       neighborhoods: neighborhoodList,
       stock,
       open_orders: openOrders.rows.map(r => ({ ...r, total: money(r.total) })),
+      closing: closing.rows.map(r => ({
+        method: r.method, orders: r.orders, total: money(r.total), fees: money(r.fees),
+        discounts: money(r.discounts), delivered: r.delivered, delivered_total: money(r.delivered_total)
+      })),
+      product_sales: productSales.rows.map(r => ({
+        category: r.category, id: r.id, name: r.name, unit: r.unit, estoque: num(r.estoque),
+        quantity: num(r.quantity), revenue: money(r.revenue), orders: r.orders
+      })),
       generated_at: new Date().toISOString()
     };
     data.insights = buildInsights(data, productList);

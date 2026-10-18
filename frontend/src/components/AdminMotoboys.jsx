@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import MotoboyPanel from './MotoboyPanel';
+import { confirmDialog } from '../utils/dialog';
 import './AdminMotoboys.css';
 
 const emptyForm = { name: '', username: '', phone_number: '', password: '' };
@@ -210,7 +211,7 @@ function AdminMotoboys() {
     const msg = willDeactivate
       ? `Desativar ${m.name}? Ele não vai conseguir entrar no app, e as entregas que ainda não saíram voltam para a fila.`
       : `Reativar ${m.name}?`;
-    if (!window.confirm(msg)) return;
+    if (!(await confirmDialog(msg, { okText: willDeactivate ? '⛔ Desativar' : '✅ Reativar', danger: willDeactivate }))) return;
 
     try {
       await saveMotoboy(m, { active: !m.active });
