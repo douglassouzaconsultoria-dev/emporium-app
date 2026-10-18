@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { API_URL } from '../config';
+import AdminBanners from './AdminBanners';
 import './AdminMedia.css';
 
 // 📲 Para onde o QR code leva: o site abre e já oferece "Instalar o app"
@@ -475,6 +476,9 @@ function AdminMedia() {
           </div>
         )}
       </section>
+
+      {/* 🎞️ BANNERS DA VITRINE */}
+      <AdminBanners files={files} />
 
       {/* 📲 QR CODE */}
       <section className="amd-card">

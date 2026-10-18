@@ -16,6 +16,7 @@ import Profile from './components/Profile';
 import MotoboyPanel from './components/MotoboyPanel';
 import InstallBanner from './components/InstallBanner';
 import DialogHost from './components/DialogHost';
+import BannerCarousel from './components/BannerCarousel';
 
 function AppContent() {
   const { user, token, loading, logout } = useContext(AuthContext);
@@ -112,6 +113,24 @@ function AppContent() {
       const bar = chip.parentElement;
       bar.scrollTo({ left: chip.offsetLeft - bar.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
     }
+  };
+
+  // 🖼️ Toque no banner: abre a categoria ou mostra o produto
+  const openBanner = (banner) => {
+    if (banner.link_type === 'category') {
+      handleCategoryChange(banner.link_id);
+      return;
+    }
+    const product = products.find(p => p.id === banner.link_id);
+    if (!product) return;
+    handleCategoryChange(product.category_id);
+    setTimeout(() => {
+      const card = document.querySelector(`[data-product-id="${product.id}"]`);
+      if (!card) return;
+      card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      card.classList.add('bnr-flash');
+      setTimeout(() => card.classList.remove('bnr-flash'), 2000);
+    }, 600);
   };
 
   const handleSearch = (term) => {
@@ -341,6 +360,7 @@ function AppContent() {
         ) : (
           <>
             <SearchBar onSearch={handleSearch} />
+            {!searchTerm && <BannerCarousel onOpen={openBanner} />}
 
             <div className="cat-bar" style={{ top: headerHeight }}>
               <button className="cat-menu-btn" onClick={() => setMenuOpen(open => !open)}>
