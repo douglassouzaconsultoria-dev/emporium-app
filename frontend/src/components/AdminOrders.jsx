@@ -90,17 +90,30 @@ const AdminOrders = () => {
       if (!response.ok) throw new Error(data.error || 'Erro ao atualizar status');
 
       setOrders(orders.map(order =>
-        order.id === orderId ? { ...order, status: newStatus } : order
+        order.id === orderId ? { ...order, status: newStatus, problem: null } : order
       ));
 
       if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, status: newStatus });
+        setSelectedOrder({ ...selectedOrder, status: newStatus, problem: null });
       }
       if (orderDetails) {
         setOrderDetails({ ...orderDetails, status: newStatus });
       }
     } catch (err) {
       alert('Erro ao atualizar status: ' + err.message);
+    }
+  };
+
+  // 🔁 Entrega voltou com problema → manda de novo para a fila dos motoboys
+  const resendOrder = async (order) => {
+    try {
+      const response = await fetch(`${API_URL}/orders/${order.id}/resend`, { method: 'POST', headers: getAuthHeaders() });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro ao reenviar');
+      setOrders(list => list.map(o => (o.id === order.id ? { ...o, problem: null } : o)));
+      if (selectedOrder && selectedOrder.id === order.id) setSelectedOrder({ ...selectedOrder, problem: null });
+    } catch (err) {
+      alert('Erro: ' + err.message);
     }
   };
 
@@ -131,12 +144,13 @@ const AdminOrders = () => {
       const motoboyName = moto ? moto.name : null;
       const newId = motoboyId ? parseInt(motoboyId) : null;
 
+      const problemAfter = (order) => (newId ? null : order.problem);
       setOrders(orders.map(order =>
-        order.id === orderId ? { ...order, motoboy_id: newId, motoboy_name: motoboyName } : order
+        order.id === orderId ? { ...order, motoboy_id: newId, motoboy_name: motoboyName, problem: problemAfter(order) } : order
       ));
 
       if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, motoboy_id: newId, motoboy_name: motoboyName });
+        setSelectedOrder({ ...selectedOrder, motoboy_id: newId, motoboy_name: motoboyName, problem: problemAfter(selectedOrder) });
       }
     } catch (err) {
       alert('Erro: ' + err.message);
@@ -195,6 +209,21 @@ const AdminOrders = () => {
   };
 
   const MotoboyCell = ({ order }) => {
+    if (order.problem) {
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <span title="O motoboy devolveu a entrega" style={{
+            fontSize: '12px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px',
+            background: '#fee2e2', color: '#991b1b'
+          }}>
+            ⚠️ {order.problem}
+          </span>
+          <button className="details-btn" style={{ background: '#ea580c' }} onClick={() => resendOrder(order)}>
+            🔁 Reenviar
+          </button>
+        </span>
+      );
+    }
     if (order.motoboy_name) {
       return <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>🛵 {order.motoboy_name}</span>;
     }
@@ -410,6 +439,18 @@ const AdminOrders = () => {
             }}>
               <p style={{ margin: '0 0 8px', fontWeight: 700 }}>🛵 Motoboy da entrega:</p>
 
+              {selectedOrder.problem && !['Entregue', 'Cancelado'].includes(selectedOrder.status) && (
+                <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: '8px', padding: '10px 12px', marginBottom: '10px', fontWeight: 600 }}>
+                  ⚠️ A entrega voltou: <strong>{selectedOrder.problem}</strong>
+                  <div style={{ marginTop: '8px', fontWeight: 400, color: '#7f1d1d', fontSize: '13px' }}>
+                    Fale com o cliente e então reenvie para os motoboys, escolha um motoboy abaixo ou cancele o pedido.
+                  </div>
+                  <button className="details-btn" style={{ marginTop: '8px', background: '#ea580c' }} onClick={() => resendOrder(selectedOrder)}>
+                    🔁 Reenviar para os motoboys
+                  </button>
+                </div>
+              )}
+
               {['Entregue', 'Cancelado'].includes(selectedOrder.status) ? (
                 <p style={{ margin: 0 }}>{selectedOrder.motoboy_name ? `🛵 ${selectedOrder.motoboy_name}` : 'Sem motoboy registrado'}</p>
               ) : (
@@ -430,7 +471,7 @@ const AdminOrders = () => {
                     <option value="">— Nenhum (fica livre para o motoboy pegar) —</option>
                     {motoboys.map(m => (
                       <option key={m.id} value={m.id}>
-                        {m.name} (@{m.username}){m.active_deliveries > 0 ? ` • ${m.active_deliveries} em andamento` : ''}
+                        {m.online ? '🟢' : '⚪'} {m.name} (@{m.username}){m.active_deliveries > 0 ? ` • ${m.active_deliveries} em andamento` : ''}
                       </option>
                     ))}
                   </select>

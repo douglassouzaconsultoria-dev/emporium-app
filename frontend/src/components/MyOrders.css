@@ -282,3 +282,45 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* ⚠️ Imprevisto na entrega */
+.order-problem {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 📍 Acompanhar o motoboy */
+.track-wait,
+.track-box {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ede9fe;
+  color: #4c1d95;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.track-box p {
+  margin: 0 0 8px;
+}
+
+.track-box iframe {
+  display: block;
+  width: 100%;
+  height: 220px;
+  border: 0;
+  border-radius: 8px;
+}
+
+.track-box small {
+  display: block;
+  margin-top: 6px;
+  font-weight: 500;
+  color: #6d28d9;
+}

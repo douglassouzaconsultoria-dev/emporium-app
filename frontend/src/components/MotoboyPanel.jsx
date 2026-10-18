@@ -9,6 +9,34 @@ const CITY = 'Patrocínio - MG';
 const REFRESH_MS = 20000; // atualiza a cada 20 segundos
 const ALERT_REPEAT_MS = 10000; // repete o alerta até o motoboy tocar na tela
 const ALERT_MAX_REPEATS = 6;
+const LOCATION_EVERY_MS = 15000; // manda a localização a cada 15 s enquanto tem entrega em rota
+const CONFIRM_MS = 5000;
+
+const brl = (v) => `R$ ${(parseFloat(v) || 0).toFixed(2).replace('.', ',')}`;
+
+// 🔔 Notificação com o app fechado (Web Push)
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const keyToBytes = (base64) => {
+  const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+};
+
+const PROBLEMS = [
+  { id: 'ausente', label: '🚪 Cliente ausente' },
+  { id: 'endereco', label: '📍 Endereço não encontrado' },
+  { id: 'recusou', label: '🙅 Cliente recusou' },
+  { id: 'outro', label: '✏️ Outro' }
+];
+
+const HISTORY_PERIODS = [
+  { days: 1, label: 'Hoje' },
+  { days: 7, label: '7 dias' },
+  { days: 30, label: '30 dias' }
+];
+
+const PAY_ICON = { pix: '📱', cartao: '💳', dinheiro: '💵' };
 
 // 🔔 Três bipes fortes (diferente do admin) + vibração
 const playAlert = (ctx) => {
@@ -36,10 +64,17 @@ function MotoboyPanel({ onLogout }) {
   const { user, token } = useContext(AuthContext);
 
   const [view, setView] = useState('deliveries'); // 'deliveries' | 'profile'
-  const [tab, setTab] = useState('mine');         // 'mine' | 'available'
+  const [tab, setTab] = useState('mine');         // 'mine' | 'available' | 'history'
   const [mine, setMine] = useState([]);
   const [available, setAvailable] = useState([]);
-  const [deliveredToday, setDeliveredToday] = useState(0);
+  const [online, setOnline] = useState(null);
+  const [money, setMoney] = useState({ delivered_today: 0, fees_today: 0, cash_pending: 0, cash_orders: 0 });
+  const [confirmId, setConfirmId] = useState(null);
+  const [problem, setProblem] = useState(null);   // { id, reason, details }
+  const [history, setHistory] = useState(null);
+  const [historyDays, setHistoryDays] = useState(1);
+  const [pushState, setPushState] = useState('off'); // 'off' | 'on' | 'denied' | 'unsupported' | 'ios-install'
+  const [locationError, setLocationError] = useState('');
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [openMapId, setOpenMapId] = useState(null);
@@ -103,7 +138,13 @@ function MotoboyPanel({ onLogout }) {
 
       setMine(data.mine);
       setAvailable(data.available);
-      setDeliveredToday(data.delivered_today);
+      setOnline(data.online);
+      setMoney({
+        delivered_today: data.delivered_today,
+        fees_today: data.fees_today,
+        cash_pending: data.cash_pending,
+        cash_orders: data.cash_orders
+      });
       setLastUpdate(new Date());
     } catch (err) {
       console.error(err);
@@ -141,6 +182,136 @@ function MotoboyPanel({ onLogout }) {
     setNewAlert(null);
   };
 
+  const api = (path, method = 'GET', body) => fetch(`${API_URL}/motoboys/me${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  // 🟢 Disponível / ⚪ Offline
+  const toggleOnline = async () => {
+    try {
+      setBusyId('online');
+      const res = await api('/online', 'PUT', { online: !online });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao mudar disponibilidade');
+      setOnline(data.online);
+      showMessage('success', data.online
+        ? '🟢 Você está disponível. Vai receber as entregas novas.'
+        : '⚪ Turno encerrado. Entregas que ainda não saíram voltaram para a fila.');
+      fetchDeliveries();
+    } catch (err) {
+      showMessage('error', `❌ ${err.message}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // 🔔 Liga as notificações do celular (silent = só renova, sem pedir permissão)
+  const enablePush = useCallback(async (silent = false) => {
+    if (!pushSupported()) {
+      setPushState(isIOS() && !isStandalone() ? 'ios-install' : 'unsupported');
+      return;
+    }
+    try {
+      let permission = Notification.permission;
+      if (permission === 'default' && !silent) permission = await Notification.requestPermission();
+      if (permission === 'denied') return setPushState('denied');
+      if (permission !== 'granted') return;
+
+      const reg = await navigator.serviceWorker.ready;
+      const keyRes = await fetch(`${API_URL}/motoboys/me/push-key`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const { key } = await keyRes.json();
+      const sub = (await reg.pushManager.getSubscription())
+        || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(key) });
+      const res = await fetch(`${API_URL}/motoboys/me/push-subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ subscription: sub.toJSON() })
+      });
+      if (!res.ok) throw new Error('Erro ao ativar notificações');
+      setPushState('on');
+      if (!silent) showMessage('success', '🔔 Notificações ativadas! Você será avisado mesmo com o app fechado.');
+    } catch (err) {
+      console.error('Push:', err);
+      if (!silent) showMessage('error', '❌ Não foi possível ativar as notificações neste celular.');
+    }
+  }, [token]);
+
+  useEffect(() => {
+    enablePush(true);
+  }, [enablePush]);
+
+  // Sair = encerra o turno e para de receber notificações neste celular
+  const handleLogout = async () => {
+    try {
+      if (online) await api('/online', 'PUT', { online: false });
+      if (pushSupported()) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const sub = reg && await reg.pushManager.getSubscription();
+        if (sub) {
+          await api('/push-unsubscribe', 'POST', { endpoint: sub.endpoint });
+          await sub.unsubscribe();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    onLogout();
+  };
+
+  // 📍 Com entrega em rota, manda a localização para o cliente acompanhar
+  const hasRoute = mine.some(o => o.status === 'Saído');
+  useEffect(() => {
+    if (!hasRoute || !navigator.geolocation) return undefined;
+    let lastSent = 0;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setLocationError('');
+        if (Date.now() - lastSent < LOCATION_EVERY_MS) return;
+        lastSent = Date.now();
+        api('/location', 'PUT', { lat: pos.coords.latitude, lng: pos.coords.longitude }).catch(() => {});
+      },
+      () => setLocationError('Libere a localização do celular para o cliente acompanhar a entrega.'),
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasRoute, token]);
+
+  // 📜 Histórico
+  const fetchHistory = useCallback(async (days) => {
+    try {
+      setHistory(null);
+      const res = await fetch(`${API_URL}/motoboys/me/history?days=${days}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) throw new Error('Erro ao buscar histórico');
+      setHistory(await res.json());
+    } catch (err) {
+      showMessage('error', `❌ ${err.message}`);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (tab === 'history') fetchHistory(historyDays);
+  }, [tab, historyDays, fetchHistory]);
+
+  // 🚫 Problema na entrega
+  const sendProblem = async (order) => {
+    try {
+      setBusyId(order.id);
+      const res = await api(`/deliveries/${order.id}/problem`, 'PUT', { reason: problem.reason, details: problem.details });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao enviar');
+      setProblem(null);
+      showMessage('success', `⚠️ Pedido #${order.id} voltou para o Empório. Leve as mercadorias de volta para a loja.`);
+      fetchDeliveries();
+    } catch (err) {
+      showMessage('error', `❌ ${err.message}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const claimDelivery = async (order) => {
     try {
       setBusyId(order.id);
@@ -164,7 +335,13 @@ function MotoboyPanel({ onLogout }) {
   };
 
   const updateStatus = async (order, status) => {
-    if (status === 'Entregue' && !window.confirm(`Confirmar que o pedido #${order.id} foi ENTREGUE?`)) return;
+    // ✅ Confirma tocando de novo (sem janelinha do navegador)
+    if (status === 'Entregue' && confirmId !== order.id) {
+      setConfirmId(order.id);
+      setTimeout(() => setConfirmId(id => (id === order.id ? null : id)), CONFIRM_MS);
+      return;
+    }
+    setConfirmId(null);
 
     try {
       setBusyId(order.id);
@@ -212,6 +389,15 @@ function MotoboyPanel({ onLogout }) {
   const wazeUrl = (order) =>
     `https://waze.com/ul?q=${encodeURIComponent(fullAddress(order))}&navigate=yes`;
 
+  // 🗺️ Todas as minhas entregas numa rota só (o Google Maps sai da posição atual)
+  const routeUrl = (orders) => {
+    const stops = orders.map(fullAddress);
+    const waypoints = stops.slice(0, -1).slice(0, 9);
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stops[stops.length - 1])}`
+      + (waypoints.length ? `&waypoints=${encodeURIComponent(waypoints.join('|'))}` : '')
+      + '&travelmode=driving';
+  };
+
   const embedUrl = (order) =>
     `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress(order))}&z=16&output=embed`;
 
@@ -240,7 +426,7 @@ function MotoboyPanel({ onLogout }) {
   };
 
   const firstName = (user?.name || 'Motoboy').split(' ')[0];
-  const list = tab === 'mine' ? mine : available;
+  const list = tab === 'mine' ? mine : tab === 'available' ? available : [];
 
   return (
     <div className="mb-app">
@@ -260,7 +446,7 @@ function MotoboyPanel({ onLogout }) {
               : <span className="mb-chip-initial">{firstName.charAt(0).toUpperCase()}</span>}
             <span className="mb-chip-name">{firstName}</span>
           </button>
-          <button className="mb-logout" onClick={onLogout}>Sair</button>
+          <button className="mb-logout" onClick={handleLogout}>Sair</button>
         </div>
       </header>
 
@@ -269,6 +455,31 @@ function MotoboyPanel({ onLogout }) {
           <strong>{newAlert.text}</strong>
           <span>Toque para ver</span>
         </button>
+      )}
+
+      {online !== null && (
+        <div className={`mb-online ${online ? 'on' : 'off'}`}>
+          <div>
+            <strong>{online ? '🟢 Disponível' : '⚪ Offline'}</strong>
+            <span>{online ? 'Recebendo entregas novas' : 'Você não recebe entregas novas'}</span>
+          </div>
+          <button onClick={toggleOnline} disabled={busyId === 'online'}>
+            {online ? 'Encerrar turno' : '🟢 Ficar disponível'}
+          </button>
+        </div>
+      )}
+
+      {pushState === 'off' && (
+        <button className="mb-push" onClick={() => enablePush(false)}>
+          📲 Ativar notificações
+          <small>Avisa de entrega nova mesmo com o app fechado ou a tela bloqueada.</small>
+        </button>
+      )}
+      {pushState === 'denied' && (
+        <div className="mb-push-info">🔕 Notificações bloqueadas. Libere em Configurações do celular → Notificações → navegador/app do Empório.</div>
+      )}
+      {pushState === 'ios-install' && (
+        <div className="mb-push-info">📲 No iPhone, para receber notificações com o app fechado, adicione o app à Tela de Início e abra por lá.</div>
       )}
 
       {!soundOn ? (
@@ -287,21 +498,26 @@ function MotoboyPanel({ onLogout }) {
           <Profile onClose={() => setView('deliveries')} />
         ) : (
           <>
-            {/* RESUMO */}
+            {/* 💰 RESUMO DO DIA */}
             <div className="mb-stats">
               <div className="mb-stat">
-                <strong>{deliveredToday}</strong>
+                <strong>{money.delivered_today}</strong>
                 <span>Entregues hoje</span>
               </div>
               <div className="mb-stat">
-                <strong>{mine.length}</strong>
-                <span>Minhas</span>
+                <strong className="mb-money">{brl(money.fees_today)}</strong>
+                <span>Taxas hoje</span>
               </div>
-              <div className="mb-stat">
-                <strong>{available.length}</strong>
-                <span>Disponíveis</span>
+              <div className={`mb-stat ${money.cash_pending > 0 ? 'mb-stat-cash' : ''}`}>
+                <strong className="mb-money">{brl(money.cash_pending)}</strong>
+                <span>Dinheiro p/ devolver</span>
               </div>
             </div>
+            {money.cash_pending > 0 && (
+              <p className="mb-cash-note">
+                💵 Dinheiro em espécie de {money.cash_orders} {money.cash_orders === 1 ? 'entrega' : 'entregas'} ainda não acertado no caixa do Empório.
+              </p>
+            )}
 
             {/* ABAS */}
             <div className="mb-tabs">
@@ -309,109 +525,226 @@ function MotoboyPanel({ onLogout }) {
                 🛵 Minhas ({mine.length})
               </button>
               <button className={tab === 'available' ? 'active' : ''} onClick={() => setTab('available')}>
-                📋 Disponíveis ({available.length})
+                📋 Livres ({available.length})
               </button>
-            </div>
-
-            <div className="mb-refresh">
-              <span>
-                {lastUpdate ? `Atualizado às ${lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
-              </span>
-              <button onClick={fetchDeliveries}>🔄 Atualizar</button>
+              <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
+                📜 Histórico
+              </button>
             </div>
 
             {message.text && <div className={`mb-message ${message.type}`}>{message.text}</div>}
 
-            {/* LISTA */}
-            {loading ? (
-              <div className="mb-empty">Carregando entregas...</div>
-            ) : list.length === 0 ? (
-              <div className="mb-empty">
-                {tab === 'mine'
-                  ? <>📭 Você não tem entregas agora.<br /><small>Veja a aba <strong>Disponíveis</strong>.</small></>
-                  : <>✅ Nenhuma entrega esperando motoboy.</>}
+            {tab === 'history' ? (
+              <div className="mb-history">
+                <div className="mb-periods">
+                  {HISTORY_PERIODS.map(p => (
+                    <button key={p.days} className={historyDays === p.days ? 'active' : ''} onClick={() => setHistoryDays(p.days)}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                {!history ? (
+                  <div className="mb-empty">Carregando...</div>
+                ) : (
+                  <>
+                    <div className="mb-stats">
+                      <div className="mb-stat"><strong>{history.deliveries}</strong><span>Entregas</span></div>
+                      <div className="mb-stat"><strong className="mb-money">{brl(history.fees)}</strong><span>Taxas</span></div>
+                      <div className="mb-stat">
+                        <strong>{history.avg_route_min !== null ? `${history.avg_route_min} min` : '—'}</strong>
+                        <span>Tempo médio</span>
+                      </div>
+                    </div>
+                    {history.orders.length === 0 ? (
+                      <div className="mb-empty">Nenhuma entrega nesse período.</div>
+                    ) : (
+                      <ul className="mb-history-list">
+                        {history.orders.map(o => {
+                          const cash = (o.payment_method || 'dinheiro') === 'dinheiro';
+                          return (
+                            <li key={o.id}>
+                              <div>
+                                <strong>#{o.id}</strong> {o.neighborhood && <span>· {o.neighborhood}</span>}
+                                <small>
+                                  {new Date(o.delivered_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                  {o.route_min !== null && o.route_min >= 0 && ` · ⏱️ ${o.route_min} min`}
+                                </small>
+                              </div>
+                              <div className="mb-history-values">
+                                <strong>{brl(o.delivery_fee)}</strong>
+                                <small>
+                                  {PAY_ICON[o.payment_method] || '💵'} {brl(o.total)}
+                                  {cash && (o.settled_at ? ' · ✅ acertado' : ' · a devolver')}
+                                </small>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </>
+                )}
               </div>
             ) : (
-              <div className="mb-list">
-                {list.map(order => {
-                  const pay = paymentNote(order);
-                  const busy = busyId === order.id;
+              <>
+                <div className="mb-refresh">
+                  <span>
+                    {lastUpdate ? `Atualizado às ${lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  </span>
+                  <button onClick={fetchDeliveries}>🔄 Atualizar</button>
+                </div>
 
-                  return (
-                    <div key={order.id} className="mb-card">
-                      <div className="mb-card-top">
-                        <strong>Pedido #{order.id}</strong>
-                        <span className={`mb-status ${order.status === 'Saído' ? 'route' : 'prep'}`}>
-                          {order.status === 'Saído' ? '🚀 Em rota' : '👨‍🍳 Preparando'}
-                        </span>
-                      </div>
+                {tab === 'mine' && hasRoute && (
+                  <div className={`mb-location ${locationError ? 'err' : ''}`}>
+                    {locationError || '📍 O cliente acompanha sua localização enquanto a entrega está em rota (com o app aberto).'}
+                  </div>
+                )}
 
-                      <div className="mb-customer">
-                        <strong>👤 {order.customer_name || 'Cliente'}</strong>
-                        {order.customer_phone && <p>📞 {order.customer_phone}</p>}
-                        <p>📍 {order.delivery_address}</p>
-                        {neighborhoodOf(order) && (
-                          <p className="mb-neighborhood">Bairro: {neighborhoodOf(order)}</p>
-                        )}
-                      </div>
+                {tab === 'mine' && mine.length >= 2 && (
+                  <a href={routeUrl(mine)} target="_blank" rel="noopener noreferrer" className="mb-route">
+                    🗺️ Rota com todas as entregas ({mine.length})
+                  </a>
+                )}
 
-                      <div className={`mb-pay ${pay.cls}`}>{pay.text}</div>
-                      {order.notes && <div className="mb-notes">📝 {order.notes}</div>}
+                {/* LISTA */}
+                {loading ? (
+                  <div className="mb-empty">Carregando entregas...</div>
+                ) : list.length === 0 ? (
+                  <div className="mb-empty">
+                    {tab === 'mine'
+                      ? <>📭 Você não tem entregas agora.<br /><small>Veja a aba <strong>Livres</strong>.</small></>
+                      : online
+                        ? <>✅ Nenhuma entrega esperando motoboy.</>
+                        : <>⚪ Você está offline.<br /><small>Toque em <strong>Ficar disponível</strong> para ver e pegar entregas.</small></>}
+                  </div>
+                ) : (
+                  <div className="mb-list">
+                    {list.map(order => {
+                      const pay = paymentNote(order);
+                      const busy = busyId === order.id;
+                      const confirming = confirmId === order.id;
+                      const reporting = problem && problem.id === order.id;
 
-                      <details className="mb-items">
-                        <summary>🧾 Itens ({order.items.length})</summary>
-                        <ul>
-                          {order.items.map((item, i) => (
-                            <li key={i}>{formatQty(item.quantity, item.unit)} {item.name}</li>
+                      return (
+                        <div key={order.id} className="mb-card">
+                          <div className="mb-card-top">
+                            <strong>Pedido #{order.id}</strong>
+                            <span className={`mb-status ${order.status === 'Saído' ? 'route' : 'prep'}`}>
+                              {order.status === 'Saído' ? '🚀 Em rota' : '👨‍🍳 Preparando'}
+                            </span>
+                          </div>
+
+                          <div className="mb-customer">
+                            <strong>👤 {order.customer_name || 'Cliente'}</strong>
+                            {order.customer_phone && <p>📞 {order.customer_phone}</p>}
+                            <p>📍 {order.delivery_address}</p>
+                            {neighborhoodOf(order) && (
+                              <p className="mb-neighborhood">Bairro: {neighborhoodOf(order)}</p>
+                            )}
+                          </div>
+
+                          <div className={`mb-pay ${pay.cls}`}>{pay.text}</div>
+                          {order.notes && <div className="mb-notes">📝 {order.notes}</div>}
+
+                          <details className="mb-items">
+                            <summary>🧾 Itens ({order.items.length})</summary>
+                            <ul>
+                              {order.items.map((item, i) => (
+                                <li key={i}>{formatQty(item.quantity, item.unit)} {item.name}</li>
+                              ))}
+                            </ul>
+                          </details>
+
+                          {/* MAPA */}
+                          <button
+                            className="mb-btn-map"
+                            onClick={() => setOpenMapId(openMapId === order.id ? null : order.id)}
+                          >
+                            {openMapId === order.id ? '🗺️ Esconder mapa' : '🗺️ Ver no mapa'}
+                          </button>
+
+                          {openMapId === order.id && (
+                            <div className="mb-map">
+                              <iframe
+                                title={`Mapa pedido ${order.id}`}
+                                src={embedUrl(order)}
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                              />
+                            </div>
+                          )}
+
+                          {/* NAVEGAÇÃO E CONTATO */}
+                          <div className="mb-links">
+                            <a href={mapsUrl(order)} target="_blank" rel="noopener noreferrer" className="mb-link maps">📍 Google Maps</a>
+                            <a href={wazeUrl(order)} target="_blank" rel="noopener noreferrer" className="mb-link waze">🚗 Waze</a>
+                            <a href={`tel:${phoneDigits(order.customer_phone)}`} className="mb-link call">📞 Ligar</a>
+                            <a href={whatsappUrl(order)} target="_blank" rel="noopener noreferrer" className="mb-link whats">💬 WhatsApp</a>
+                          </div>
+
+                          {/* AÇÃO PRINCIPAL */}
+                          {tab === 'available' ? (
+                            <button className="mb-btn-main claim" onClick={() => claimDelivery(order)} disabled={busy}>
+                              {busy ? '⏳ Pegando...' : '🛵 Pegar entrega'}
+                            </button>
+                          ) : order.status === 'Preparando' ? (
+                            <button className="mb-btn-main go" onClick={() => updateStatus(order, 'Saído')} disabled={busy}>
+                              {busy ? '⏳ Salvando...' : '🚀 Saí para entrega'}
+                            </button>
+                          ) : (
+                            <button
+                              className={`mb-btn-main ${confirming ? 'confirm' : 'done'}`}
+                              onClick={() => updateStatus(order, 'Entregue')}
+                              disabled={busy}
+                            >
+                              {busy ? '⏳ Salvando...' : confirming ? '👆 Toque de novo para confirmar' : '✅ Entregue'}
+                            </button>
+                          )}
+
+                          {/* 🚫 PROBLEMA NA ENTREGA */}
+                          {tab === 'mine' && (reporting ? (
+                            <div className="mb-problem">
+                              <strong>O que aconteceu?</strong>
+                              <div className="mb-problem-reasons">
+                                {PROBLEMS.map(p => (
+                                  <button
+                                    key={p.id}
+                                    className={problem.reason === p.id ? 'active' : ''}
+                                    onClick={() => setProblem({ ...problem, reason: p.id })}
+                                  >
+                                    {p.label}
+                                  </button>
+                                ))}
+                              </div>
+                              <input
+                                type="text"
+                                maxLength={200}
+                                value={problem.details}
+                                onChange={(e) => setProblem({ ...problem, details: e.target.value })}
+                                placeholder={problem.reason === 'outro' ? 'Escreva o que aconteceu' : 'Detalhes (opcional)'}
+                              />
+                              <div className="mb-problem-actions">
+                                <button className="mb-problem-cancel" onClick={() => setProblem(null)} disabled={busy}>Voltar</button>
+                                <button
+                                  className="mb-problem-send"
+                                  onClick={() => sendProblem(order)}
+                                  disabled={busy || !problem.reason || (problem.reason === 'outro' && !problem.details.trim())}
+                                >
+                                  {busy ? '⏳ Enviando...' : 'Avisar o Empório'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button className="mb-btn-problem" onClick={() => setProblem({ id: order.id, reason: '', details: '' })}>
+                              🚫 Problema na entrega
+                            </button>
                           ))}
-                        </ul>
-                      </details>
-
-                      {/* MAPA */}
-                      <button
-                        className="mb-btn-map"
-                        onClick={() => setOpenMapId(openMapId === order.id ? null : order.id)}
-                      >
-                        {openMapId === order.id ? '🗺️ Esconder mapa' : '🗺️ Ver no mapa'}
-                      </button>
-
-                      {openMapId === order.id && (
-                        <div className="mb-map">
-                          <iframe
-                            title={`Mapa pedido ${order.id}`}
-                            src={embedUrl(order)}
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                          />
                         </div>
-                      )}
-
-                      {/* NAVEGAÇÃO E CONTATO */}
-                      <div className="mb-links">
-                        <a href={mapsUrl(order)} target="_blank" rel="noopener noreferrer" className="mb-link maps">📍 Google Maps</a>
-                        <a href={wazeUrl(order)} target="_blank" rel="noopener noreferrer" className="mb-link waze">🚗 Waze</a>
-                        <a href={`tel:${phoneDigits(order.customer_phone)}`} className="mb-link call">📞 Ligar</a>
-                        <a href={whatsappUrl(order)} target="_blank" rel="noopener noreferrer" className="mb-link whats">💬 WhatsApp</a>
-                      </div>
-
-                      {/* AÇÃO PRINCIPAL */}
-                      {tab === 'available' ? (
-                        <button className="mb-btn-main claim" onClick={() => claimDelivery(order)} disabled={busy}>
-                          {busy ? '⏳ Pegando...' : '🛵 Pegar entrega'}
-                        </button>
-                      ) : order.status === 'Preparando' ? (
-                        <button className="mb-btn-main go" onClick={() => updateStatus(order, 'Saído')} disabled={busy}>
-                          {busy ? '⏳ Salvando...' : '🚀 Saí para entrega'}
-                        </button>
-                      ) : (
-                        <button className="mb-btn-main done" onClick={() => updateStatus(order, 'Entregue')} disabled={busy}>
-                          {busy ? '⏳ Salvando...' : '✅ Entregue'}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

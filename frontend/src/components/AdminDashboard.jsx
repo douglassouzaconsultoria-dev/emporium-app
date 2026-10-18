@@ -228,6 +228,10 @@ const AdminDashboard = () => {
               hint="Pedidos cancelados divididos por todos os pedidos do período." />
             <Kpi label="Taxas de entrega" value={brl(cur.fees)} change={delta(cur.fees, prev.fees)}
               hint="Soma das taxas de entrega dos pedidos não cancelados." />
+            <Kpi label="Tempo médio de entrega" value={cur.avg_total_min !== null ? `${int(cur.avg_total_min)} min` : '—'}
+              change={cur.avg_total_min !== null && prev.avg_total_min !== null ? delta(cur.avg_total_min, prev.avg_total_min, { invert: true }) : null}
+              note={cur.avg_route_min !== null ? `🛵 ${int(cur.avg_route_min)} min na rua (da saída até a entrega)` : null}
+              hint="Do pedido feito até o motoboy marcar Entregue, nos pedidos entregues do período." />
           </div>
 
           {/* INTELIGÊNCIA */}

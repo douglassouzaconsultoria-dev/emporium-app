@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../config';
 import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
@@ -65,6 +65,50 @@ function RateOrder({ order, onRated }) {
   );
 }
 
+// 📍 Onde está o motoboy (pedido em rota): atualiza a cada 20 s
+function TrackMotoboy({ order, onStatusChange }) {
+  const [pos, setPos] = useState(null);
+
+  useEffect(() => {
+    let stop = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_URL}/orders/${order.id}/tracking`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        if (!res.ok || stop) return;
+        const data = await res.json();
+        if (data.status !== order.status) return onStatusChange();
+        setPos(data.available ? data : null);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    load();
+    const timer = setInterval(load, 20000);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+    };
+  }, [order.id, order.status, onStatusChange]);
+
+  if (!pos) {
+    return <p className="track-wait">🛵 Seu pedido saiu para entrega e está a caminho!</p>;
+  }
+  return (
+    <div className="track-box">
+      <p>🛵 <strong>{pos.motoboy_name || 'O motoboy'}</strong> está a caminho. Acompanhe no mapa:</p>
+      <iframe
+        title={`Motoboy do pedido ${order.id}`}
+        src={`https://maps.google.com/maps?q=${pos.lat},${pos.lng}&z=16&output=embed`}
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+      <small>Atualizado às {new Date(pos.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small>
+    </div>
+  );
+}
+
 const MyOrders = ({ user, onReorder }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,9 +117,6 @@ const MyOrders = ({ user, onReorder }) => {
   const [copied, setCopied] = useState(false);
 
 
-  useEffect(() => {
-    fetchMyOrders();
-  }, []);
 
   // Tecla ESC fecha a janela do PIX
   useEffect(() => {
@@ -86,9 +127,9 @@ const MyOrders = ({ user, onReorder }) => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const fetchMyOrders = async () => {
+  const fetchMyOrders = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError('');
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/orders/my-orders`, {
@@ -105,7 +146,13 @@ const MyOrders = ({ user, onReorder }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const refreshSilently = useCallback(() => fetchMyOrders(true), [fetchMyOrders]);
+
+  useEffect(() => {
+    fetchMyOrders();
+  }, [fetchMyOrders]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -275,6 +322,11 @@ const MyOrders = ({ user, onReorder }) => {
                     📱 Pagar com PIX — R$ {parseFloat(order.total).toFixed(2)}
                   </button>
                 )}
+
+                {order.problem && order.status === 'Preparando' && (
+                  <p className="order-problem">⚠️ Tivemos um imprevisto na entrega ({order.problem.split(':')[0]}). O Empório vai falar com você para combinar.</p>
+                )}
+                {order.status === 'Saído' && <TrackMotoboy order={order} onStatusChange={refreshSilently} />}
 
                 {order.status === 'Cancelado' ? (
                   <p style={{ color: '#b91c1c', fontWeight: 600 }}>❌ Este pedido foi cancelado.</p>

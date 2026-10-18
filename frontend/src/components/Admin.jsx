@@ -103,6 +103,8 @@ function Admin() {
   const [user, setUser] = useState(null);
   const [newOrders, setNewOrders] = useState(0);
   const knownIds = useRef(null);
+  const [problems, setProblems] = useState([]); // 🚫 entregas que o motoboy devolveu
+  const knownProblems = useRef(null);
 
   // 🔔 Confere pedidos novos a cada 20 segundos (em qualquer aba)
   useEffect(() => {
@@ -112,7 +114,15 @@ function Admin() {
           headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
         });
         if (!res.ok) return;
-        const ids = (await res.json()).map(o => o.id);
+        const list = await res.json();
+        const ids = list.map(o => o.id);
+
+        // 🚫 Entrega devolvida pelo motoboy: apita e mostra o aviso
+        const withProblem = list.filter(o => o.problem && !['Entregue', 'Cancelado'].includes(o.status));
+        if (knownProblems.current && withProblem.some(o => !knownProblems.current.has(o.id))) playBeep();
+        knownProblems.current = new Set(withProblem.map(o => o.id));
+        setProblems(withProblem.map(o => ({ id: o.id, problem: o.problem })));
+
         if (knownIds.current) {
           const fresh = ids.filter(id => !knownIds.current.has(id));
           knownIds.current = new Set(ids); // antes de imprimir: nunca imprime o mesmo pedido duas vezes
@@ -180,6 +190,14 @@ function Admin() {
       {newOrders > 0 && (
         <button className="admin-new-orders" onClick={openNewOrders}>
           🔔 {newOrders} {newOrders === 1 ? 'pedido novo' : 'pedidos novos'} — clique para ver
+        </button>
+      )}
+
+      {problems.length > 0 && (
+        <button className="admin-new-orders admin-problem-orders" onClick={() => setActiveTab('orders')}>
+          ⚠️ {problems.length === 1
+            ? `Pedido #${problems[0].id} voltou: ${problems[0].problem}`
+            : `${problems.length} entregas voltaram com problema`} — clique para ver
         </button>
       )}
 

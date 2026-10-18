@@ -133,7 +133,7 @@
 /* ABAS */
 .mb-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   background: #fff;
   border-radius: 12px;
   padding: 4px;
@@ -142,11 +142,11 @@
 }
 
 .mb-tabs button {
-  padding: 12px;
+  padding: 12px 4px;
   border: none;
   border-radius: 9px;
   background: transparent;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #666;
   cursor: pointer;
@@ -379,6 +379,12 @@
 .mb-btn-main.claim { background: linear-gradient(135deg, #C41E3A 0%, #a01830 100%); }
 .mb-btn-main.go    { background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); }
 .mb-btn-main.done  { background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); }
+.mb-btn-main.confirm { background: #f59e0b; color: #1a1a1a; animation: mb-pulse 0.8s ease-in-out infinite alternate; }
+
+@keyframes mb-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.02); }
+}
 
 .mb-btn-main:disabled {
   opacity: 0.6;
@@ -467,4 +473,244 @@
   font-size: 13px;
   font-weight: 700;
   text-align: center;
+}
+
+/* 💰 Valores em dinheiro no resumo */
+.mb-stat strong.mb-money {
+  font-size: 18px;
+  padding: 5px 0 3px;
+}
+
+.mb-stat-cash {
+  background: #fff7ed;
+  box-shadow: inset 0 0 0 2px #fdba74;
+}
+
+.mb-cash-note {
+  margin: -6px 2px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9a3412;
+}
+
+/* 🟢 Disponível / ⚪ Offline */
+.mb-online {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+.mb-online div {
+  display: flex;
+  flex-direction: column;
+}
+
+.mb-online strong { font-size: 15px; }
+.mb-online span { font-size: 12px; font-weight: 600; opacity: 0.85; }
+
+.mb-online.on { background: #166534; color: #fff; }
+.mb-online.off { background: #374151; color: #fff; }
+
+.mb-online button {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mb-online.on button { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.mb-online.off button { background: #22c55e; color: #fff; }
+
+/* 🔔 Notificações */
+.mb-push {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mb-push small {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.mb-push-info {
+  padding: 8px 14px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 🗺️ Rota e 📍 localização */
+.mb-route {
+  display: block;
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+}
+
+.mb-location {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ecfeff;
+  color: #155e75;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mb-location.err {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* 🚫 Problema na entrega */
+.mb-btn-problem {
+  padding: 10px;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mb-problem {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.mb-problem-reasons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mb-problem-reasons button {
+  padding: 10px 6px;
+  border: 2px solid #fecaca;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.mb-problem-reasons button.active {
+  border-color: #C41E3A;
+  background: #C41E3A;
+  color: #fff;
+}
+
+.mb-problem input {
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.mb-problem-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 8px;
+}
+
+.mb-problem-actions button {
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mb-problem-cancel { background: #e5e7eb; color: #374151; }
+.mb-problem-send { background: #C41E3A; color: #fff; }
+.mb-problem-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 📜 Histórico */
+.mb-history {
+  margin-top: 12px;
+}
+
+.mb-periods {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mb-periods button {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 700;
+  color: #555;
+  cursor: pointer;
+}
+
+.mb-periods button.active {
+  border-color: #1a1a1a;
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.mb-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.mb-history-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f1f1;
+}
+
+.mb-history-list li:last-child { border-bottom: none; }
+
+.mb-history-list small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #777;
+}
+
+.mb-history-values {
+  text-align: right;
+  flex-shrink: 0;
 }

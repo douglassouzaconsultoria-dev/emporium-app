@@ -4,6 +4,17 @@ import './AdminMotoboys.css';
 
 const emptyForm = { name: '', username: '', phone_number: '', password: '' };
 
+const brl = (v) => `R$ ${(parseFloat(v) || 0).toFixed(2).replace('.', ',')}`;
+
+// 📅 Períodos do relatório (datas locais AAAA-MM-DD)
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const REPORT_PERIODS = [
+  { id: 'today', label: 'Hoje', range: (t) => [t, t] },
+  { id: '7d', label: '7 dias', range: (t) => [new Date(t.getFullYear(), t.getMonth(), t.getDate() - 6), t] },
+  { id: 'month', label: 'Este mês', range: (t) => [new Date(t.getFullYear(), t.getMonth(), 1), t] },
+  { id: 'last', label: 'Mês passado', range: (t) => [new Date(t.getFullYear(), t.getMonth() - 1, 1), new Date(t.getFullYear(), t.getMonth(), 0)] }
+];
+
 const sanitizeUsername = (value) =>
   value
     .toLowerCase()
@@ -24,6 +35,9 @@ function AdminMotoboys() {
   const [newPassword, setNewPassword] = useState('');
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [settleId, setSettleId] = useState(null);
+  const [period, setPeriod] = useState('today');
+  const [report, setReport] = useState(null);
 
   const authHeaders = () => ({
     'Content-Type': 'application/json',
@@ -33,6 +47,36 @@ function AdminMotoboys() {
   useEffect(() => {
     fetchMotoboys();
   }, []);
+
+  // 📊 Relatório por período
+  useEffect(() => {
+    const [from, to] = REPORT_PERIODS.find(p => p.id === period).range(new Date());
+    setReport(null);
+    fetch(`${API_URL}/motoboys/report?from=${ymd(from)}&to=${ymd(to)}`, { headers: authHeaders() })
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error('Erro ao montar o relatório'))))
+      .then(setReport)
+      .catch(err => { setReport([]); showMessage('error', `❌ ${err.message}`); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period]);
+
+  // 💰 Acerto de caixa: toca uma vez para confirmar, de novo para registrar
+  const settle = async (m) => {
+    if (settleId !== m.id) {
+      setSettleId(m.id);
+      setTimeout(() => setSettleId(id => (id === m.id ? null : id)), 5000);
+      return;
+    }
+    try {
+      setSettleId(null);
+      const res = await fetch(`${API_URL}/motoboys/${m.id}/settle`, { method: 'PUT', headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao fazer o acerto');
+      showMessage('success', `✅ Acerto de ${m.name.split(' ')[0]}: ${brl(data.total)} recebidos (${data.orders} ${data.orders === 1 ? 'entrega' : 'entregas'})`);
+      fetchMotoboys();
+    } catch (err) {
+      showMessage('error', `❌ ${err.message}`);
+    }
+  };
 
   useEffect(() => {
     const onKey = (e) => {
@@ -209,6 +253,8 @@ function AdminMotoboys() {
   // 📊 Resumo
   const activeCount = motoboys.filter(m => m.active).length;
   const onRouteCount = motoboys.filter(m => m.active_deliveries > 0).length;
+  const onlineCount = motoboys.filter(m => m.active && m.online).length;
+  const cashTotal = motoboys.reduce((sum, m) => sum + (parseFloat(m.cash_pending) || 0), 0);
   const deliveredToday = motoboys.reduce((sum, m) => sum + (m.delivered_today || 0), 0);
 
   return (
@@ -220,8 +266,8 @@ function AdminMotoboys() {
 
       <div className="am-stats">
         <div className="am-stat">
-          <span className="am-stat-label">Ativos</span>
-          <span className="am-stat-value">{activeCount}</span>
+          <span className="am-stat-label">Disponíveis agora</span>
+          <span className="am-stat-value am-green">{onlineCount} <small>de {activeCount}</small></span>
         </div>
         <div className="am-stat">
           <span className="am-stat-label">Com entregas</span>
@@ -230,6 +276,10 @@ function AdminMotoboys() {
         <div className="am-stat">
           <span className="am-stat-label">Entregas hoje</span>
           <span className="am-stat-value am-green">{deliveredToday}</span>
+        </div>
+        <div className="am-stat">
+          <span className="am-stat-label">Dinheiro a acertar</span>
+          <span className="am-stat-value">{brl(cashTotal)}</span>
         </div>
       </div>
 
@@ -255,8 +305,8 @@ function AdminMotoboys() {
                 <div className="am-info">
                   <strong>{m.name}</strong>
                   <span className="am-username">@{m.username}</span>
-                  <span className={`am-badge ${m.active ? 'on' : 'off'}`}>
-                    {m.active ? '🟢 Ativo' : '⚪ Desativado'}
+                  <span className={`am-badge ${m.active && m.online ? 'on' : 'off'}`}>
+                    {!m.active ? '⛔ Desativado' : m.online ? '🟢 Disponível' : '⚪ Offline'}
                   </span>
                 </div>
               </div>
@@ -276,6 +326,22 @@ function AdminMotoboys() {
                 </div>
               </div>
 
+              <div className="am-money">
+                <div>
+                  <span>Taxas hoje</span>
+                  <strong>{brl(m.fees_today)}</strong>
+                </div>
+                <div className={parseFloat(m.cash_pending) > 0 ? 'due' : ''}>
+                  <span>Dinheiro a acertar</span>
+                  <strong>{brl(m.cash_pending)}</strong>
+                </div>
+              </div>
+              {parseFloat(m.cash_pending) > 0 && (
+                <button className={`am-btn-settle ${settleId === m.id ? 'confirm' : ''}`} onClick={() => settle(m)}>
+                  {settleId === m.id ? `👆 Toque de novo: recebi ${brl(m.cash_pending)}` : '💰 Fazer acerto (recebi o dinheiro)'}
+                </button>
+              )}
+
               <a className="am-whats" href={whatsappLink(m.phone_number)} target="_blank" rel="noopener noreferrer">
                 💬 {m.phone_number}
               </a>
@@ -294,6 +360,61 @@ function AdminMotoboys() {
           ))}
         </div>
       )}
+
+      {/* 📊 RELATÓRIO */}
+      <section className="am-report">
+        <div className="am-report-head">
+          <h3>📊 Relatório de entregas</h3>
+          <div className="am-periods">
+            {REPORT_PERIODS.map(p => (
+              <button key={p.id} className={period === p.id ? 'active' : ''} onClick={() => setPeriod(p.id)}>{p.label}</button>
+            ))}
+          </div>
+        </div>
+        {!report ? (
+          <p className="am-report-empty">Carregando...</p>
+        ) : report.length === 0 ? (
+          <p className="am-report-empty">Nenhuma entrega nesse período.</p>
+        ) : (
+          <div className="am-report-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Motoboy</th>
+                  <th>Entregas</th>
+                  <th>Taxas</th>
+                  <th>Dinheiro recebido</th>
+                  <th title="Da saída da loja até a entrega">Tempo na rua</th>
+                  <th title="Do pedido feito até a entrega">Tempo total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.map(r => (
+                  <tr key={r.id}>
+                    <td>{r.name}</td>
+                    <td>{r.deliveries}</td>
+                    <td>{brl(r.fees)}</td>
+                    <td>{brl(r.cash)}</td>
+                    <td>{r.avg_route_min !== null ? `${r.avg_route_min} min` : '—'}</td>
+                    <td>{r.avg_total_min !== null ? `${r.avg_total_min} min` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+              {report.length > 1 && (
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    <td>{report.reduce((s, r) => s + r.deliveries, 0)}</td>
+                    <td>{brl(report.reduce((s, r) => s + r.fees, 0))}</td>
+                    <td>{brl(report.reduce((s, r) => s + r.cash, 0))}</td>
+                    <td colSpan={2} />
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        )}
+      </section>
 
       {/* JANELAS */}
       {modal && (

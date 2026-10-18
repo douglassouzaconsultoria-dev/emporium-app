@@ -6,6 +6,7 @@ const { getDeliveryFee } = require('../utils/deliveryFee');
 const { isKg } = require('../utils/units');
 const { getStore, storeStatus } = require('../utils/store');
 const { applyCoupon } = require('../utils/coupons');
+const { notifyDelivery } = require('../utils/push');
 
 const VALID_PAYMENT_METHODS = ['dinheiro', 'cartao', 'pix'];
 
@@ -213,11 +214,11 @@ router.post('/', verifyToken, async (req, res) => {
 
     const orderId = orderResult.rows[0].id;
 
-    // 🛵 Motoboy padrão (se estiver ativo) já fica escolhido; o admin pode trocar depois
+    // 🛵 Motoboy padrão (se estiver ativo e disponível) já fica escolhido; o admin pode trocar depois
     if (store.default_motoboy_id) {
       await client.query(
         `UPDATE orders SET motoboy_id = $1 WHERE id = $2
-         AND EXISTS (SELECT 1 FROM customers WHERE id = $1 AND role = 'motoboy' AND active = true)`,
+         AND EXISTS (SELECT 1 FROM customers WHERE id = $1 AND role = 'motoboy' AND active = true AND online = true)`,
         [store.default_motoboy_id, orderId]
       );
     }
@@ -236,6 +237,7 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     await client.query('COMMIT');
+    notifyDelivery(orderId); // 🔔 só avisa se já foi para "Preparando" (dinheiro/cartão)
 
     res.status(201).json({
       id: orderId,
@@ -276,6 +278,59 @@ router.post('/:id/rating', verifyToken, async (req, res) => {
   }
 });
 
+// 🔒 POST reenviar entrega que voltou com problema (volta para a fila dos motoboys)
+router.post('/:id/resend', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE orders SET problem = NULL
+       WHERE id = $1 AND problem IS NOT NULL AND status NOT IN ('Entregue', 'Cancelado')
+       RETURNING *`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Esse pedido não está com problema' });
+    }
+    notifyDelivery(result.rows[0].id);
+    res.json({ message: 'Entrega reenviada aos motoboys', order: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao reenviar entrega' });
+  }
+});
+
+// 📍 GET onde está o motoboy (dono do pedido ou admin, só com o pedido em rota)
+router.get('/:id/tracking', verifyToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT o.customer_id, o.status, m.name AS motoboy_name, m.last_lat, m.last_lng, m.last_location_at,
+              (m.last_location_at > NOW() - INTERVAL '5 minutes') AS fresh
+       FROM orders o
+       LEFT JOIN customers m ON m.id = o.motoboy_id
+       WHERE o.id = $1`,
+      [req.params.id]
+    );
+    const order = rows[0];
+    if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+    if (req.user.role !== 'admin' && order.customer_id !== req.user.id) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    if (order.status !== 'Saído' || !order.fresh || order.last_lat === null) {
+      return res.json({ status: order.status, available: false });
+    }
+    res.json({
+      status: order.status,
+      available: true,
+      motoboy_name: (order.motoboy_name || '').split(' ')[0],
+      lat: parseFloat(order.last_lat),
+      lng: parseFloat(order.last_lng),
+      updated_at: order.last_location_at
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar localização' });
+  }
+});
+
 // 🔒 PUT escolher/remover motoboy do pedido (APENAS ADMIN)
 router.put('/:id/motoboy', verifyAdmin, async (req, res) => {
   try {
@@ -292,7 +347,8 @@ router.put('/:id/motoboy', verifyAdmin, async (req, res) => {
     }
 
     const result = await pool.query(
-      `UPDATE orders SET motoboy_id = $1
+      `UPDATE orders SET motoboy_id = $1,
+              problem = CASE WHEN $1::int IS NULL THEN problem ELSE NULL END
        WHERE id = $2 AND status NOT IN ('Entregue', 'Cancelado')
        RETURNING *`,
       [motoboyId, req.params.id]
@@ -301,6 +357,7 @@ router.put('/:id/motoboy', verifyAdmin, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(400).json({ error: 'Pedido não encontrado, já entregue ou cancelado' });
     }
+    if (motoboyId) notifyDelivery(result.rows[0].id);
 
     res.json({ message: 'Motoboy atualizado!', order: result.rows[0] });
   } catch (err) {
@@ -353,13 +410,16 @@ router.put('/:id', verifyAdmin, async (req, res) => {
       `UPDATE orders
        SET status = $1,
            delivered_at = CASE WHEN $3 THEN NOW() ELSE delivered_at END,
-           motoboy_id = CASE WHEN $4 THEN NULL ELSE motoboy_id END
+           out_at = CASE WHEN $1 = 'Saído' AND out_at IS NULL THEN NOW() ELSE out_at END,
+           motoboy_id = CASE WHEN $4 THEN NULL ELSE motoboy_id END,
+           problem = NULL
        WHERE id = $2
        RETURNING *`,
       [status, req.params.id, status === 'Entregue', status === 'Cancelado']
     );
 
     await client.query('COMMIT');
+    if (status === 'Preparando' && oldStatus !== 'Preparando') notifyDelivery(result.rows[0].id);
 
     res.json({
       message: 'Status atualizado!',
