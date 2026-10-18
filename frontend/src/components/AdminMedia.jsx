@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { API_URL } from '../config';
 import './AdminMedia.css';
@@ -59,6 +59,22 @@ const saveBlob = (blob, filename) => {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 };
 
+// 📏 Cada computador tem fontes um pouco diferentes: depois de desenhar, mede cada texto
+// marcado com data-maxw e, se passou do espaço, aperta só aquele texto (fica gravado no arquivo baixado)
+const fitTexts = (svg) => {
+  if (!svg) return;
+  svg.querySelectorAll('text[data-maxw]').forEach(el => {
+    const max = parseFloat(el.getAttribute('data-maxw'));
+    if (el.getAttribute('data-stretch')) return;
+    el.removeAttribute('textLength');
+    el.removeAttribute('lengthAdjust');
+    if (el.getComputedTextLength() > max) {
+      el.setAttribute('textLength', max);
+      el.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+    }
+  });
+};
+
 // 🏪 Dados do mercado usados no adesivo e no cartão
 const STORE = {
   phones: ['(34) 3831-8572', '(34) 98861-1448'],
@@ -68,7 +84,8 @@ const STORE = {
 
 // 🛵 Adesivo do baú: medidas em milímetros (1 unidade do SVG = 1 mm)
 // Texto à esquerda (nome, delivery, telefones, endereço) e QR "Baixe o app" num cartão branco
-function BoxSticker({ svgRef, widthCm, heightCm, radiusCm }) {
+function BoxSticker({ svgRef, widthCm, heightCm, radiusCm, logo }) {
+  useLayoutEffect(() => fitTexts(svgRef.current));
   const W = widthCm * 10;
   const H = heightCm * 10;
   const R = Math.min(radiusCm * 10, W / 2, H / 2);
@@ -85,18 +102,20 @@ function BoxSticker({ svgRef, widthCm, heightCm, radiusCm }) {
 
   const ARIAL = 'Arial, Helvetica, sans-serif';
   const lines = [
+    { logo: true, t: '', rel: 1.55, gap: 0.25 },
     { t: 'EMPÓRIO BRUMADO', rel: 1, k: 0.74, font: FONT, color: '#ffffff', stretch: true },
     { t: 'DELIVERY DE SUPERMERCADO', rel: 0.5, k: 0.66, font: FONT, color: YELLOW, stretch: true, gap: 0.9 },
     { t: 'TELEFONE', rel: 0.3, k: 0.62, font: ARIAL, bold: true, color: YELLOW },
-    { t: STORE.phones[0], rel: 0.72, k: 0.6, font: FONT, color: '#ffffff' },
-    { t: STORE.phones[1], rel: 0.72, k: 0.6, font: FONT, color: '#ffffff', gap: 0.6 },
+    { t: STORE.phones[0], rel: 0.66, k: 0.6, font: FONT, color: '#ffffff', gap: 0.15 },
+    { t: 'WHATSAPP', rel: 0.3, k: 0.62, font: ARIAL, bold: true, color: YELLOW },
+    { t: STORE.phones[1], rel: 0.66, k: 0.6, font: FONT, color: '#ffffff', gap: 0.5 },
     { t: STORE.street, rel: 0.42, k: 0.55, font: ARIAL, bold: true, color: '#ffffff' },
     { t: STORE.district, rel: 0.42, k: 0.52, font: ARIAL, color: '#ffffff' }
   ];
   const LEAD = 1.25;
   const unit = text.h / lines.reduce((sum, l) => sum + l.rel * LEAD + (l.gap || 0), 0);
   const sized = lines.map(l => {
-    const byWidth = text.w / (l.t.length * l.k);
+    const byWidth = l.logo ? text.w * 0.4 : text.w / (l.t.length * l.k);
     return { ...l, size: Math.min(l.rel * unit, byWidth), fits: byWidth <= l.rel * unit };
   });
   const totalH = sized.reduce((sum, l) => sum + l.size * LEAD + (l.gap ? l.gap * unit * (l.size / (l.rel * unit)) : 0), 0);
@@ -136,17 +155,29 @@ function BoxSticker({ svgRef, widthCm, heightCm, radiusCm }) {
         {sized.map((l, i) => {
           const y = cursor + l.size;
           cursor += l.size * LEAD + (l.gap ? l.gap * unit * (l.size / (l.rel * unit)) : 0);
+          if (l.logo) {
+            const r = l.size * 0.62; // círculo branco por trás da logo (o tamanho que ocupa é l.size * 1.25)
+            const lcx = landscape ? text.x + r : tx;
+            const lcy = y - l.size + r;
+            return (
+              <g key={i}>
+                <circle cx={lcx} cy={lcy} r={r} fill="#ffffff" />
+                {logo && <image href={logo} x={lcx - r * 0.9} y={lcy - r * 0.9} width={r * 1.8} height={r * 1.8} />}
+              </g>
+            );
+          }
+          const stretch = l.stretch && l.fits;
           return (
             <text key={i} x={tx} y={y} textAnchor={anchor} fill={l.color} fontFamily={l.font}
-              fontWeight={l.font === FONT || l.bold ? '900' : '400'} fontSize={l.size}
-              {...(l.stretch && l.fits ? { textLength: text.w, lengthAdjust: 'spacingAndGlyphs' } : {})}>
+              fontWeight={l.font === FONT || l.bold ? '900' : '400'} fontSize={l.size} data-maxw={text.w}
+              {...(stretch ? { textLength: text.w, lengthAdjust: 'spacingAndGlyphs', 'data-stretch': '1' } : {})}>
               {l.t}
             </text>
           );
         })}
 
         <rect x={cardX} y={cardY} width={cardW} height={cardH} rx={qrSize * 0.08} fill="#ffffff" />
-        <text x={cx} y={cardY + title * 1.25} textAnchor="middle" fill={RED} fontFamily={FONT} fontWeight="900" fontSize={title}>
+        <text x={cx} y={cardY + title * 1.25} textAnchor="middle" fill={RED} fontFamily={FONT} fontWeight="900" fontSize={title} data-maxw={cardW * 0.92}>
           BAIXE O APP
         </text>
         <QRCodeSVG
@@ -160,7 +191,7 @@ function BoxSticker({ svgRef, widthCm, heightCm, radiusCm }) {
           bgColor="#ffffff"
         />
         <text x={cx} y={cardY + title * 1.6 + qrSize + caption * 1.7} textAnchor="middle" fill="#333"
-          fontFamily={ARIAL} fontWeight="700" fontSize={caption}>
+          fontFamily={ARIAL} fontWeight="700" fontSize={caption} data-maxw={cardW * 0.92}>
           Aponte a câmera do celular
         </text>
       </g>
@@ -172,6 +203,7 @@ function BoxSticker({ svgRef, widthCm, heightCm, radiusCm }) {
 const CARD = { w: 90, h: 50, bleed: 3 };
 
 function BusinessCard({ svgRef, side, logo }) {
+  useLayoutEffect(() => fitTexts(svgRef.current));
   const B = CARD.bleed;
   const W = CARD.w + B * 2;
   const H = CARD.h + B * 2;
@@ -190,6 +222,7 @@ function BusinessCard({ svgRef, side, logo }) {
 
   if (side === 'front') {
     const col = 43; // início da coluna de texto
+    const maxw = CARD.w + B - col - 4;
     return (
       <svg {...svgProps}>
         <defs>
@@ -208,11 +241,12 @@ function BusinessCard({ svgRef, side, logo }) {
           textLength={CARD.w + B - col - 4} lengthAdjust="spacingAndGlyphs">DELIVERY DE SUPERMERCADO</text>
         <line x1={col} x2={CARD.w + B - 4} y1={B + 21.5} y2={B + 21.5} stroke="#ffffff" strokeOpacity="0.45" strokeWidth="0.3" />
 
-        <text x={col} y={B + 25.2} fill={YELLOW} fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="2">TELEFONE</text>
-        <text x={col} y={B + 29.6} fill="#ffffff" fontFamily={FONT} fontWeight="900" fontSize="3.9">{STORE.phones[0]}</text>
-        <text x={col} y={B + 34.2} fill="#ffffff" fontFamily={FONT} fontWeight="900" fontSize="3.9">{STORE.phones[1]}</text>
-        <text x={col} y={B + 39.4} fill="#ffffff" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="2.6">{STORE.street}</text>
-        <text x={col} y={B + 42.9} fill="#ffffff" fontFamily="Arial, Helvetica, sans-serif" fontSize="2.6">{STORE.district}</text>
+        <text x={col} y={B + 24.8} fill={YELLOW} fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="1.9">TELEFONE</text>
+        <text x={col} y={B + 28.6} fill="#ffffff" fontFamily={FONT} fontWeight="900" fontSize="3.5" data-maxw={maxw}>{STORE.phones[0]}</text>
+        <text x={col} y={B + 32} fill={YELLOW} fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="1.9">WHATSAPP</text>
+        <text x={col} y={B + 35.8} fill="#ffffff" fontFamily={FONT} fontWeight="900" fontSize="3.5" data-maxw={maxw}>{STORE.phones[1]}</text>
+        <text x={col} y={B + 40.6} fill="#ffffff" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="2.5" data-maxw={maxw}>{STORE.street}</text>
+        <text x={col} y={B + 43.9} fill="#ffffff" fontFamily="Arial, Helvetica, sans-serif" fontSize="2.5" data-maxw={maxw}>{STORE.district}</text>
         {cut}
       </svg>
     );
@@ -238,9 +272,9 @@ function BusinessCard({ svgRef, side, logo }) {
         aponte a câmera do celular
       </text>
 
-      <text x={col} y={B + 19} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="5.2">Peça pelo app</text>
-      <text x={col} y={B + 26} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="5.2">e receba</text>
-      <text x={col} y={B + 33} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="5.2">em casa!</text>
+      <text x={col} y={B + 19} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="5.2" data-maxw={CARD.w + B - col - 3}>Peça pelo app</text>
+      <text x={col} y={B + 26} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="5.2" data-maxw={CARD.w + B - col - 3}>e receba</text>
+      <text x={col} y={B + 33} fill={RED} fontFamily={FONT} fontWeight="900" fontSize="5.2" data-maxw={CARD.w + B - col - 3}>em casa!</text>
       {cut}
     </svg>
   );
@@ -484,7 +518,7 @@ function AdminMedia() {
         {validSize ? (
           <>
             <div className="amd-preview">
-              <BoxSticker svgRef={stickerRef} widthCm={size.width} heightCm={size.height} radiusCm={size.radius} />
+              <BoxSticker svgRef={stickerRef} widthCm={size.width} heightCm={size.height} radiusCm={size.radius} logo={logo} />
             </div>
             <div className="amd-actions row">
               <button className="amd-btn-main" onClick={() => downloadSticker('png')}>⬇️ Baixar PNG ({DPI} DPI)</button>
