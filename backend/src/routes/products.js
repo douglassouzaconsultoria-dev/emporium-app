@@ -333,6 +333,8 @@ router.post('/import', verifyAdmin, async (req, res) => {
     if (!category) errors.push(`Linha ${line}: falta a categoria`);
     if (Number.isNaN(stock) || stock < 0) errors.push(`Linha ${line}: estoque inválido`);
     if (Number.isNaN(promo) || (promo !== null && promo >= price)) errors.push(`Linha ${line}: preço de oferta precisa ser menor que o preço`);
+    const barcode = parseBarcode(r.codigo_barras);
+    if (String(r.codigo_barras ?? '').trim() && !barcode) errors.push(`Linha ${line}: código de barras inválido (6 a 14 números)`);
     return {
       name, price: Math.round(price * 100) / 100, unit, category,
       stock, promo: promo > 0 ? Math.round(promo * 100) / 100 : null,
@@ -341,9 +343,19 @@ router.post('/import', verifyAdmin, async (req, res) => {
       description: String(r.descricao || '').trim() || null,
       hasSub: Object.prototype.hasOwnProperty.call(r, 'subcategoria'), // sem a coluna → não mexe
       subcategory: parseSub(r.subcategoria),
+      hasBarcode: Object.prototype.hasOwnProperty.call(r, 'codigo_barras'), // sem a coluna → não mexe
+      barcode,
+      line,
       id: parseInt(r.id) || null
     };
   });
+  // O mesmo código em duas linhas da planilha
+  const seen = new Map();
+  for (const r of clean) {
+    if (!r.barcode) continue;
+    if (seen.has(r.barcode)) errors.push(`Linha ${r.line}: código de barras ${r.barcode} repetido (linha ${seen.get(r.barcode)})`);
+    else seen.set(r.barcode, r.line);
+  }
   if (errors.length) return res.status(400).json({ error: 'Corrija a planilha', details: errors.slice(0, 30) });
 
   const client = await pool.connect();
@@ -373,19 +385,20 @@ router.post('/import', verifyAdmin, async (req, res) => {
                   promo_price = CASE WHEN $8 THEN $4 ELSE promo_price END,
                   description = CASE WHEN $9 THEN $5 ELSE COALESCE($5, description) END,
                   estoque = COALESCE($6, estoque),
-                  subcategory = CASE WHEN $12 THEN $11 ELSE subcategory END
+                  subcategory = CASE WHEN $12 THEN $11 ELSE subcategory END,
+                  barcode = CASE WHEN $14 THEN $13 ELSE barcode END
            WHERE id = $7`,
           [r.price, r.unit, categoryId, r.promo, r.description, r.stock, existingId, r.hasPromo, r.hasDesc, r.name,
-            r.subcategory, r.hasSub]
+            r.subcategory, r.hasSub, r.barcode, r.hasBarcode]
         );
         prods.set(key(r.name), existingId);
         updated++;
       } else {
         const stock = r.stock || 0;
         const id = (await client.query(
-          `INSERT INTO products (name, price, unit, category_id, estoque, promo_price, description, active, subcategory)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8) RETURNING id`,
-          [r.name, r.price, r.unit, categoryId, stock, r.promo, r.description, r.subcategory]
+          `INSERT INTO products (name, price, unit, category_id, estoque, promo_price, description, active, subcategory, barcode)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, $9) RETURNING id`,
+          [r.name, r.price, r.unit, categoryId, stock, r.promo, r.description, r.subcategory, r.barcode]
         )).rows[0].id;
         // Igual ao cadastro manual: com estoque já entra no automático (renova toda semana)
         await client.query(
@@ -397,6 +410,20 @@ router.post('/import', verifyAdmin, async (req, res) => {
         prods.set(key(r.name), id);
         created++;
       }
+    }
+
+    // Código de barras que ficou em mais de um produto → desfaz tudo
+    const dup = (await client.query(
+      `SELECT barcode, string_agg(name, '", "' ORDER BY name) AS names FROM products
+       WHERE barcode = ANY($1::text[]) GROUP BY barcode HAVING COUNT(*) > 1`,
+      [[...seen.keys()]]
+    )).rows;
+    if (dup.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Corrija a planilha',
+        details: dup.map(d => `Linha ${seen.get(d.barcode)}: o código de barras ${d.barcode} ficaria em mais de um produto ("${d.names}")`)
+      });
     }
 
     await client.query('COMMIT');
