@@ -121,3 +121,61 @@
 .bs-manual button:disabled {
   opacity: 0.5;
 }
+
+.bs-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.bs-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 0;
+  background: #000;
+  color: #fff;
+}
+
+.bs-zoom {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.bs-zoom input {
+  flex: 1;
+  accent-color: #22c55e;
+}
+
+.bs-torch {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-weight: 700;
+}
+
+.bs-torch.on {
+  border-color: #facc15;
+  background: #facc15;
+  color: #1a1a1a;
+}
+
+.pc-btn.bs-photo {
+  border-color: #22c55e;
+  background: #22c55e;
+  font-weight: 800;
+}
