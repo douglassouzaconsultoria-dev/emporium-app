@@ -11,12 +11,13 @@ const COLS = [
   { key: 'subcategoria', label: 'Subcategoria', width: 140, list: 'grid-subcats' },
   { key: 'estoque', label: 'Estoque', width: 80, num: true },
   { key: 'preco_oferta', label: 'Oferta', width: 90, num: true },
-  { key: 'descricao', label: 'Descrição', width: 220 }
+  { key: 'descricao', label: 'Descrição', width: 220 },
+  { key: 'codigo_barras', label: 'Código de barras', width: 140, inputMode: 'numeric' }
 ];
 
 const UNITS = ['un', 'kg', 'pacote', 'caixa', 'litro', 'garrafa', 'lata', 'dúzia', 'bandeja', 'fardo'];
 
-const blank = () => ({ id: null, nome: '', preco: '', unidade: 'un', categoria: '', subcategoria: '', estoque: '', preco_oferta: '', descricao: '' });
+const blank = () => ({ id: null, nome: '', preco: '', unidade: 'un', categoria: '', subcategoria: '', estoque: '', preco_oferta: '', descricao: '', codigo_barras: '' });
 
 const money = (v) => (v === null || v === undefined || v === '' ? '' : Number(v).toFixed(2).replace('.', ','));
 const qty = (v) => (v === null || v === undefined || v === '' ? '' : String(v).replace('.', ','));
@@ -36,7 +37,8 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
     subcategoria: p.subcategory || '',
     estoque: qty(p.estoque),
     preco_oferta: money(p.promo_price),
-    descricao: p.description || ''
+    descricao: p.description || '',
+    codigo_barras: p.barcode || ''
   }])), [products, categories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [rows, setRows] = useState(() => [
@@ -135,7 +137,7 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
         <div className="ap-grid-toolbar">
           <input
             className="ap-input"
-            placeholder="🔍 Filtrar pelo nome ou categoria..."
+            placeholder="🔍 Filtrar pelo nome, categoria ou código..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -165,7 +167,7 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
             </thead>
             <tbody>
               {rows.map((r, i) => {
-                if (term && r.id && !`${r.nome} ${r.categoria}`.toLowerCase().includes(term)) return null;
+                if (term && r.id && !`${r.nome} ${r.categoria} ${r.codigo_barras}`.toLowerCase().includes(term)) return null;
                 const state = changed(r) ? (r.id ? 'edited' : 'new') : '';
                 return (
                   <tr key={i} className={state}>
@@ -176,7 +178,7 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
                           data-cell={`${i}-${ci}`}
                           value={r[c.key] ?? ''}
                           list={c.list}
-                          inputMode={c.num ? 'decimal' : undefined}
+                          inputMode={c.inputMode || (c.num ? 'decimal' : undefined)}
                           onChange={(e) => setCell(i, c.key, e.target.value)}
                           onPaste={(e) => onPaste(e, i, ci)}
                           onKeyDown={(e) => onKeyDown(e, i, ci)}
