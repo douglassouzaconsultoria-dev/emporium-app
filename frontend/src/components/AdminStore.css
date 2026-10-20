@@ -374,3 +374,56 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* 💾 Backup */
+.as-btn-backup {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #166534;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.as-btn-backup:disabled,
+.as-backup-list button:disabled,
+.as-btn-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.as-backup-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.as-backup-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.as-backup-list button {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.as-btn-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #166534;
+  font-weight: 700;
+  cursor: pointer;
+}

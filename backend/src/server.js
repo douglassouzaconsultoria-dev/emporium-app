@@ -27,6 +27,7 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/media', require('./routes/media'));
+app.use('/api/backup', require('./routes/backup'));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -145,6 +146,7 @@ require('./utils/database').query(`
 `)
   .then(() => console.log('🧱 Banco atualizado'))
   .then(() => require('./utils/stockRestock').startStockRestock())
+  .then(() => require('./utils/backup').startAutoBackup())
   .then(() => {
     // 🔎 Confere se o banco tem todas as colunas que o código usa (só leitura)
     const expected = {
