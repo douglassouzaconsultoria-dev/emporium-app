@@ -5,7 +5,7 @@ import { API_URL } from '../config';
 const PAYMENT = { pix: 'PIX', cartao: 'Cartão (levar maquininha)', dinheiro: 'Dinheiro' };
 
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const money = (v) => `R$ ${parseFloat(v || 0).toFixed(2)}`;
+const money = (v) => `R$ ${parseFloat(v || 0).toFixed(2).replace('.', ',')}`;
 
 const receiptHtml = (order) => {
   const items = (order.items || []).map(item => `

@@ -4,7 +4,7 @@ import { AuthContext, AuthProvider } from './AuthContext';
 import axios from 'axios';
 import './App.css';
 import Auth from './components/Auth';
-import ProductList from './components/ProductList';
+import ProductList, { ProductSkeleton } from './components/ProductList';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import { roundQty, lineTotal, isPromo } from './utils/units';
@@ -17,11 +17,13 @@ import MotoboyPanel from './components/MotoboyPanel';
 import InstallBanner from './components/InstallBanner';
 import DialogHost from './components/DialogHost';
 import BannerCarousel from './components/BannerCarousel';
+import { brl } from './utils/format';
 
 function AppContent() {
   const { user, token, loading, logout } = useContext(AuthContext);
   const [categories, setCategories] = React.useState([]);
   const [products, setProducts] = React.useState([]);
+  const [productsLoaded, setProductsLoaded] = React.useState(false);
   const [selectedCategory, setSelectedCategory] = React.useState(null);
   // Carrinho fica salvo no aparelho: recarregar a página não perde os itens
   const [cart, setCart] = React.useState(() => {
@@ -90,6 +92,7 @@ function AppContent() {
     try {
       const response = await axios.get(`${API_URL}/products`);
       setProducts(response.data);
+      setProductsLoaded(true);
       // Atualiza preço/oferta do carrinho salvo e tira o que saiu da loja
       setCart(current => current
         .map(item => {
@@ -98,6 +101,7 @@ function AppContent() {
         })
         .filter(Boolean));
     } catch (error) {
+      setProductsLoaded(true);
       console.error('Erro ao buscar produtos:', error);
     }
   };
@@ -162,6 +166,13 @@ function AppContent() {
 
   const inCart = Object.fromEntries(cart.map(item => [item.id, item.quantity]));
 
+  // ⭐ Mais vendidos (últimos 30 dias): selo no card e sugestões no carrinho vazio
+  const bestSellers = [...products]
+    .filter(p => p.sold >= 2 && p.estoque > 0 && !hiddenCategories.has(p.category_id))
+    .sort((a, b) => b.sold - a.sold)
+    .slice(0, 8);
+  const best = new Set(bestSellers.slice(0, 5).map(p => p.id));
+
   // Aviso que aparece embaixo e some sozinho (no lugar da janelinha do navegador)
   const showToast = (text, ms = 1800) => {
     setToast(text);
@@ -215,7 +226,7 @@ function AppContent() {
       return;
     }
     if (missingForMin > 0) {
-      showToast(`O pedido mínimo é R$ ${minOrder.toFixed(2)}. Faltam R$ ${missingForMin.toFixed(2)}.`, 4000);
+      showToast(`O pedido mínimo é ${brl(minOrder)}. Faltam ${brl(missingForMin)}.`, 4000);
       return;
     }
     setShowCheckout(true);
@@ -253,6 +264,18 @@ function AppContent() {
 
   const toggleView = (target) => {
     setView(current => (current === target ? 'store' : target));
+  };
+
+  // 📱 Barra de baixo: troca de tela e volta ao topo
+  const goTo = (target) => {
+    setView(target);
+    window.scrollTo(0, 0);
+  };
+
+  // 🔍 Buscar: volta para a loja e já abre o teclado na busca
+  const goSearch = () => {
+    goTo('store');
+    setTimeout(() => document.querySelector('.search-input')?.focus(), 50);
   };
 
   const isUserAdmin = user && user.role === 'admin';
@@ -342,13 +365,13 @@ function AppContent() {
         </div>
       )}
 
-      <div className={`container ${cartCount > 0 && (view === 'store' || view === 'cart') ? 'has-cart-bar' : ''}`}>
+      <div className={`container has-bottom-nav ${cartCount > 0 && (view === 'store' || view === 'cart') ? 'has-cart-bar' : ''}`}>
         {view === 'admin' && isUserAdmin ? (
           <Admin />
         ) : view === 'orders' ? (
           <MyOrders user={user} onReorder={reorder} />
         ) : view === 'profile' ? (
-          <Profile onClose={() => setView('store')} />
+          <Profile onClose={() => setView('store')} onLogout={handleLogout} />
         ) : view === 'cart' ? (
           <Cart
             cart={cart}
@@ -356,6 +379,9 @@ function AppContent() {
             onUpdateQuantity={updateQuantity}
             onCheckout={startCheckout}
             onBack={() => setView('store')}
+            suggestions={bestSellers.length ? bestSellers : products.filter(p => isPromo(p) && p.estoque > 0).slice(0, 8)}
+            onAddToCart={addToCart}
+            inCart={inCart}
           />
         ) : (
           <>
@@ -390,7 +416,9 @@ function AppContent() {
               )}
             </div>
 
-            {sections.length === 0 ? (
+            {!productsLoaded ? (
+              <ProductSkeleton />
+            ) : sections.length === 0 ? (
               <p className="empty-store">Nenhum produto encontrado.</p>
             ) : (
               sections.map(section => (
@@ -400,7 +428,7 @@ function AppContent() {
                   className="cat-section"
                   style={{ scrollMarginTop: headerHeight + 70 }}
                 >
-                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} inCart={inCart} row subcats={section.id !== 'ofertas'} subOrder={section.id !== 'ofertas' ? subcategoryOrder(section, section.items) : null} />
+                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} inCart={inCart} best={best} row subcats={section.id !== 'ofertas'} subOrder={section.id !== 'ofertas' ? subcategoryOrder(section, section.items) : null} />
                 </section>
               ))
             )}
@@ -416,12 +444,12 @@ function AppContent() {
           <button className="cart-bar-info" onClick={() => setView(view === 'cart' ? 'store' : 'cart')}>
             <span className="cart-bar-count">{cartCount}</span>
             <span className="cart-bar-text">
-              <strong>R$ {cartTotal.toFixed(2)}</strong>
+              <strong>{brl(cartTotal)}</strong>
               <small>
                 {!storeOpen
                   ? 'Loja fechada agora'
                   : missingForMin > 0
-                    ? `Faltam R$ ${missingForMin.toFixed(2)} p/ o mínimo`
+                    ? `Faltam ${brl(missingForMin)} p/ o mínimo`
                     : view === 'cart' ? 'Voltar às compras' : 'Ver carrinho'}
               </small>
             </span>
@@ -434,6 +462,30 @@ function AppContent() {
           )}
         </div>
       )}
+
+      {/* 📱 Navegação de baixo (só no celular) */}
+      <nav className="bottom-nav">
+        <button className={view === 'store' ? 'active' : ''} onClick={() => goTo('store')}>
+          <span>🏠</span>Início
+        </button>
+        <button onClick={goSearch}>
+          <span>🔍</span>Buscar
+        </button>
+        <button className={view === 'cart' ? 'active' : ''} onClick={() => goTo('cart')}>
+          <span>🛒{cartCount > 0 && <b className="bottom-nav-badge">{cartCount}</b>}</span>Carrinho
+        </button>
+        <button className={view === 'orders' ? 'active' : ''} onClick={() => goTo('orders')}>
+          <span>📦</span>Pedidos
+        </button>
+        <button className={view === 'profile' ? 'active' : ''} onClick={() => goTo('profile')}>
+          <span>👤</span>Perfil
+        </button>
+        {isUserAdmin && (
+          <button className={view === 'admin' ? 'active' : ''} onClick={() => goTo('admin')}>
+            <span>🔧</span>Admin
+          </button>
+        )}
+      </nav>
 
       {showCheckout && (
         <Checkout

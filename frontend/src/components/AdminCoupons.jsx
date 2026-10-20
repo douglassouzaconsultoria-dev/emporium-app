@@ -3,11 +3,12 @@ import { API_URL } from '../config';
 import { confirmDialog } from '../utils/dialog';
 import axios from 'axios';
 import './AdminStore.css';
+import { brl } from '../utils/format';
 
 const emptyCoupon = { code: '', type: 'percent', value: '', min_order: '', max_uses: '', expires_at: '', active: true };
 
 const describe = (c) => (c.type === 'fixed'
-  ? `R$ ${parseFloat(c.value).toFixed(2)} de desconto`
+  ? `${brl(parseFloat(c.value))} de desconto`
   : `${parseFloat(c.value)}% de desconto`);
 
 // 🎟️ Cupons de desconto
@@ -151,7 +152,7 @@ function AdminCoupons() {
               <div className="as-coupon-info">
                 <strong>{describe(c)}</strong>
                 <span>
-                  {parseFloat(c.min_order) > 0 ? `Compra mín. R$ ${parseFloat(c.min_order).toFixed(2)} · ` : ''}
+                  {parseFloat(c.min_order) > 0 ? `Compra mín. ${brl(parseFloat(c.min_order))} · ` : ''}
                   Usado {c.uses}{c.max_uses ? `/${c.max_uses}` : ''}x
                   {c.expires_at ? ` · até ${String(c.expires_at).slice(0, 10).split('-').reverse().join('/')}` : ''}
                 </span>

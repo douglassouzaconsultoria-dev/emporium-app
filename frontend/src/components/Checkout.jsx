@@ -6,6 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
 import PixNotice from './PixNotice';
 import './Checkout.css';
+import { brl } from '../utils/format';
 
 const OTHER = '__outro';
 
@@ -136,7 +137,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
         return;
       }
       if (needChange && changeValue <= finalTotalPreview) {
-        setError(`Informe para quanto é o troco (maior que R$ ${finalTotalPreview.toFixed(2)})`);
+        setError(`Informe para quanto é o troco (maior que ${brl(finalTotalPreview)})`);
         return;
       }
     }
@@ -194,7 +195,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
             {paymentMethod === 'pix' && (
               <div style={{ textAlign: 'center', marginTop: '10px' }}>
                 <p style={{ fontSize: '16px', fontWeight: 700 }}>
-                  📱 Pague R$ {orderTotal?.toFixed(2)} com PIX
+                  📱 Pague {brl((orderTotal || 0))} com PIX
                 </p>
 
                 <div style={{
@@ -260,7 +261,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
             {paymentMethod === 'dinheiro' && (
               <p>
                 💵 Pagamento em dinheiro na entrega
-                {needChange ? ` — levaremos troco para R$ ${changeValue.toFixed(2)} (troco de R$ ${(changeValue - orderTotal).toFixed(2)})` : ' — valor certinho, sem troco'}
+                {needChange ? ` — levaremos troco para ${brl(changeValue)} (troco de ${brl((changeValue - orderTotal))})` : ' — valor certinho, sem troco'}
               </p>
             )}
             {paymentMethod !== 'pix' && <p>👨‍🍳 Seu pedido já foi para preparo! Acompanhe em "Meus Pedidos".</p>}
@@ -284,26 +285,26 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
             {cart.map(item => (
               <div key={item.id} className="order-item">
                 <span>{formatQty(item.quantity, item.unit)} {item.name}</span>
-                <span>R$ {lineTotal(item).toFixed(2)}</span>
+                <span>{brl(lineTotal(item))}</span>
               </div>
             ))}
           </div>
           <div className="order-item">
             <span>Subtotal</span>
-            <span>R$ {parseFloat(total).toFixed(2)}</span>
+            <span>{brl(parseFloat(total))}</span>
           </div>
           {coupon && (
             <div className="order-item discount">
               <span>🎟️ Cupom {coupon.code}</span>
-              <span>− R$ {discount.toFixed(2)}</span>
+              <span>− {brl(discount)}</span>
             </div>
           )}
           <div className="order-item">
             <span>🛵 Taxa de entrega{neighborhood ? '' : ' (escolha o bairro)'}</span>
-            <span>R$ {deliveryFee.toFixed(2)}</span>
+            <span>{brl(deliveryFee)}</span>
           </div>
           <div className="order-total">
-            <strong>Total: R$ {finalTotalPreview.toFixed(2)}</strong>
+            <strong>Total: {brl(finalTotalPreview)}</strong>
           </div>
         </div>
 
@@ -329,10 +330,10 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
               <option value="">Selecione o bairro</option>
               {fees.map(f => (
                 <option key={f.id} value={f.neighborhood}>
-                  {f.neighborhood} — R$ {parseFloat(f.fee).toFixed(2)}
+                  {f.neighborhood} — {brl(parseFloat(f.fee))}
                 </option>
               ))}
-              <option value={OTHER}>Outro bairro — R$ {defaultFee.toFixed(2)}</option>
+              <option value={OTHER}>Outro bairro — {brl(defaultFee)}</option>
             </select>
             {neighborhood === OTHER && (
               <input
@@ -362,7 +363,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
             <label>🎟️ Cupom de desconto:</label>
             {coupon ? (
               <div className="coupon-applied">
-                <span>✅ <strong>{coupon.code}</strong> — você economiza R$ {discount.toFixed(2)}</span>
+                <span>✅ <strong>{coupon.code}</strong> — você economiza {brl(discount)}</span>
                 <button type="button" onClick={() => { setCoupon(null); setCouponInput(''); }} disabled={loading}>Remover</button>
               </div>
             ) : (
@@ -468,7 +469,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
                     ))}
                   </div>
                   {changeValue > finalTotalPreview && (
-                    <small>Seu troco será de <strong>R$ {(changeValue - finalTotalPreview).toFixed(2)}</strong></small>
+                    <small>Seu troco será de <strong>{brl((changeValue - finalTotalPreview))}</strong></small>
                   )}
                 </div>
               )}
@@ -492,7 +493,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
           {error && <div className="error-message">❌ {error}</div>}
 
           <button type="submit" disabled={loading || cart.length === 0}>
-            {loading ? '⏳ Processando...' : `✅ Confirmar Pedido — R$ ${finalTotalPreview.toFixed(2)}`}
+            {loading ? '⏳ Processando...' : `✅ Confirmar Pedido — ${brl(finalTotalPreview)}`}
           </button>
         </form>
       </div>

@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
 import PixNotice from './PixNotice';
 import './MyOrders.css';
+import { brl } from '../utils/format';
 
 // ⭐ Avaliar a entrega (aparece quando o pedido foi entregue e ainda não foi avaliado)
 function RateOrder({ order, onRated }) {
@@ -275,14 +276,14 @@ const MyOrders = ({ user, onReorder }) => {
                   <p><strong>Data:</strong> {new Date(order.created_at).toLocaleDateString('pt-BR')}</p>
                   <p><strong>Endereço:</strong> {order.delivery_address}</p>
                   {parseFloat(order.delivery_fee) > 0 && (
-                    <p><strong>Taxa de entrega:</strong> R$ {parseFloat(order.delivery_fee).toFixed(2)}</p>
+                    <p><strong>Taxa de entrega:</strong> {brl(parseFloat(order.delivery_fee))}</p>
                   )}
                   {parseFloat(order.discount) > 0 && (
-                    <p><strong>Desconto{order.coupon_code ? ` (${order.coupon_code})` : ''}:</strong> − R$ {parseFloat(order.discount).toFixed(2)}</p>
+                    <p><strong>Desconto{order.coupon_code ? ` (${order.coupon_code})` : ''}:</strong> − {brl(parseFloat(order.discount))}</p>
                   )}
-                  <p><strong>Total:</strong> R$ {parseFloat(order.total).toFixed(2)}</p>
+                  <p><strong>Total:</strong> {brl(parseFloat(order.total))}</p>
                   {order.payment_method === 'dinheiro' && parseFloat(order.change_for) > 0 && (
-                    <p><strong>Troco para:</strong> R$ {parseFloat(order.change_for).toFixed(2)}</p>
+                    <p><strong>Troco para:</strong> {brl(parseFloat(order.change_for))}</p>
                   )}
                   <p>
                     <strong>Pagamento:</strong>{' '}
@@ -319,7 +320,7 @@ const MyOrders = ({ user, onReorder }) => {
                       cursor: 'pointer'
                     }}
                   >
-                    📱 Pagar com PIX — R$ {parseFloat(order.total).toFixed(2)}
+                    📱 Pagar com PIX — {brl(parseFloat(order.total))}
                   </button>
                 )}
 
@@ -437,7 +438,7 @@ const MyOrders = ({ user, onReorder }) => {
 
             <h3 style={{ margin: '0 0 6px' }}>📱 Pagar Pedido #{pixOrder.id}</h3>
             <p style={{ fontSize: '18px', fontWeight: 800, color: '#C41E3A', margin: '0 0 10px' }}>
-              R$ {parseFloat(pixOrder.total).toFixed(2)}
+              {brl(parseFloat(pixOrder.total))}
             </p>
 
             <div style={{

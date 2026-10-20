@@ -3,6 +3,7 @@ import { API_URL } from '../config';
 import { confirmDialog } from '../utils/dialog';
 import axios from 'axios';
 import './AdminCategories.css';
+import { brl } from '../utils/format';
 
 function AdminDeliveryFees() {
   const [fees, setFees] = useState([]);
@@ -177,7 +178,7 @@ function AdminDeliveryFees() {
                   <div className="category-display">
                     <div className="category-icon">🏘️</div>
                     <h3 className="category-name">{fee.neighborhood}</h3>
-                    <p className="category-id">R$ {parseFloat(fee.fee).toFixed(2)}</p>
+                    <p className="category-id">{brl(parseFloat(fee.fee))}</p>
                     <div className="category-actions">
                       <button
                         onClick={() => { setEditingId(fee.id); setEditData({ neighborhood: fee.neighborhood, fee: fee.fee }); }}

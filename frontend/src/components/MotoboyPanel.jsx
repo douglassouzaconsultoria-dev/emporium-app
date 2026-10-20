@@ -413,16 +413,16 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
 
   // 💰 O que fazer com o pagamento
   const paymentNote = (order) => {
-    const total = parseFloat(order.total).toFixed(2);
+    const total = brl(order.total);
     switch (order.payment_method) {
       case 'pix':
         return { cls: 'pix', text: `📱 PIX — já pago pelo app. NÃO cobrar (salvo aviso do Empório).` };
       case 'cartao':
-        return { cls: 'card', text: `💳 Levar MAQUININHA — cobrar R$ ${total}` };
+        return { cls: 'card', text: `💳 Levar MAQUININHA — cobrar ${total}` };
       default:
         return parseFloat(order.change_for) > 0
-          ? { cls: 'cash', text: `💵 DINHEIRO — cobrar R$ ${total}. Troco para R$ ${parseFloat(order.change_for).toFixed(2)}: levar R$ ${(parseFloat(order.change_for) - parseFloat(order.total)).toFixed(2)}` }
-          : { cls: 'cash', text: `💵 DINHEIRO — cobrar R$ ${total} (cliente tem trocado)` };
+          ? { cls: 'cash', text: `💵 DINHEIRO — cobrar ${total}. Troco para ${brl(order.change_for)}: levar ${brl(parseFloat(order.change_for) - parseFloat(order.total))}` }
+          : { cls: 'cash', text: `💵 DINHEIRO — cobrar ${total} (cliente tem trocado)` };
     }
   };
 
