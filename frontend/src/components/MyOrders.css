@@ -3,7 +3,7 @@
 }
 
 .my-orders h2 {
-  color: #7c3aed;
+  color: #C41E3A;
   margin-bottom: 20px;
   font-size: 24px;
 }
@@ -149,9 +149,9 @@
 }
 
 .timeline-step.active .timeline-dot {
-  background: #7c3aed;
+  background: #C41E3A;
   color: white;
-  box-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+  box-shadow: 0 0 10px rgba(196, 30, 58, 0.45);
 }
 
 .timeline-step p {
@@ -167,7 +167,7 @@
 }
 
 .timeline-step.active p {
-  color: #7c3aed;
+  color: #C41E3A;
   font-weight: bold;
 }
 
@@ -176,17 +176,8 @@
     grid-template-columns: 1fr;
   }
 
-  .order-timeline {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  .order-timeline::before {
-    display: none;
-  }
-
-  .timeline-step {
-    flex: 0 0 calc(50% - 5px);
+  .timeline-step p {
+    font-size: 11px;
   }
 }
 /* ⭐ Avaliação da entrega */
@@ -322,5 +313,5 @@
   display: block;
   margin-top: 6px;
   font-weight: 500;
-  color: #6d28d9;
+  color: #C41E3A;
 }

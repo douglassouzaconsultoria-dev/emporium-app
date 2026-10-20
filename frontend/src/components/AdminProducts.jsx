@@ -9,6 +9,7 @@ import AdminImportProducts from './AdminImportProducts';
 import AdminProductsGrid from './AdminProductsGrid';
 import ProductCamera from './ProductCamera';
 import BarcodeScanner from './BarcodeScanner';
+import { brl } from '../utils/format';
 
 const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true, barcode: '' };
 
@@ -468,11 +469,11 @@ function AdminProducts() {
                 <div className="ap-cell-price">
                   {isPromo(product) ? (
                     <>
-                      <s>R$ {parseFloat(product.price).toFixed(2)}</s>
-                      <strong>R$ {parseFloat(product.promo_price).toFixed(2)}</strong>
+                      <s>{brl(parseFloat(product.price))}</s>
+                      <strong>{brl(parseFloat(product.promo_price))}</strong>
                     </>
                   ) : (
-                    <strong>R$ {parseFloat(product.price).toFixed(2)}</strong>
+                    <strong>{brl(parseFloat(product.price))}</strong>
                   )}
                   <span>/ {product.unit}</span>
                 </div>

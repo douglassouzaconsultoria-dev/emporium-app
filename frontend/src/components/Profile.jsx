@@ -13,7 +13,7 @@ const sanitizeUsername = (value) =>
     .replace(/[^a-z0-9._]/g, '')
     .slice(0, 20);
 
-function Profile({ onClose }) {
+function Profile({ onClose, onLogout }) {
   const { user, token, updateUser, logout } = useContext(AuthContext);
 
   const [form, setForm] = useState({
@@ -219,7 +219,10 @@ function Profile({ onClose }) {
     <div className="profile-page">
       <div className="profile-top">
         <h2>👤 Meu Perfil</h2>
-        <button className="profile-back" onClick={onClose}>← Voltar à loja</button>
+        <div className="profile-top-actions">
+          <button className="profile-back" onClick={onClose}>← Voltar à loja</button>
+          <button className="profile-back profile-logout" onClick={onLogout}>🚪 Sair da conta</button>
+        </div>
       </div>
 
       <div className="profile-grid">

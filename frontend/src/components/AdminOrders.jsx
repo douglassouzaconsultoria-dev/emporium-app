@@ -5,6 +5,7 @@ import { printOrder, printOrderById } from '../utils/printOrder';
 import { confirmDialog, notify } from '../utils/dialog';
 import OrderItemsEditor from './OrderItemsEditor';
 import './AdminOrders.css';
+import { brl } from '../utils/format';
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -226,7 +227,7 @@ const AdminOrders = () => {
   // ▶ Preparar: PIX só depois de conferir no extrato que o pagamento caiu
   const startPreparing = async (order) => {
     if (order.payment_method === 'pix' && order.status === 'Pendente' && !(await confirmDialog(
-      `PIX do pedido #${order.id}: você conferiu no extrato do banco que caiu R$ ${parseFloat(order.total).toFixed(2)}` +
+      `PIX do pedido #${order.id}: você conferiu no extrato do banco que caiu ${brl(parseFloat(order.total))}` +
       ` (identificação EMP${order.id})?`,
       { okText: '✅ Caiu, liberar' }
     ))) return;
@@ -306,19 +307,19 @@ const AdminOrders = () => {
   };
 
   const getDeliveryNote = (order) => {
-    const total = parseFloat(order.total).toFixed(2);
+    const total = brl(order.total);
     switch (order.payment_method) {
       case 'pix':
         return {
           bg: '#fffbeb',
           border: '#f59e0b',
-          text: `⚠️ PIX: confira no app do Sicoob se caiu R$ ${total} antes de despachar. Procure pelo valor e horário (a identificação EMP${order.id} pode aparecer no extrato).`
+          text: `⚠️ PIX: confira no app do Sicoob se caiu ${total} antes de despachar. Procure pelo valor e horário (a identificação EMP${order.id} pode aparecer no extrato).`
         };
       case 'cartao':
         return {
           bg: '#f5f3ff',
           border: '#8b5cf6',
-          text: `💳 Levar a MAQUININHA. Cobrar R$ ${total} na entrega.`
+          text: `💳 Levar a MAQUININHA. Cobrar ${total} na entrega.`
         };
       default: {
         const changeFor = parseFloat(order.change_for) || 0;
@@ -326,8 +327,8 @@ const AdminOrders = () => {
           bg: '#f0fdf4',
           border: '#22c55e',
           text: changeFor > 0
-            ? `💵 DINHEIRO: cobrar R$ ${total}. Cliente vai pagar com R$ ${changeFor.toFixed(2)} → levar R$ ${(changeFor - parseFloat(order.total)).toFixed(2)} de troco.`
-            : `💵 DINHEIRO: cobrar R$ ${total}. Cliente disse que tem trocado (não precisa de troco).`
+            ? `💵 DINHEIRO: cobrar ${total}. Cliente vai pagar com ${brl(changeFor)} → levar ${brl(changeFor - parseFloat(order.total))} de troco.`
+            : `💵 DINHEIRO: cobrar ${total}. Cliente disse que tem trocado (não precisa de troco).`
         };
       }
     }
@@ -472,7 +473,7 @@ const AdminOrders = () => {
                   <td>{order.name || 'N/A'}</td>
                   <td>{order.phone_number || 'N/A'}</td>
                   <td>{order.delivery_address}</td>
-                  <td>R$ {parseFloat(order.total).toFixed(2)}</td>
+                  <td>{brl(parseFloat(order.total))}</td>
                   <td><PaymentBadge method={order.payment_method} /></td>
                   <td>
                     <span
@@ -649,9 +650,9 @@ const AdminOrders = () => {
                         {formatQty(item.quantity, item.unit)} {item.product_name}
                       </span>
                       <span>
-                        Preço un: R$ {parseFloat(item.price).toFixed(2)}
+                        Preço un: {brl(parseFloat(item.price))}
                         <strong style={{ marginLeft: '20px' }}>
-                          Subtotal: R$ {(parseFloat(item.price) * item.quantity).toFixed(2)}
+                          Subtotal: {brl((parseFloat(item.price) * item.quantity))}
                         </strong>
                       </span>
                     </div>
@@ -664,12 +665,12 @@ const AdminOrders = () => {
 
             <div className="order-total-section">
               {parseFloat(selectedOrder.discount) > 0 && (
-                <p>🎟️ Desconto{selectedOrder.coupon_code ? ` (cupom ${selectedOrder.coupon_code})` : ''}: − R$ {parseFloat(selectedOrder.discount).toFixed(2)}</p>
+                <p>🎟️ Desconto{selectedOrder.coupon_code ? ` (cupom ${selectedOrder.coupon_code})` : ''}: − {brl(parseFloat(selectedOrder.discount))}</p>
               )}
               {parseFloat(selectedOrder.delivery_fee) > 0 && (
-                <p>🛵 Taxa de entrega{selectedOrder.delivery_neighborhood ? ` (${selectedOrder.delivery_neighborhood})` : ''}: R$ {parseFloat(selectedOrder.delivery_fee).toFixed(2)}</p>
+                <p>🛵 Taxa de entrega{selectedOrder.delivery_neighborhood ? ` (${selectedOrder.delivery_neighborhood})` : ''}: {brl(parseFloat(selectedOrder.delivery_fee))}</p>
               )}
-              <h4>Total do Pedido: R$ {parseFloat(selectedOrder.total).toFixed(2)}</h4>
+              <h4>Total do Pedido: {brl(parseFloat(selectedOrder.total))}</h4>
               <p><strong>Status Atual:</strong>
                 <span
                   className="status-badge"

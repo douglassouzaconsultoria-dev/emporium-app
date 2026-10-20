@@ -79,6 +79,16 @@
   color: #C41E3A;
 }
 
+.profile-top-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-logout {
+  color: #C41E3A;
+}
+
 .profile-grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;

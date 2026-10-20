@@ -1,7 +1,9 @@
 import React from 'react';
 import { isKg, formatQty, lineTotal, effectivePrice } from '../utils/units';
+import { brl } from '../utils/format';
+import ProductList from './ProductList';
 
-function Cart({ cart, onRemove, onUpdateQuantity, onCheckout, onBack }) {
+function Cart({ cart, onRemove, onUpdateQuantity, onCheckout, onBack, suggestions = [], onAddToCart, inCart }) {
   const total = cart.reduce((sum, item) => sum + lineTotal(item), 0);
 
   return (
@@ -11,7 +13,19 @@ function Cart({ cart, onRemove, onUpdateQuantity, onCheckout, onBack }) {
         <button className="cart-back" onClick={onBack}>← Continuar comprando</button>
       </div>
       {cart.length === 0 ? (
-        <p className="cart-empty">Seu carrinho está vazio. Que tal dar uma olhada nas ofertas? 🔥</p>
+        <>
+          <p className="cart-empty">Seu carrinho está vazio. Que tal começar por aqui? 👇</p>
+          {suggestions.length > 0 && (
+            <ProductList
+              title="⭐ Os mais pedidos"
+              products={suggestions}
+              onAddToCart={onAddToCart}
+              onUpdateQuantity={onUpdateQuantity}
+              inCart={inCart}
+              row
+            />
+          )}
+        </>
       ) : (
         <>
           <div className="cart-items">
@@ -23,8 +37,8 @@ function Cart({ cart, onRemove, onUpdateQuantity, onCheckout, onBack }) {
                   <h4>{item.name}</h4>
                   <p>
                     {isKg(item.unit)
-                      ? `R$ ${effectivePrice(item).toFixed(2)}/kg × ${formatQty(item.quantity, item.unit)} = R$ ${lineTotal(item).toFixed(2)}`
-                      : `R$ ${effectivePrice(item).toFixed(2)} x ${item.quantity} = R$ ${lineTotal(item).toFixed(2)}`}
+                      ? `${brl(effectivePrice(item))}/kg × ${formatQty(item.quantity, item.unit)} = ${brl(lineTotal(item))}`
+                      : `${brl(effectivePrice(item))} x ${item.quantity} = ${brl(lineTotal(item))}`}
                   </p>
                 </div>
                 <div className="item-controls">
@@ -38,7 +52,7 @@ function Cart({ cart, onRemove, onUpdateQuantity, onCheckout, onBack }) {
             })}
           </div>
           <div className="cart-summary">
-            <h3>Total: R$ {total.toFixed(2)}</h3>
+            <h3>Total: {brl(total)}</h3>
             <button className="checkout-btn" onClick={onCheckout}>Finalizar Pedido</button>
           </div>
         </>

@@ -31,14 +31,12 @@
   object-fit: cover;
 }
 
+/* Bolinhas embaixo do banner (não ficam por cima da imagem) */
 .bnr-dots {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 8px;
   display: flex;
   justify-content: center;
   gap: 6px;
+  margin-top: 8px;
 }
 
 .bnr-dots button {
@@ -47,15 +45,14 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+  background: #e5c6cc;
   cursor: pointer;
 }
 
 .bnr-dots button.active {
   width: 20px;
   border-radius: 4px;
-  background: #fff;
+  background: var(--primary, #C41E3A);
 }
 
 /* Produto aberto pelo banner pisca para chamar atenção */
