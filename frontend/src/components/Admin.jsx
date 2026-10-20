@@ -35,6 +35,14 @@ const DEFAULT_TABS = [
   { id: 'tabs', label: '🗂️ Organizar' }
 ];
 
+// 🧭 Grupos do menu lateral (dentro de cada grupo vale a ordem de "Organizar abas")
+const GROUPS = [
+  { title: 'Vendas', ids: ['dashboard', 'orders', 'customers', 'coupons'] },
+  { title: 'Produtos', ids: ['products', 'categories', 'stock', 'tabs'] },
+  { title: 'Entregas', ids: ['motoboys', 'fees'] },
+  { title: 'Loja', ids: ['store', 'media'] }
+];
+
 // Aplica a ordem salva; abas novas (que não estão na lista salva) vão para o fim
 const sortTabs = (order) => [
   ...order.map(id => DEFAULT_TABS.find(t => t.id === id)).filter(Boolean),
@@ -65,6 +73,25 @@ function Admin() {
   const [tabs, setTabs] = useState(DEFAULT_TABS);
   const [savedTabs, setSavedTabs] = useState(DEFAULT_TABS);
   const [organizeSection, setOrganizeSection] = useState('admin'); // 'admin' | 'categories' | 'products'
+  const [menuOpen, setMenuOpen] = useState(false); // celular: lista do menu aberta
+
+  // O menu lateral gruda logo abaixo do cabeçalho do site (que também fica fixo no topo)
+  const [headerH, setHeaderH] = useState(0);
+  useEffect(() => {
+    const header = document.querySelector('.header');
+    if (!header) return;
+    const measure = () => setHeaderH(header.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(header);
+    return () => ro.disconnect();
+  }, []);
+
+  const openTab = (id) => {
+    setActiveTab(id);
+    setMenuOpen(false);
+    window.scrollTo(0, 0);
+  };
 
   // 🗂️ Ordem das abas salva no servidor; a primeira é a que abre ao entrar
   useEffect(() => {
@@ -206,18 +233,31 @@ function Admin() {
         </button>
       )}
 
-      {/* MENU DE ABAS */}
-      <div className="admin-tabs-container">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
+      <div className="admin-body" style={{ '--admin-top': `${headerH}px` }}>
+      {/* 🧭 MENU: coluna à esquerda no computador; botão ☰ no celular */}
+      <button type="button" className="admin-menu-toggle" onClick={() => setMenuOpen(o => !o)}>
+        <span>☰ Menu</span>
+        <b>{tabs.find(t => t.id === activeTab)?.label}</b>
+        {newOrders > 0 && <span className="admin-menu-badge">{newOrders}</span>}
+      </button>
+      {menuOpen && <div className="admin-menu-backdrop" onClick={() => setMenuOpen(false)} />}
+      <nav className={`admin-menu ${menuOpen ? 'open' : ''}`}>
+        {GROUPS.map(g => (
+          <div key={g.title} className="admin-menu-group">
+            <span className="admin-menu-title">{g.title}</span>
+            {tabs.filter(t => g.ids.includes(t.id)).map(tab => (
+              <button
+                key={tab.id}
+                className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => openTab(tab.id)}
+              >
+                {tab.label}
+                {tab.id === 'orders' && newOrders > 0 && <span className="admin-menu-badge">{newOrders}</span>}
+              </button>
+            ))}
+          </div>
         ))}
-      </div>
+      </nav>
 
       {/* CONTEÚDO DAS ABAS */}
       <div className="admin-content">
@@ -247,7 +287,7 @@ function Admin() {
           <div className="admin-tabs-editor">
             <div className="ate-head">
               <strong>🔧 Abas do painel</strong>
-              <span>Use as setas para mudar a posição. A <b>1ª aba</b> é a que abre quando você entra no painel. A barra de cima já mostra como vai ficar.</span>
+              <span>Use as setas para mudar a posição. A <b>1ª aba</b> é a que abre quando você entra no painel. O menu já mostra como vai ficar (cada aba continua no seu grupo).</span>
             </div>
             <ol className="ate-list">
               {tabs.map((tab, i) => (
@@ -266,6 +306,7 @@ function Admin() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
