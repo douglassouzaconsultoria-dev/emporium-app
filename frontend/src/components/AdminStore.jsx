@@ -69,6 +69,53 @@ function AdminStore() {
     setStore({ ...store, hours: store.hours.map((h, idx) => (idx === i ? { ...h, [field]: value } : h)) });
   };
 
+  // 💾 Backup: baixar agora + cópias automáticas guardadas no Cloudinary
+  const [backups, setBackups] = useState(null);
+  const [backupBusy, setBackupBusy] = useState('');
+  const [backupMsg, setBackupMsg] = useState('');
+
+  const loadBackups = () => axios.get(`${API_URL}/backup`, authHeaders())
+    .then(res => setBackups(res.data))
+    .catch(() => setBackups({ cloud: false, items: [] }));
+
+  useEffect(() => { loadBackups(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const downloadBackup = async (path, busy) => {
+    try {
+      setBackupBusy(busy);
+      setBackupMsg('');
+      const res = await axios.get(`${API_URL}/backup/${path}`, { ...authHeaders(), responseType: 'blob' });
+      const name = (res.headers['content-disposition'] || '').match(/filename="([^"]+)"/)?.[1] || 'backup.json.gz';
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBackupMsg(`✅ Backup baixado: ${name}`);
+    } catch {
+      setBackupMsg('❌ Não consegui baixar o backup');
+    } finally {
+      setBackupBusy('');
+    }
+  };
+
+  const saveBackupNow = async () => {
+    try {
+      setBackupBusy('cloud');
+      setBackupMsg('');
+      await axios.post(`${API_URL}/backup`, {}, authHeaders());
+      await loadBackups();
+      setBackupMsg('✅ Cópia guardada');
+    } catch (error) {
+      setBackupMsg(`❌ ${error.response?.data?.error || 'Erro ao guardar a cópia'}`);
+    } finally {
+      setBackupBusy('');
+    }
+  };
+
+  const fmtDate = (iso) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
   const [copied, setCopied] = useState(false);
   const [resetText, setResetText] = useState('');
   const [resetting, setResetting] = useState(false);
@@ -232,6 +279,43 @@ function AdminStore() {
       <button className="as-save" onClick={() => save()} disabled={saving}>
         {saving ? '⏳ Salvando...' : '💾 Salvar configurações'}
       </button>
+
+      {/* BACKUP */}
+      <div className="as-card">
+        <h3>💾 Backup</h3>
+        <p className="as-help">
+          Cópia de <b>tudo</b>: produtos, clientes, pedidos, motoboys, cupons e configurações. As fotos ficam guardadas no
+          Cloudinary e não entram no arquivo. Guarde o arquivo no computador, num pen drive ou no Google Drive.
+        </p>
+        <button type="button" className="as-btn-backup" onClick={() => downloadBackup('download', 'now')} disabled={!!backupBusy}>
+          {backupBusy === 'now' ? '⏳ Preparando...' : '⬇️ Baixar backup agora'}
+        </button>
+
+        {backups?.cloud && (
+          <>
+            <h3>🔁 Cópias automáticas</h3>
+            <p className="as-help">
+              Uma por dia, guardadas no Cloudinary (só o admin baixa). Ficam as últimas {backups.keep}.
+              {backups.last && <> Última: <b>{fmtDate(backups.last)}</b>.</>}
+            </p>
+            <ul className="as-backup-list">
+              {backups.items.map(b => (
+                <li key={b.id}>
+                  <span>{fmtDate(b.created_at)} · {Math.max(1, Math.round(b.bytes / 1024))} KB</span>
+                  <button type="button" onClick={() => downloadBackup(`cloud/${b.id}`, b.id)} disabled={!!backupBusy}>
+                    {backupBusy === b.id ? '⏳' : '⬇️ Baixar'}
+                  </button>
+                </li>
+              ))}
+              {backups.items.length === 0 && <li>Nenhuma cópia ainda.</li>}
+            </ul>
+            <button type="button" className="as-btn-link" onClick={saveBackupNow} disabled={!!backupBusy}>
+              {backupBusy === 'cloud' ? '⏳ Guardando...' : '➕ Guardar uma cópia agora'}
+            </button>
+          </>
+        )}
+        {backupMsg && <div className={`as-message ${backupMsg.includes('✅') ? 'ok' : 'err'}`}>{backupMsg}</div>}
+      </div>
 
       {/* ZERAR PEDIDOS */}
       <div className="as-card as-danger">
