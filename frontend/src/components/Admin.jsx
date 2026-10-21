@@ -16,6 +16,7 @@ import AdminStore from './AdminStore';
 import AdminCoupons from './AdminCoupons';
 import AdminStorefront from './AdminStorefront';
 import AdminSubcategoryBoard from './AdminSubcategoryBoard';
+import AdminQuickProduct from './AdminQuickProduct';
 import axios from 'axios';
 import { getAutoPrint, printOrderById } from '../utils/printOrder';
 
@@ -23,6 +24,7 @@ import { getAutoPrint, printOrderById } from '../utils/printOrder';
 const DEFAULT_TABS = [
   { id: 'dashboard', label: '📊 Dashboard' },
   { id: 'orders', label: '📦 Pedidos' },
+  { id: 'quick', label: '➕ Cadastrar produto' },
   { id: 'store', label: '🏪 Loja' },
   { id: 'coupons', label: '🎟️ Cupons' },
   { id: 'motoboys', label: '🛵 Motoboys' },
@@ -37,17 +39,23 @@ const DEFAULT_TABS = [
 
 // 🧭 Grupos do menu lateral (dentro de cada grupo vale a ordem de "Organizar abas")
 const GROUPS = [
-  { title: 'Vendas', ids: ['dashboard', 'orders', 'customers', 'coupons'] },
+  { title: 'Vendas', ids: ['dashboard', 'orders', 'quick', 'customers', 'coupons'] },
   { title: 'Produtos', ids: ['products', 'categories', 'stock', 'tabs'] },
   { title: 'Entregas', ids: ['motoboys', 'fees'] },
   { title: 'Loja', ids: ['store', 'media'] }
 ];
 
 // Aplica a ordem salva; abas novas (que não estão na lista salva) vão para o fim
-const sortTabs = (order) => [
-  ...order.map(id => DEFAULT_TABS.find(t => t.id === id)).filter(Boolean),
-  ...DEFAULT_TABS.filter(t => !order.includes(t.id))
-];
+// Aba nova (que não está na ordem salva) entra logo depois da aba que vem antes dela na ordem padrão
+const sortTabs = (order) => {
+  const list = order.map(id => DEFAULT_TABS.find(t => t.id === id)).filter(Boolean);
+  DEFAULT_TABS.forEach((tab, i) => {
+    if (list.includes(tab)) return;
+    const prev = list.indexOf(DEFAULT_TABS[i - 1]);
+    list.splice(prev + 1, 0, tab);
+  });
+  return list;
+};
 
 // 🔔 Dois bipes curtos (não precisa de arquivo de som)
 const playBeep = () => {
@@ -235,11 +243,18 @@ function Admin() {
 
       <div className="admin-body" style={{ '--admin-top': `${headerH}px` }}>
       {/* 🧭 MENU: coluna à esquerda no computador; botão ☰ no celular */}
-      <button type="button" className="admin-menu-toggle" onClick={() => setMenuOpen(o => !o)}>
-        <span>☰ Menu</span>
-        <b>{tabs.find(t => t.id === activeTab)?.label}</b>
-        {newOrders > 0 && <span className="admin-menu-badge">{newOrders}</span>}
-      </button>
+      <div className="admin-menu-bar">
+        <button type="button" className="admin-menu-toggle" onClick={() => setMenuOpen(o => !o)}>
+          ☰ {['orders', 'quick'].includes(activeTab) ? 'Menu' : tabs.find(t => t.id === activeTab)?.label}
+        </button>
+        {/* Atalhos: Pedidos e Cadastrar produto sempre a um toque */}
+        <button type="button" className={`admin-menu-quick ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => openTab('orders')}>
+          📦 Pedidos{newOrders > 0 && <span className="admin-menu-badge">{newOrders}</span>}
+        </button>
+        <button type="button" className={`admin-menu-quick ${activeTab === 'quick' ? 'active' : ''}`} onClick={() => openTab('quick')}>
+          ➕ Cadastrar
+        </button>
+      </div>
       {menuOpen && <div className="admin-menu-backdrop" onClick={() => setMenuOpen(false)} />}
       <nav className={`admin-menu ${menuOpen ? 'open' : ''}`}>
         {GROUPS.map(g => (
@@ -263,6 +278,7 @@ function Admin() {
       <div className="admin-content">
         {activeTab === 'dashboard' && <AdminDashboard />}
         {activeTab === 'orders' && <AdminOrders />}
+        {activeTab === 'quick' && <AdminQuickProduct />}
         {activeTab === 'store' && <AdminStore />}
         {activeTab === 'coupons' && <AdminCoupons />}
         {activeTab === 'motoboys' && <AdminMotoboys />}

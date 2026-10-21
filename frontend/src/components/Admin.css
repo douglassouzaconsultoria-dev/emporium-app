@@ -105,7 +105,7 @@
 }
 
 /* Celular: o menu vira um botão ☰ que abre a lista */
-.admin-menu-toggle,
+.admin-menu-bar,
 .admin-menu-backdrop {
   display: none;
 }
@@ -115,32 +115,50 @@
     display: block;
   }
 
-  .admin-menu-toggle {
+  .admin-menu-bar {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 12px 16px;
-    border: none;
+    gap: 8px;
+    padding: 10px 12px;
     border-bottom: 1px solid var(--border);
     background: white;
-    color: var(--text);
-    font-size: 15px;
-    cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
 
-  .admin-menu-toggle > span:first-child {
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: var(--primary);
-    color: white;
+  .admin-menu-bar button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: white;
+    color: var(--text);
+    font-size: 14px;
     font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
   }
 
-  .admin-menu-toggle b {
-    flex: 1;
-    text-align: left;
+  .admin-menu-bar .admin-menu-toggle {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-color: var(--primary);
+    background: var(--primary);
+    color: white;
+  }
+
+  .admin-menu-bar .admin-menu-quick {
+    flex: 0 0 auto;
+  }
+
+  .admin-menu-bar .admin-menu-quick.active {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #fff5f6;
   }
 
   .admin-menu-backdrop {
