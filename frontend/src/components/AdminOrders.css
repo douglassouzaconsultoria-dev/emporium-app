@@ -107,6 +107,12 @@
   width: 100%;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   position: relative;
+  /* Pedido maior que a tela: rola por dentro (no celular não dava para ver o resto) */
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .close-modal-btn {
@@ -249,8 +255,14 @@
     padding: 10px;
   }
 
+  .order-modal {
+    padding: 10px;
+  }
+
   .order-modal-content {
     padding: 20px;
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
   }
 
   .button-group {
