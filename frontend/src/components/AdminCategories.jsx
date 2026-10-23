@@ -27,6 +27,20 @@ function AdminCategories() {
     }
   };
 
+  // 🔞 Venda proibida para menores (ex: bebidas alcoólicas): aviso na categoria e selo nos produtos
+  const toggleAdult = async (category) => {
+    try {
+      await axios.put(`${API_URL}/categories/${category.id}/display`, { adult: !category.adult }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      setCategories(list => list.map(c => (c.id === category.id ? { ...c, adult: !category.adult } : c)));
+      setMessage(!category.adult ? `✅ "${category.name}" agora mostra o aviso 🔞` : `✅ Aviso 🔞 tirado de "${category.name}"`);
+    } catch {
+      setMessage('❌ Erro ao atualizar categoria');
+    }
+    setTimeout(() => setMessage(''), 3000);
+  };
+
   const filteredCategories = categories.filter(cat =>
     cat.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -193,6 +207,11 @@ function AdminCategories() {
                     <div className="category-icon">📁</div>
                     <h3 className="category-name">{category.name}</h3>
                     <p className="category-id">ID: {category.id}</p>
+
+                    <label className={`category-adult ${category.adult ? 'on' : ''}`}>
+                      <input type="checkbox" checked={!!category.adult} onChange={() => toggleAdult(category)} />
+                      🔞 Venda proibida para menores de 18
+                    </label>
 
                     <div className="category-actions">
                       <button onClick={() => startEdit(category)} className="btn-edit">✏️ Editar</button>

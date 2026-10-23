@@ -50,11 +50,12 @@ function KgPicker({ product, onAdd, onClose }) {
 // row: uma fileira que rola para o lado (vitrine por categoria)
 // inCart: { [productId]: quantidade } — o + vira "− quantidade +" que mexe direto no carrinho
 // best: ids dos mais vendidos (selo ⭐)
+// adult: aviso 🔞 embaixo do título; adultCats: categorias 🔞 (selo no card, até na seção de Ofertas)
 // subcats: mostra as abinhas de subcategoria (na ordem em que aparecem nos produtos)
 // subOrder: ordem das abinhas definida no admin (🗂️ Organizar → subcategorias)
 function ProductList({
   products, onAddToCart, onUpdateQuantity, title = 'Produtos', row = false, inCart = {}, best = null,
-  subcats = false, subOrder = null
+  subcats = false, subOrder = null, adult = false, adultCats = null
 }) {
   const [activeSub, setActiveSub] = useState(null);
   const [picking, setPicking] = useState(null); // produto por kg com a escolha de gramas aberta
@@ -76,6 +77,7 @@ function ProductList({
   return (
     <div className="products">
       {title && <h2>{title}</h2>}
+      {adult && <p className="adult-notice">🔞 Venda proibida para menores de 18 anos</p>}
       {subs.length > 0 && (
         <div className="subcat-chips">
           <button className={!current ? 'active' : ''} onClick={() => setActiveSub(null)}>Todos</button>
@@ -93,10 +95,11 @@ function ProductList({
           const qtyInCart = inCart[product.id] || 0;
           const kg = isKg(product.unit);
           const soldOut = product.estoque <= 0;
+          const offHours = !soldOut && product.available_now === false; // 🗓️ fora do dia/horário programado
           const lastOnes = !soldOut && product.estoque <= (kg ? 2 : 5);
           const unitLabel = !kg && product.unit && product.unit !== 'un' ? product.unit : null;
           return (
-          <div key={product.id} data-product-id={product.id} className={`product-card ${soldOut ? 'sold-out' : ''}`}>
+          <div key={product.id} data-product-id={product.id} className={`product-card ${soldOut || offHours ? 'sold-out' : ''}`}>
             <div className="product-media">
               {product.image_url ? (
                 <img
@@ -115,10 +118,12 @@ function ProductList({
                 {best && best.has(product.id) && <span className="pbadge pbadge-best">⭐ Mais vendido</span>}
                 {lastOnes && <span className="pbadge pbadge-last">Últimas unidades</span>}
                 {soldOut && <span className="pbadge pbadge-out">Esgotado</span>}
+                {offHours && <span className="pbadge pbadge-out">🕒 Só {product.available_label}</span>}
+                {adultCats && adultCats.has(product.category_id) && <span className="pbadge pbadge-adult">🔞 18+</span>}
               </div>
 
               {/* ➕ Adicionar / − quantidade + */}
-              {!soldOut && (qtyInCart > 0 ? (
+              {!soldOut && !offHours && (qtyInCart > 0 ? (
                 <div className="qty-pill">
                   <button type="button" onClick={() => step(product, -1)} aria-label="Tirar um">−</button>
                   <span>{qtyText(qtyInCart, product.unit).replace(' un', '')}</span>

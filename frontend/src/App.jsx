@@ -172,6 +172,7 @@ function AppContent() {
     .sort((a, b) => b.sold - a.sold)
     .slice(0, 8);
   const best = new Set(bestSellers.slice(0, 5).map(p => p.id));
+  const adultCats = new Set(categories.filter(c => c.adult).map(c => c.id)); // 🔞 venda proibida p/ menores
 
   // Aviso que aparece embaixo e some sozinho (no lugar da janelinha do navegador)
   const showToast = (text, ms = 1800) => {
@@ -428,7 +429,7 @@ function AppContent() {
                   className="cat-section"
                   style={{ scrollMarginTop: headerHeight + 70 }}
                 >
-                  <ProductList title={section.name} products={section.items} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} inCart={inCart} best={best} row subcats={section.id !== 'ofertas'} subOrder={section.id !== 'ofertas' ? subcategoryOrder(section, section.items) : null} />
+                  <ProductList title={section.name} adult={section.adult === true} adultCats={adultCats} products={section.items} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} inCart={inCart} best={best} row subcats={section.id !== 'ofertas'} subOrder={section.id !== 'ofertas' ? subcategoryOrder(section, section.items) : null} />
                 </section>
               ))
             )}

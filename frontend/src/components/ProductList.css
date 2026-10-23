@@ -200,7 +200,20 @@
 .pbadge-promo { background: #ffd23f; color: #7a1020; }
 .pbadge-best { background: #fff; color: #92400e; border: 1px solid #fde68a; }
 .pbadge-last { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
-.pbadge-out { background: #1a1a1a; color: #fff; }
+.pbadge-out { background: #1a1a1a; color: #fff; white-space: normal; }
+.pbadge-adult { background: #1a1a1a; color: #fff; }
+
+/* 🔞 Categoria com venda proibida para menores */
+.adult-notice {
+  display: inline-block;
+  margin: -4px 0 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
 
 /* 💀 Carregando */
 .sk-card {
