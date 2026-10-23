@@ -415,6 +415,38 @@
   object-fit: contain;
 }
 
+button.ap-modal-thumb {
+  position: relative;
+  padding: 0;
+  cursor: pointer;
+}
+
+.ap-thumb-cam {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #C41E3A;
+  font-size: 15px;
+  line-height: 30px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.ap-thumb-btn {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 2px solid #C41E3A;
+  border-radius: 8px;
+  background: #fff;
+  color: #C41E3A;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .ap-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -867,4 +899,60 @@ button.ap-photo-btn {
   color: #fff;
   font-weight: 800;
   cursor: pointer;
+}
+
+/* ✨ Conferir a foto antes de salvar */
+.ap-photo-check {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: -8px 0 18px;
+}
+
+.ap-photo-check .ap-rotate {
+  margin: 0;
+}
+
+.ap-prepare {
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ap-prepare:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.ap-ready {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid #22c55e;
+  border-radius: 12px;
+  background: #f0fdf4;
+  text-align: center;
+}
+
+.ap-ready img {
+  width: 220px;
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ap-ready span {
+  color: #166534;
+  font-size: 13px;
+  font-weight: 700;
 }

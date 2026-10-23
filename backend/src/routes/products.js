@@ -55,6 +55,11 @@ const uploadToCloudinary = (fileBuffer) => {
   });
 };
 
+// Foto já pronta (do "Ver como vai ficar"): só aceita imagem da nossa pasta no Cloudinary
+const isOurImage = (url) => typeof url === 'string' &&
+  url.startsWith(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/`) &&
+  url.includes('/emporio-brumado/produtos/');
+
 // Preço de oferta: vazio/zero = sem oferta
 const parsePromo = (value) => {
   const n = parseFloat(String(value ?? '').replace(',', '.'));
@@ -230,6 +235,18 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
   }
 });
 
+// 🔒 POST - Apenas ADMIN (✨ "Ver como vai ficar": trata a foto agora e devolve o link já pronto,
+// tirando o fundo e centralizando em 800x800; ao salvar o produto essa mesma foto é usada)
+router.post('/image-preview', verifyAdmin, upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Envie a foto' });
+  try {
+    res.json({ url: await uploadToCloudinary(req.file.buffer) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Não consegui tratar a foto. Tente de novo.' });
+  }
+});
+
 // 🔒 PUT - Apenas ADMIN (ordem manual dos produtos dentro da categoria) — ids na ordem desejada
 router.put('/order', verifyAdmin, async (req, res) => {
   const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : [];
@@ -271,6 +288,9 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
     if (req.file) {
       // Nova imagem → envia pro Cloudinary
       imageUrl = await uploadToCloudinary(req.file.buffer);
+    } else if (isOurImage(req.body.image_url)) {
+      // Foto que já foi tratada e conferida no "Ver como vai ficar"
+      imageUrl = req.body.image_url;
     } else {
       // Sem nova imagem → mantém a anterior
       const oldProduct = await pool.query('SELECT image_url FROM products WHERE id = $1', [id]);
