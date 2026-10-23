@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../utils/database');
 const multer = require('multer');
+const { loadSchedules, applySchedules } = require('../utils/schedules');
 const cloudinary = require('cloudinary').v2;
 const { verifyAdmin } = require('../middleware/authMiddleware');
 const axios = require('axios');
@@ -102,7 +103,8 @@ router.get('/', async (req, res) => {
        ${req.query.all ? '' : 'WHERE p.active IS NOT FALSE'}
        ORDER BY p.name`
     );
-    res.json(result.rows);
+    // 🗓️ Loja: oferta programada e "disponível só em..." valendo agora (o admin vê o cadastro como está)
+    res.json(req.query.all ? result.rows : applySchedules(result.rows, await loadSchedules(pool)));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar produtos' });

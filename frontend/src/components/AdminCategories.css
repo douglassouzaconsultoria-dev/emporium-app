@@ -427,3 +427,29 @@
   color: #b45309;
   font-weight: 700;
 }
+
+/* 🔞 Venda proibida para menores */
+.category-adult {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.category-adult.on {
+  border-color: #1a1a1a;
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.category-adult input {
+  width: 18px;
+  height: 18px;
+}

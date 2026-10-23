@@ -6,6 +6,7 @@ const { getDeliveryFee } = require('../utils/deliveryFee');
 const { isKg } = require('../utils/units');
 const { getStore, storeStatus } = require('../utils/store');
 const { applyCoupon } = require('../utils/coupons');
+const { loadSchedules, applySchedules } = require('../utils/schedules');
 const { notifyDelivery, notifyNewOrder } = require('../utils/push');
 
 const VALID_PAYMENT_METHODS = ['dinheiro', 'cartao', 'pix'];
@@ -131,6 +132,7 @@ router.post('/', verifyToken, async (req, res) => {
 
     let total = 0;
     const pricedItems = [];
+    const schedules = await loadSchedules(client); // 🗓️ oferta programada e horário do produto
 
     for (const item of items) {
       const productResult = await client.query(
@@ -143,7 +145,12 @@ router.post('/', verifyToken, async (req, res) => {
         return res.status(404).json({ error: 'Um produto do carrinho não existe mais' });
       }
 
-      const product = productResult.rows[0];
+      const product = applySchedules(productResult.rows, schedules)[0];
+
+      if (product.available_now === false) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `"${product.name}" só está disponível ${product.available_label}` });
+      }
 
       if (product.active === false) {
         await client.query('ROLLBACK');
@@ -311,6 +318,7 @@ router.put('/:id/items', verifyAdmin, async (req, res) => {
 
     let subtotal = 0;
     const priced = [];
+    const editSchedules = await loadSchedules(client);
     for (const item of items) {
       const { rows: [product] } = await client.query(
         'SELECT id, name, price, promo_price, unit, estoque FROM products WHERE id = $1 FOR UPDATE', [item.product_id]
@@ -330,6 +338,8 @@ router.put('/:id/items', verifyAdmin, async (req, res) => {
       }
       let price = oldPrice[product.id];
       if (price === undefined) {
+        // Item novo: preço de hoje, com a oferta programada se estiver valendo
+        Object.assign(product, applySchedules([product], editSchedules)[0]);
         const promo = parseFloat(product.promo_price);
         price = promo > 0 && promo < parseFloat(product.price) ? promo : parseFloat(product.price);
       }

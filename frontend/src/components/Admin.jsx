@@ -16,6 +16,7 @@ import AdminStore from './AdminStore';
 import AdminCoupons from './AdminCoupons';
 import AdminStorefront from './AdminStorefront';
 import AdminSubcategoryBoard from './AdminSubcategoryBoard';
+import AdminSchedules from './AdminSchedules';
 import axios from 'axios';
 import { getAutoPrint, printOrderById } from '../utils/printOrder';
 
@@ -31,6 +32,7 @@ const DEFAULT_TABS = [
   { id: 'categories', label: '📁 Categorias' },
   { id: 'products', label: '🛍️ Produtos' },
   { id: 'stock', label: '⚙️ Estoque' },
+  { id: 'schedules', label: '🗓️ Programação' },
   { id: 'media', label: '🖼️ Imagens' },
   { id: 'tabs', label: '🗂️ Organizar' }
 ];
@@ -38,7 +40,7 @@ const DEFAULT_TABS = [
 // 🧭 Grupos do menu lateral (dentro de cada grupo vale a ordem de "Organizar abas")
 const GROUPS = [
   { title: 'Vendas', ids: ['dashboard', 'orders', 'customers', 'coupons'] },
-  { title: 'Produtos', ids: ['products', 'categories', 'stock', 'tabs'] },
+  { title: 'Produtos', ids: ['products', 'categories', 'stock', 'schedules', 'tabs'] },
   { title: 'Entregas', ids: ['motoboys', 'fees'] },
   { title: 'Loja', ids: ['store', 'media'] }
 ];
@@ -284,6 +286,7 @@ function Admin() {
         {activeTab === 'categories' && <AdminCategories />}
         {activeTab === 'products' && <AdminProducts />}
         {activeTab === 'stock' && <AdminStockConfig />}
+        {activeTab === 'schedules' && <AdminSchedules />}
         {activeTab === 'media' && <AdminMedia />}
         {/* 🗂️ Organizar abas: setas mudam a posição; a 1ª abre ao entrar no painel */}
         {activeTab === 'tabs' && (

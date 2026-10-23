@@ -28,6 +28,7 @@ app.use('/api/settings', require('./routes/settings'));
 app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/backup', require('./routes/backup'));
+app.use('/api/schedules', require('./routes/schedules'));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -109,6 +110,20 @@ require('./utils/database').query(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
   CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(50) PRIMARY KEY, value TEXT);
+  ALTER TABLE categories ADD COLUMN IF NOT EXISTS adult BOOLEAN DEFAULT false;
+  CREATE TABLE IF NOT EXISTS product_schedules (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    kind VARCHAR(20) NOT NULL,
+    promo_price NUMERIC(10,2),
+    start_at VARCHAR(16),
+    end_at VARCHAR(16),
+    weekdays VARCHAR(20),
+    time_from VARCHAR(5),
+    time_to VARCHAR(5),
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
   INSERT INTO app_settings (key, value) VALUES ('default_delivery_fee', '5') ON CONFLICT (key) DO NOTHING;
   INSERT INTO delivery_fees (neighborhood, fee)
     SELECT * FROM (VALUES ('Morada Nova', 1.00), ('Enéas', 2.00), ('Dona Diva', 2.00)) AS v(neighborhood, fee)
