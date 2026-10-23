@@ -34,6 +34,8 @@ function AdminProducts() {
   const [showImport, setShowImport] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [readyUrl, setReadyUrl] = useState(null); // ✨ foto já tratada (sem fundo, 800x800) e conferida
+  const [preparing, setPreparing] = useState(false);
   const cameraInputRef = useRef(null);
 
   useEffect(() => {
@@ -43,6 +45,7 @@ function AdminProducts() {
 
   // Prévia da imagem nova escolhida
   useEffect(() => {
+    setReadyUrl(null); // foto nova ou girada: precisa conferir de novo
     if (!imageFile) {
       setPreviewUrl(null);
       return;
@@ -51,6 +54,24 @@ function AdminProducts() {
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [imageFile]);
+
+  // ✨ Trata a foto agora (tira o fundo, centraliza em 800x800) para conferir antes de salvar
+  const preparePhoto = async () => {
+    try {
+      setPreparing(true);
+      setFormError('');
+      const fd = new FormData();
+      fd.append('image', imageFile);
+      const { data } = await axios.post(`${API_URL}/products/image-preview`, fd, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      setReadyUrl(data.url);
+    } catch (err) {
+      setFormError(`❌ ${err.response?.data?.error || 'Não consegui tratar a foto'}`);
+    } finally {
+      setPreparing(false);
+    }
+  };
 
   // 🔄 Gira a foto escolhida 90° (para produto que saiu deitado)
   const rotateImage = (degrees) => {
@@ -251,7 +272,8 @@ function AdminProducts() {
       fd.append('subcategory', formData.subcategory || '');
       fd.append('active', formData.active ? 'true' : 'false');
       fd.append('barcode', formData.barcode || '');
-      if (imageFile) fd.append('image', imageFile);
+      if (readyUrl) fd.append('image_url', readyUrl); // já tratada e conferida: não trata de novo
+      else if (imageFile) fd.append('image', imageFile);
       else if (modalMode === 'create' && editingProduct?.image_url) fd.append('image_url', editingProduct.image_url);
 
       const multipartHeaders = {
@@ -301,7 +323,7 @@ function AdminProducts() {
     }
   };
 
-  const modalImage = previewUrl || (editingProduct && getImageUrl(editingProduct.image_url));
+  const modalImage = readyUrl || previewUrl || (editingProduct && getImageUrl(editingProduct.image_url));
 
   return (
     <div className="ap-container">
@@ -513,15 +535,41 @@ function AdminProducts() {
             <div className="ap-modal-body">
               {/* Foto + nome do produto */}
               <div className="ap-modal-product">
-                <div className="ap-modal-thumb">
+                {/* 📷 Toque na foto para tirar outra (a câmera também fica lá embaixo) */}
+                <button type="button" className="ap-modal-thumb" onClick={() => setShowCamera(true)} disabled={saving} title="Tirar foto">
                   {modalImage ? <img src={modalImage} alt="Prévia" /> : <span>📦</span>}
-                </div>
+                  <b className="ap-thumb-cam">📷</b>
+                </button>
                 <div>
                   <strong>{formData.name || 'Novo produto'}</strong>
                   <span>{formData.category_id ? getCategoryName(formData.category_id) : 'Sem categoria'}</span>
-                  {previewUrl && <em>Nova imagem selecionada</em>}
+                  {previewUrl && <em>{readyUrl ? '✅ Foto pronta e conferida' : 'Nova foto (ainda sem tratar)'}</em>}
+                  <button type="button" className="ap-thumb-btn" onClick={() => setShowCamera(true)} disabled={saving || preparing}>
+                    📷 {modalImage ? 'Trocar foto' : 'Tirar foto'}
+                  </button>
                 </div>
               </div>
+
+              {/* 🔄 Girar e ✨ ver como fica, logo abaixo da foto */}
+              {previewUrl && (
+                <div className="ap-photo-check">
+                  <div className="ap-rotate">
+                    <span>Produto deitado?</span>
+                    <button type="button" onClick={() => rotateImage(-90)} disabled={saving || preparing}>↺ Girar</button>
+                    <button type="button" onClick={() => rotateImage(90)} disabled={saving || preparing}>↻ Girar</button>
+                  </div>
+                  {readyUrl ? (
+                    <div className="ap-ready">
+                      <img src={readyUrl} alt="Foto pronta" />
+                      <span>✅ Assim vai aparecer na loja. Ao salvar, é esta foto que fica.</span>
+                    </div>
+                  ) : (
+                    <button type="button" className="ap-prepare" onClick={preparePhoto} disabled={saving || preparing}>
+                      {preparing ? '⏳ Tirando o fundo...' : '✨ Ver como vai ficar'}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {formError && <div className="ap-message error">{formError}</div>}
 
@@ -692,13 +740,6 @@ function AdminProducts() {
                     onClose={() => setShowCamera(false)}
                     onUnavailable={() => { setShowCamera(false); cameraInputRef.current && cameraInputRef.current.click(); }}
                   />
-                )}
-                {previewUrl && (
-                  <div className="ap-rotate">
-                    <span>Produto deitado?</span>
-                    <button type="button" onClick={() => rotateImage(-90)} disabled={saving}>↺ Girar</button>
-                    <button type="button" onClick={() => rotateImage(90)} disabled={saving}>↻ Girar</button>
-                  </div>
                 )}
               </div>
             </div>
