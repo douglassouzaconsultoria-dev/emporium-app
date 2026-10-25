@@ -495,3 +495,21 @@
   outline: none;
   border-color: #C41E3A;
 }
+
+/* 📝 Recado sobre o pagamento (dinheiro) */
+.payment-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+}
+
+.payment-note input {
+  padding: 10px 12px;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+}

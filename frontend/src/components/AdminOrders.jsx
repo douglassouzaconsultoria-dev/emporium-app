@@ -468,6 +468,7 @@ const AdminOrders = () => {
                   <td>
                     #{order.id}
                     {order.notes && <span title={`Observação: ${order.notes}`}> 📝</span>}
+                    {order.payment_note && <span title={`Recado sobre o pagamento: ${order.payment_note}`}> 💵📝</span>}
                     {order.rating && <span title={`Avaliação: ${order.rating}/5`}> ⭐{order.rating}</span>}
                   </td>
                   <td>{order.name || 'N/A'}</td>
@@ -527,6 +528,14 @@ const AdminOrders = () => {
                 borderRadius: '8px', margin: '12px 0', fontSize: '15px', fontWeight: 600
               }}>
                 📝 Observação do cliente: {selectedOrder.notes}
+              </div>
+            )}
+            {selectedOrder.payment_note && (
+              <div style={{
+                background: '#f0fdf4', borderLeft: '4px solid #16a34a', padding: '12px 14px',
+                borderRadius: '8px', margin: '12px 0', fontSize: '15px', fontWeight: 600
+              }}>
+                💵 Recado sobre o pagamento: {selectedOrder.payment_note}
               </div>
             )}
 

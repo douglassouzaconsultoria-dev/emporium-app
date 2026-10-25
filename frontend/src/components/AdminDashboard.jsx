@@ -130,6 +130,37 @@ function Closing({ rows }) {
   );
 }
 
+// 📝 Notinhas: pedidos em dinheiro cujo recado fala em nota/notinha/anotar (só aparece aqui no admin)
+const when = (iso) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
+function Notinhas({ rows }) {
+  if (!rows.length) return <p className="db-empty">Nenhuma notinha no período.</p>;
+  const total = rows.reduce((t, r) => t + r.total, 0);
+  return (
+    <div className="db-table-wrap">
+      <table className="db-table">
+        <thead>
+          <tr><th>Pedido</th><th>Quando</th><th>Cliente</th><th>Valor</th><th>Situação</th><th>Recado</th></tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.id}>
+              <td>#{r.id}</td>
+              <td>{when(r.created_at)}</td>
+              <td>{r.customer_name || '—'}{r.customer_phone && <><br /><small>{r.customer_phone}</small></>}</td>
+              <td><strong>{brl(r.total)}</strong></td>
+              <td>{r.status}</td>
+              <td>{r.payment_note}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr><td colSpan={3}>Total ({int(rows.length)} {rows.length === 1 ? 'pedido' : 'pedidos'})</td><td><strong>{brl(total)}</strong></td><td colSpan={2} /></tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
 // 📦 Quanto vendeu de cada produto, separado por categoria
 function ProductSales({ rows }) {
   const [term, setTerm] = useState('');
@@ -333,6 +364,15 @@ const AdminDashboard = () => {
             </div>
             <Closing rows={data.closing || []} />
             <p className="db-muted">Pedidos não cancelados, pelo dia em que foram feitos. "Já entregue" mostra quanto desse total já chegou ao cliente.</p>
+          </section>
+
+          {/* 📝 NOTINHAS */}
+          <section className="db-card">
+            <div className="db-card-head">
+              <h3>📝 Notinhas</h3>
+              <span className="db-muted">Pedidos no dinheiro com "nota", "notinha" ou "anotar" no recado do pagamento</span>
+            </div>
+            <Notinhas rows={data.notinhas || []} />
           </section>
 
           {/* INTELIGÊNCIA */}
