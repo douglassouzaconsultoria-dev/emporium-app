@@ -12,7 +12,8 @@ const COLUMNS = {
   subcategoria: ['subcategoria', 'sub_categoria', 'subsecao'],
   estoque: ['estoque', 'quantidade', 'qtd'],
   preco_oferta: ['preco_oferta', 'oferta', 'promocao', 'preco_promocional'],
-  descricao: ['descricao', 'detalhes', 'observacao']
+  descricao: ['descricao', 'detalhes', 'observacao'],
+  codigo_barras: ['codigo_barras', 'codigo_de_barras', 'ean', 'gtin']
 };
 
 const keyOf = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')

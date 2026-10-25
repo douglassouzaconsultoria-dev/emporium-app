@@ -319,7 +319,7 @@ function AdminProducts() {
       showMessage('✅ Produto deletado com sucesso!');
     } catch (error) {
       console.error(error);
-      showMessage('❌ Erro ao deletar produto');
+      showMessage(`❌ ${error.response?.data?.error || 'Erro ao deletar produto'}`);
     }
   };
 

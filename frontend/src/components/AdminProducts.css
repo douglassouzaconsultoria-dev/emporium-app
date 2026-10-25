@@ -759,7 +759,8 @@ textarea.ap-input {
 }
 
 .ap-grid {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 14px;
   width: 100%;
 }
@@ -955,4 +956,304 @@ button.ap-photo-btn {
   color: #166534;
   font-size: 13px;
   font-weight: 700;
+}
+
+/* 📝 Planilha: filtros, alterar em massa, nome fixo, erros, foto */
+.ap-grid-chips {
+  display: flex;
+  gap: 6px;
+  padding: 8px 20px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ap-grid-chips button {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1.5px solid #ddd;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ap-grid-chips button.active {
+  border-color: #C41E3A;
+  background: #C41E3A;
+  color: #fff;
+}
+
+.ap-grid-mass,
+.ap-grid-draft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 20px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.ap-grid-mass {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.ap-grid-draft {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.ap-grid-mass select,
+.ap-grid-mass input {
+  min-width: 0;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.ap-grid-mass input {
+  width: 140px;
+}
+
+.ap-grid-mass button,
+.ap-grid-draft button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1a1a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ap-grid-mass button.apply,
+.ap-grid-draft button {
+  background: #C41E3A;
+  color: #fff;
+}
+
+.ap-grid-mass button.ghost,
+.ap-grid-draft button.ghost {
+  background: transparent;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.ap-grid th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Nome (e marcação/nº) fixos à esquerda ao rolar para o lado */
+.ap-grid .sticky-0,
+.ap-grid .sticky-1,
+.ap-grid .sticky-2 {
+  position: sticky;
+  z-index: 1;
+  background: #fff;
+}
+
+/* larguras exatas: a coluna seguinte gruda logo depois (36 + 40 = 76) */
+.ap-grid .sticky-0,
+.ap-grid .sticky-1 {
+  box-sizing: border-box;
+  padding: 0 !important;
+  text-align: center;
+}
+
+.ap-grid .sticky-0 { left: 0; width: 36px; min-width: 36px; max-width: 36px; }
+.ap-grid .sticky-1 { left: 36px; width: 40px; min-width: 40px; max-width: 40px; }
+.ap-grid .sticky-2 { left: 76px; box-shadow: 2px 0 0 #d1d5db; }
+
+.ap-grid th.sticky-0,
+.ap-grid th.sticky-1,
+.ap-grid th.sticky-2 {
+  z-index: 3;
+  background: #f3f4f6;
+}
+
+.ap-grid-sel {
+  text-align: center;
+}
+
+.ap-grid-sel input,
+.ap-grid-flag input {
+  width: 18px !important;
+  height: 18px;
+  cursor: pointer;
+}
+
+.ap-grid td.bad,
+.ap-grid tr td.bad {
+  background: #fee2e2 !important;
+  box-shadow: inset 0 0 0 2px #ef4444;
+}
+
+.ap-grid tr.deleted td {
+  background: #f3f4f6;
+}
+
+.ap-grid tr.deleted input {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.ap-grid-photo,
+.ap-grid-flag {
+  width: 56px;
+  min-width: 56px;
+  text-align: center;
+}
+
+.ap-grid-photo button {
+  width: 40px;
+  height: 40px;
+  margin: 2px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.ap-grid-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ap-grid-actions {
+  white-space: nowrap;
+  padding: 0 4px !important;
+}
+
+.ap-grid-actions button {
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.ap-grid-actions button.undo {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.ap-grid-bad {
+  color: #dc2626;
+}
+
+/* 📷 Foto de uma linha da planilha */
+.gp-overlay {
+  z-index: 2600;
+}
+
+.gp-modal {
+  max-width: 420px;
+}
+
+.gp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px 20px;
+}
+
+.gp-img {
+  align-self: center;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 56px;
+  overflow: hidden;
+}
+
+.gp-img.ready {
+  border: 3px solid #22c55e;
+}
+
+.gp-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.gp-ok {
+  margin: 0;
+  text-align: center;
+  color: #166534;
+  font-weight: 700;
+}
+
+.gp-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gp-btns button,
+.gp-btns label {
+  padding: 11px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.gp-btns input {
+  display: none;
+}
+
+.gp-prepare,
+.gp-use,
+.gp-remove {
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.gp-prepare { background: #0f766e; }
+.gp-use { background: #16a34a; }
+.gp-remove { background: #fee2e2; color: #991b1b; }
+
+@media (max-width: 600px) {
+  /* Nome fixo mais estreito no celular, senão cobre a tela toda e esconde as outras colunas */
+  .ap-grid .sticky-2 {
+    width: 130px;
+    min-width: 130px !important;
+    max-width: 130px;
+  }
+
+  .ap-grid-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .ap-grid-toolbar .ap-input {
+    flex-basis: 100%;
+  }
+
+  .ap-grid-toolbar .ap-btn-icon {
+    flex: 1;
+  }
 }
