@@ -349,6 +349,12 @@
   gap: 10px;
 }
 
+.oie-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .oie-edit-btn {
   padding: 7px 12px;
   border: 2px solid #7c3aed;
@@ -357,6 +363,11 @@
   color: #7c3aed;
   font-weight: 800;
   cursor: pointer;
+}
+
+.oie-pick-btn {
+  border-color: #16a34a;
+  color: #16a34a;
 }
 
 .oie {

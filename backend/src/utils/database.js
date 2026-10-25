@@ -10,7 +10,8 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
-  ssl: {
+  // DB_SSL=false só no banco local/dos testes automáticos (o do Render usa SSL)
+  ssl: process.env.DB_SSL === 'false' ? false : {
     rejectUnauthorized: false
   }
 });

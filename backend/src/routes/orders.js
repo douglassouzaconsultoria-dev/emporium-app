@@ -67,9 +67,10 @@ router.get('/:id', verifyToken, async (req, res) => {
     }
 
     const items = await pool.query(`
-      SELECT oi.*, p.name as product_name, p.unit
+      SELECT oi.*, p.name as product_name, p.unit, cat.name AS category_name
       FROM order_items oi
       JOIN products p ON oi.product_id = p.id
+      LEFT JOIN categories cat ON cat.id = p.category_id
       WHERE oi.order_id = $1
     `, [req.params.id]);
 

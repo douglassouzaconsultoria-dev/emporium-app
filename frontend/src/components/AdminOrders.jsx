@@ -4,6 +4,7 @@ import { formatQty } from '../utils/units';
 import { printOrder, printOrderById } from '../utils/printOrder';
 import { confirmDialog, notify } from '../utils/dialog';
 import OrderItemsEditor from './OrderItemsEditor';
+import OrderPicking from './OrderPicking';
 import './AdminOrders.css';
 import { brl } from '../utils/format';
 
@@ -15,6 +16,7 @@ const AdminOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
   const [editingItems, setEditingItems] = useState(false);
+  const [picking, setPicking] = useState(false); // 🧺 lista de separação
   const [savingMotoboy, setSavingMotoboy] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState(null); // 'Saído' | 'Entregue' esperando o 2º toque
   const [bulkMessage, setBulkMessage] = useState('');
@@ -76,6 +78,7 @@ const AdminOrders = () => {
       setOrderDetails(details);
       setSelectedOrder(order);
       setEditingItems(false);
+      setPicking(false);
     } catch (err) {
       notify('❌ Erro ao carregar detalhes: ' + err.message, 'error');
     }
@@ -636,9 +639,16 @@ const AdminOrders = () => {
             <div className="order-items-section">
               <div className="oie-head">
                 <h4>Itens do Pedido:</h4>
-                {!editingItems && !['Entregue', 'Cancelado'].includes(selectedOrder.status) && (
-                  <button type="button" className="oie-edit-btn" onClick={() => setEditingItems(true)}>✏️ Editar itens</button>
-                )}
+                <div className="oie-head-actions">
+                  {!editingItems && selectedOrder.status !== 'Cancelado' && orderDetails.items?.length > 0 && (
+                    <button type="button" className="oie-edit-btn oie-pick-btn" onClick={() => setPicking(!picking)}>
+                      {picking ? '📋 Ver preços' : '🧺 Separar'}
+                    </button>
+                  )}
+                  {!editingItems && !['Entregue', 'Cancelado'].includes(selectedOrder.status) && (
+                    <button type="button" className="oie-edit-btn" onClick={() => { setEditingItems(true); setPicking(false); }}>✏️ Editar itens</button>
+                  )}
+                </div>
               </div>
               {editingItems ? (
                 <OrderItemsEditor
@@ -651,6 +661,8 @@ const AdminOrders = () => {
                     openOrderDetails(merged);
                   }}
                 />
+              ) : picking && orderDetails.items?.length > 0 ? (
+                <OrderPicking orderId={selectedOrder.id} items={orderDetails.items} />
               ) : orderDetails.items && orderDetails.items.length > 0 ? (
                 <div className="items-list">
                   {orderDetails.items.map((item, index) => (

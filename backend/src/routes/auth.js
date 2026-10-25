@@ -42,11 +42,30 @@ const uploadAvatar = (req, res, next) => {
 // Uma foto por cliente (substitui a anterior, sem acumular lixo)
 const avatarPublicId = (customerId) => `emporio-brumado/avatars/customer_${customerId}`;
 
+// 🔐 Admin fica logado 7 dias (o app renova sozinho enquanto estiver sendo usado); cliente e motoboy, 30 dias
 const generateToken = (user) => jwt.sign(
   { id: user.id, username: user.username, email: user.email, role: user.role },
   JWT_SECRET,
-  { expiresIn: '30d' }
+  { expiresIn: user.role === 'admin' ? '7d' : '30d' }
 );
+
+// 🚫 Muitas senhas erradas: bloqueia por 15 minutos
+// - 5 erradas no mesmo usuário (vindo do mesmo aparelho/internet)
+// - 20 erradas no total vindo da mesma internet (alguém testando vários usuários)
+const LOCK_MS = 15 * 60 * 1000;
+const failures = new Map(); // chave → { count, first }
+const failCount = (key, now = Date.now()) => {
+  const f = failures.get(key);
+  if (!f || now - f.first > LOCK_MS) return 0;
+  return f.count;
+};
+const addFailure = (key, now = Date.now()) => {
+  const count = failCount(key, now);
+  failures.set(key, { count: count + 1, first: count ? failures.get(key).first : now });
+  if (failures.size > 10000) { // nunca cresce sem limite: tira as que já venceram
+    for (const [k, f] of failures) if (now - f.first > LOCK_MS) failures.delete(k);
+  }
+};
 
 // Dados do usuário que vão para o frontend (NUNCA a senha)
 const publicUser = (u) => ({
@@ -137,21 +156,29 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Informe usuário (ou e-mail) e senha' });
     }
 
+    const userKey = `${req.ip}|${identifier}`;
+    const ipKey = `${req.ip}|*`;
+    if (failCount(userKey) >= 5 || failCount(ipKey) >= 20) {
+      return res.status(429).json({ error: 'Muitas tentativas com a senha errada. Espere 15 minutos e tente de novo.' });
+    }
+    const wrong = () => {
+      addFailure(userKey);
+      addFailure(ipKey);
+      return res.status(401).json({ error: 'Usuário ou senha incorretos' });
+    };
+
     const result = await pool.query(
       'SELECT * FROM customers WHERE LOWER(username) = $1 OR LOWER(email) = $1 LIMIT 1',
       [identifier]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Usuário ou senha incorretos' });
-    }
+    if (result.rows.length === 0) return wrong();
 
     const user = result.rows[0];
 
     const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Usuário ou senha incorretos' });
-    }
+    if (!passwordMatch) return wrong();
+    failures.delete(userKey);
 
     if (user.active === false) {
       return res.status(403).json({ error: 'Conta desativada. Fale com o Empório.' });
@@ -165,6 +192,21 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao fazer login' });
+  }
+});
+
+// ===================== RENOVAR LOGIN =====================
+// O app chama ao abrir e de tempos em tempos: quem está usando não precisa entrar de novo.
+// Conta desativada ou apagada não renova.
+router.post('/refresh', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM customers WHERE id = $1', [req.user.id]);
+    const user = result.rows[0];
+    if (!user || user.active === false) return res.status(403).json({ error: 'Conta desativada' });
+    res.json({ token: generateToken(user), user: publicUser(user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao renovar login' });
   }
 });
 

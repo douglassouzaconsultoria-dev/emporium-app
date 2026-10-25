@@ -33,6 +33,29 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Busca os dados mais recentes, valida o login e troca por um novo (o login não vence enquanto o app é usado)
+  const renewSession = () => {
+    const savedToken = localStorage.getItem('authToken');
+    if (!savedToken) return;
+    fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${savedToken}` }
+    })
+      .then(async (res) => {
+        if (res.status === 401 || res.status === 403) {
+          logout();
+          return;
+        }
+        if (res.ok) {
+          const fresh = await res.json();
+          saveSession(fresh.token, fresh.user);
+        }
+      })
+      .catch(() => {
+        // Sem conexão: mantém os dados salvos
+      });
+  };
+
   // Carregar sessão salva ao iniciar
   useEffect(() => {
     const savedToken = localStorage.getItem('authToken');
@@ -42,27 +65,13 @@ export function AuthProvider({ children }) {
       setToken(savedToken);
       setUser(JSON.parse(savedUser));
 
-      // Busca os dados mais recentes e valida o login
-      fetch(`${API_URL}/auth/profile`, {
-        headers: { 'Authorization': `Bearer ${savedToken}` }
-      })
-        .then(async (res) => {
-          if (res.status === 401 || res.status === 403) {
-            logout();
-            return;
-          }
-          if (res.ok) {
-            const freshUser = await res.json();
-            setUser(freshUser);
-            localStorage.setItem('authUser', JSON.stringify(freshUser));
-          }
-        })
-        .catch(() => {
-          // Sem conexão: mantém os dados salvos
-        });
+      renewSession();
     }
     setLoading(false);
-  }, []);
+    // 🔐 Renova o login de 6 em 6 horas (o painel do admin fica aberto o dia todo imprimindo pedidos)
+    const timer = setInterval(renewSession, 6 * 60 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 📝 Cadastro: recebe um objeto com os dados do formulário
   const register = async (formData) => {
