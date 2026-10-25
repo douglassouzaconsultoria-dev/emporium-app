@@ -51,6 +51,7 @@ function KgPicker({ product, onAdd, onClose }) {
 // inCart: { [productId]: quantidade } — o + vira "− quantidade +" que mexe direto no carrinho
 // best: ids dos mais vendidos (selo ⭐)
 // adult: aviso 🔞 embaixo do título; adultCats: categorias 🔞 (selo no card, até na seção de Ofertas)
+// product.adult: produto 🔞 marcado sozinho, mesmo numa categoria sem aviso
 // subcats: mostra as abinhas de subcategoria (na ordem em que aparecem nos produtos)
 // subOrder: ordem das abinhas definida no admin (🗂️ Organizar → subcategorias)
 function ProductList({
@@ -119,7 +120,7 @@ function ProductList({
                 {lastOnes && <span className="pbadge pbadge-last">Últimas unidades</span>}
                 {soldOut && <span className="pbadge pbadge-out">Esgotado</span>}
                 {offHours && <span className="pbadge pbadge-out">🕒 Só {product.available_label}</span>}
-                {adultCats && adultCats.has(product.category_id) && <span className="pbadge pbadge-adult">🔞 18+</span>}
+                {(product.adult || (adultCats && adultCats.has(product.category_id))) && <span className="pbadge pbadge-adult">🔞 18+</span>}
               </div>
 
               {/* ➕ Adicionar / − quantidade + */}

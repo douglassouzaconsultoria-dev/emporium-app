@@ -620,6 +620,12 @@ button.ap-modal-thumb {
   border-top: 1px solid #e0e0e0;
 }
 
+.ap-modal-visible {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .ap-modal-visible label {
   display: flex;
   align-items: center;

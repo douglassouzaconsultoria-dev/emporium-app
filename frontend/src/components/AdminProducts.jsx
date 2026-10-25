@@ -12,7 +12,7 @@ import BarcodeScanner from './BarcodeScanner';
 import { brl } from '../utils/format';
 import { prepareImage } from '../utils/prepareImage';
 
-const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true, barcode: '' };
+const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true, barcode: '', adult: false };
 
 // Sugestões de unidade (pode digitar outra)
 const UNIT_SUGGESTIONS = ['un', 'kg', 'pacote', 'caixa', 'litro', 'garrafa', 'lata', 'dúzia', 'bandeja', 'fardo'];
@@ -178,7 +178,8 @@ function AdminProducts() {
       subcategory: product.subcategory || '',
       estoque: product.estoque ?? 0,
       active: product.active !== false,
-      barcode: product.barcode || ''
+      barcode: product.barcode || '',
+      adult: product.adult === true
     });
     setImageFile(null);
     setFormError('');
@@ -272,6 +273,7 @@ function AdminProducts() {
       fd.append('subcategory', formData.subcategory || '');
       fd.append('active', formData.active ? 'true' : 'false');
       fd.append('barcode', formData.barcode || '');
+      fd.append('adult', formData.adult ? 'true' : 'false');
       if (readyUrl) fd.append('image_url', readyUrl); // já tratada e conferida: não trata de novo
       else if (imageFile) fd.append('image', imageFile);
       else if (modalMode === 'create' && editingProduct?.image_url) fd.append('image_url', editingProduct.image_url);
@@ -453,6 +455,7 @@ function AdminProducts() {
                     <span className="ap-cat">
                       {getCategoryName(product.category_id)}
                       {product.active === false && <em className="ap-tag ap-tag-hidden">Oculto</em>}
+                      {product.adult && <em className="ap-tag ap-tag-hidden">🔞 18+</em>}
                       {isPromo(product) && <em className="ap-tag ap-tag-promo">Oferta</em>}
                     </span>
                   </div>
@@ -752,6 +755,14 @@ function AdminProducts() {
                   onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
                 />
                 <span>👁️ Mostrar este produto na loja</span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={formData.adult}
+                  onChange={(e) => setFormData({ ...formData, adult: e.target.checked })}
+                />
+                <span>🔞 Venda proibida para menores de 18 anos</span>
               </label>
             </div>
 
