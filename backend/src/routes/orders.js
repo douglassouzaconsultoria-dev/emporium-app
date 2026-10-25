@@ -85,6 +85,8 @@ router.post('/', verifyToken, async (req, res) => {
   const { items, delivery_address, payment_method, delivery_neighborhood, coupon_code, change_for } = req.body;
   // 📝 Observação do cliente (ex: "banana mais verde", "tocar o interfone")
   const notes = typeof req.body.notes === 'string' ? req.body.notes.trim().slice(0, 300) : '';
+  // 📝 Recado sobre o pagamento (só no dinheiro). "nota/notinha/anotar" vai para as Notinhas do Dashboard
+  const paymentNote = typeof req.body.payment_note === 'string' ? req.body.payment_note.trim().slice(0, 200) : '';
 
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Carrinho vazio' });
@@ -212,11 +214,12 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     const orderResult = await client.query(
-      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
-       RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, created_at`,
+      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, payment_note, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+       RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, payment_note, created_at`,
       // Dinheiro/cartão já entra em "Preparando" (motoboy vê na hora); PIX espera o admin conferir o pagamento
-      [req.user.id, total, method === 'pix' ? 'Pendente' : 'Preparando', delivery_address.trim(), method, delivery.fee, delivery.neighborhood, discount, couponCode, changeFor, notes || null]
+      [req.user.id, total, method === 'pix' ? 'Pendente' : 'Preparando', delivery_address.trim(), method, delivery.fee, delivery.neighborhood, discount, couponCode, changeFor, notes || null,
+        method === 'dinheiro' && paymentNote ? paymentNote : null]
     );
 
     const orderId = orderResult.rows[0].id;

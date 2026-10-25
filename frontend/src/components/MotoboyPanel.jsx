@@ -661,6 +661,7 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
                           </div>
 
                           <div className={`mb-pay ${pay.cls}`}>{pay.text}</div>
+                          {order.payment_note && <div className="mb-notes">💵 Pagamento: {order.payment_note}</div>}
                           {order.notes && <div className="mb-notes">📝 {order.notes}</div>}
 
                           <details className="mb-items">

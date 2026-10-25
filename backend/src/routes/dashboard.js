@@ -137,7 +137,7 @@ router.get('/', verifyAdmin, async (req, res) => {
 
     const [
       current, previous, orderSeries, customerSeries, topProducts, categories, prevCategories,
-      payments, neighborhoods, fees, products, openOrders, closing, productSales
+      payments, neighborhoods, fees, products, openOrders, closing, notinhas, productSales
     ] = await Promise.all([
       summary(from, to),
       summary(prevFrom, prevTo),
@@ -229,6 +229,14 @@ router.get('/', verifyAdmin, async (req, res) => {
         WHERE ${VALID} AND ${IN_PERIOD('o.created_at')}
         GROUP BY 1
       `, [from, to]),
+      // 📝 Notinhas: pedidos em dinheiro cujo recado fala em nota/notinha/anotar (clientes antigos)
+      pool.query(`
+        SELECT o.id, o.total, o.status, o.created_at, o.payment_note, o.delivery_address,
+               c.name AS customer_name, c.phone_number AS customer_phone
+        FROM orders o LEFT JOIN customers c ON c.id = o.customer_id
+        WHERE ${VALID} AND ${IN_PERIOD('o.created_at')} AND o.payment_note ~* '(nota|anot)'
+        ORDER BY o.created_at DESC
+      `, [from, to]),
       // 📦 Quanto vendeu de cada produto, por categoria
       pool.query(`
         SELECT COALESCE(c.name, 'Sem categoria') AS category, p.id, COALESCE(p.name, 'Produto removido') AS name, p.unit,
@@ -309,6 +317,7 @@ router.get('/', verifyAdmin, async (req, res) => {
         category: r.category, id: r.id, name: r.name, unit: r.unit, estoque: num(r.estoque),
         quantity: num(r.quantity), revenue: money(r.revenue), orders: r.orders
       })),
+      notinhas: notinhas.rows.map(r => ({ ...r, total: money(r.total) })),
       generated_at: new Date().toISOString()
     };
     data.insights = buildInsights(data, productList);

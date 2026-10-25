@@ -367,6 +367,12 @@ router.post('/import', verifyAdmin, async (req, res) => {
       subcategory: parseSub(r.subcategoria),
       hasBarcode: Object.prototype.hasOwnProperty.call(r, 'codigo_barras'), // sem a coluna → não mexe
       barcode,
+      // 👁️ Mostrar na loja (planilha do app); sem a coluna → não mexe
+      hasActive: typeof r.ativo === 'boolean',
+      active: r.ativo !== false,
+      // 📷 Foto já tratada (planilha do app): só da nossa pasta do Cloudinary; vazio = tirar a foto
+      hasImage: r.foto === '' || isOurImage(r.foto),
+      image: isOurImage(r.foto) ? r.foto : null,
       line,
       id: parseInt(r.id) || null
     };
@@ -408,19 +414,21 @@ router.post('/import', verifyAdmin, async (req, res) => {
                   description = CASE WHEN $9 THEN $5 ELSE COALESCE($5, description) END,
                   estoque = COALESCE($6, estoque),
                   subcategory = CASE WHEN $12 THEN $11 ELSE subcategory END,
-                  barcode = CASE WHEN $14 THEN $13 ELSE barcode END
+                  barcode = CASE WHEN $14 THEN $13 ELSE barcode END,
+                  active = CASE WHEN $16 THEN $15 ELSE active END,
+                  image_url = CASE WHEN $18 THEN $17 ELSE image_url END
            WHERE id = $7`,
           [r.price, r.unit, categoryId, r.promo, r.description, r.stock, existingId, r.hasPromo, r.hasDesc, r.name,
-            r.subcategory, r.hasSub, r.barcode, r.hasBarcode]
+            r.subcategory, r.hasSub, r.barcode, r.hasBarcode, r.active, r.hasActive, r.image, r.hasImage]
         );
         prods.set(key(r.name), existingId);
         updated++;
       } else {
         const stock = r.stock || 0;
         const id = (await client.query(
-          `INSERT INTO products (name, price, unit, category_id, estoque, promo_price, description, active, subcategory, barcode)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, $9) RETURNING id`,
-          [r.name, r.price, r.unit, categoryId, stock, r.promo, r.description, r.subcategory, r.barcode]
+          `INSERT INTO products (name, price, unit, category_id, estoque, promo_price, description, active, subcategory, barcode, image_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $10, $8, $9, $11) RETURNING id`,
+          [r.name, r.price, r.unit, categoryId, stock, r.promo, r.description, r.subcategory, r.barcode, r.active, r.image]
         )).rows[0].id;
         // Igual ao cadastro manual: com estoque já entra no automático (renova toda semana)
         await client.query(
@@ -568,6 +576,10 @@ router.delete('/:id', verifyAdmin, async (req, res) => {
 
     res.json({ message: 'Produto deletado com sucesso' });
   } catch (err) {
+    // Produto que já saiu em pedido não pode sumir (o histórico dos pedidos depende dele)
+    if (err.code === '23503') {
+      return res.status(409).json({ error: 'Esse produto já tem pedidos e não pode ser apagado. Use 👁️ para ocultar da loja.', has_orders: true });
+    }
     console.error(err);
     res.status(500).json({ error: 'Erro ao deletar produto' });
   }

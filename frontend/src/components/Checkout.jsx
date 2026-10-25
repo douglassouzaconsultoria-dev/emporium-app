@@ -33,6 +33,7 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
   const [needChange, setNeedChange] = useState(null); // null = não respondeu | false = trocado | true = precisa de troco
   const [changeFor, setChangeFor] = useState('');
   const [notes, setNotes] = useState('');
+  const [paymentNote, setPaymentNote] = useState(''); // 📝 recado sobre o pagamento (só no dinheiro)
   const [couponInput, setCouponInput] = useState('');
   const [coupon, setCoupon] = useState(null); // { code, discount }
   const [couponError, setCouponError] = useState('');
@@ -104,7 +105,8 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
         payment_method: paymentMethod,
         coupon_code: coupon ? coupon.code : undefined,
         notes: notes.trim() || undefined,
-        change_for: paymentMethod === 'dinheiro' && needChange ? changeValue : undefined
+        change_for: paymentMethod === 'dinheiro' && needChange ? changeValue : undefined,
+        payment_note: paymentMethod === 'dinheiro' && paymentNote.trim() ? paymentNote.trim() : undefined
       })
     });
 
@@ -473,6 +475,16 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
                   )}
                 </div>
               )}
+              <label className="payment-note">
+                📝 Recado sobre o pagamento (opcional)
+                <input
+                  type="text"
+                  maxLength={200}
+                  value={paymentNote}
+                  onChange={(e) => setPaymentNote(e.target.value)}
+                  disabled={loading}
+                />
+              </label>
             </div>
           )}
 
