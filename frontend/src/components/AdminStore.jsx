@@ -93,6 +93,7 @@ function AdminStore() {
       a.click();
       URL.revokeObjectURL(url);
       setBackupMsg(`✅ Backup baixado: ${name}`);
+      loadBackups();
     } catch {
       setBackupMsg('❌ Não consegui baixar o backup');
     } finally {
@@ -115,6 +116,20 @@ function AdminStore() {
   };
 
   const fmtDate = (iso) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  const daysSince = (iso) => Math.floor((Date.now() - new Date(iso)) / 86400000);
+  const backupDays = backups?.downloaded ? daysSince(backups.downloaded) : null;
+
+  // ⚠️ Erros recentes do servidor
+  const [errors, setErrors] = useState(null);
+  const [openError, setOpenError] = useState(null);
+  const loadErrors = () => axios.get(`${API_URL}/errors`, authHeaders())
+    .then(res => setErrors(res.data))
+    .catch(() => setErrors([]));
+  useEffect(() => { loadErrors(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const clearErrors = async () => {
+    await axios.delete(`${API_URL}/errors`, authHeaders()).catch(() => {});
+    loadErrors();
+  };
 
   const [copied, setCopied] = useState(false);
   const [resetText, setResetText] = useState('');
@@ -287,6 +302,14 @@ function AdminStore() {
           Cópia de <b>tudo</b>: produtos, clientes, pedidos, motoboys, cupons e configurações. As fotos ficam guardadas no
           Cloudinary e não entram no arquivo. Guarde o arquivo no computador, num pen drive ou no Google Drive.
         </p>
+        {backups && (
+          <p className={`as-backup-age ${backupDays === null || backupDays >= 30 ? 'late' : ''}`}>
+            {backupDays === null
+              ? '📅 Você ainda não baixou nenhum backup para o computador.'
+              : `📅 Último backup baixado ${backupDays === 0 ? 'hoje' : backupDays === 1 ? 'ontem' : `há ${backupDays} dias`}.`}
+            {(backupDays === null || backupDays >= 30) && ' Baixe um agora e guarde fora do app (uma vez por mês é o ideal).'}
+          </p>
+        )}
         <button type="button" className="as-btn-backup" onClick={() => downloadBackup('download', 'now')} disabled={!!backupBusy}>
           {backupBusy === 'now' ? '⏳ Preparando...' : '⬇️ Baixar backup agora'}
         </button>
@@ -315,6 +338,32 @@ function AdminStore() {
           </>
         )}
         {backupMsg && <div className={`as-message ${backupMsg.includes('✅') ? 'ok' : 'err'}`}>{backupMsg}</div>}
+      </div>
+
+      {/* ERROS RECENTES */}
+      <div className="as-card">
+        <h3>⚠️ Erros recentes</h3>
+        <p className="as-help">
+          Quando algo dá errado no servidor (um pedido que não salvou, uma foto que não subiu), fica anotado aqui.
+          Só você vê. Se aparecer algo repetido, me mande o print.
+        </p>
+        {errors && errors.length === 0 && <p className="as-errors-empty">✅ Nenhum erro. Tudo funcionando.</p>}
+        {errors && errors.length > 0 && (
+          <>
+            <ul className="as-errors">
+              {errors.map(e => (
+                <li key={e.id}>
+                  <button type="button" onClick={() => setOpenError(openError === e.id ? null : e.id)}>
+                    <span>{fmtDate(e.created_at)}{e.path && <> · <code>{e.method ? `${e.method} ` : ''}{e.path}</code></>}</span>
+                    <strong>{e.message}</strong>
+                  </button>
+                  {openError === e.id && e.stack && <pre>{e.stack}</pre>}
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="as-btn-link" onClick={clearErrors}>🧹 Limpar lista</button>
+          </>
+        )}
       </div>
 
       {/* ZERAR PEDIDOS */}

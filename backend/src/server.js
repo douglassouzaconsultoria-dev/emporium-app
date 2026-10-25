@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
+app.set('trust proxy', true); // Render (e o Cloudflare dele) ficam na frente: req.ip é o do cliente, não o do proxy (limite de senha errada)
 
 // Middleware
 app.use(cors({
@@ -11,6 +12,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+app.use(require('./utils/errorLog').errorLogger); // ⚠️ guarda os erros para o admin ver
 app.use(express.json());
 app.use(express.static('public'));
 app.use('/uploads', express.static('public/images')); // imagens antigas (antes do Cloudinary)
@@ -29,6 +31,7 @@ app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/schedules', require('./routes/schedules'));
+app.use('/api/errors', require('./routes/errors'));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -50,7 +53,7 @@ if ((process.env.JWT_SECRET || '').startsWith('GERE_UMA_CHAVE')) {
 }
 
 // 🧱 Cria colunas/tabelas novas que o banco de produção ainda não tem (não apaga nada)
-require('./utils/database').query(`
+const migrate = () => require('./utils/database').query(`
   ALTER TABLE customers ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
   ALTER TABLE customers ADD COLUMN IF NOT EXISTS avatar_url TEXT;
   ALTER TABLE customers ALTER COLUMN email DROP NOT NULL;
@@ -160,37 +163,53 @@ require('./utils/database').query(`
   );
   ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_endpoint_key;
   CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_customer ON push_subscriptions (endpoint, customer_id);
-`)
-  .then(() => console.log('🧱 Banco atualizado'))
-  .then(() => require('./utils/stockRestock').startStockRestock())
-  .then(() => require('./utils/backup').startAutoBackup())
-  .then(() => {
-    // 🔎 Confere se o banco tem todas as colunas que o código usa (só leitura)
-    const expected = {
-      customers: ['id', 'name', 'username', 'email', 'password', 'phone_number', 'address', 'neighborhood', 'role', 'active', 'avatar_url', 'created_at', 'online', 'last_lat', 'last_lng', 'last_location_at'],
-      orders: ['id', 'customer_id', 'total', 'status', 'delivery_address', 'payment_method', 'created_at', 'motoboy_id', 'delivered_at', 'delivery_fee', 'delivery_neighborhood', 'discount', 'coupon_code', 'change_for', 'notes', 'rating', 'rating_comment', 'rated_at', 'out_at', 'settled_at', 'problem', 'problem_at'],
-      order_items: ['order_id', 'product_id', 'quantity', 'price'],
-      products: ['id', 'name', 'price', 'unit', 'category_id', 'image_url', 'estoque', 'promo_price', 'description', 'active'],
-      categories: ['id', 'name', 'created_at'],
-      product_stock_config: ['product_id', 'type', 'auto_quantity', 'auto_frequency', 'updated_at']
-    };
-    return require('./utils/database').query(
-      "SELECT table_name, column_name, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'public'"
-    ).then(({ rows }) => {
-      const required = rows
-        .filter(r => r.is_nullable === 'NO' && !r.column_default && expected[r.table_name])
-        .map(r => `${r.table_name}.${r.column_name}`);
-      console.log(`🔎 Colunas obrigatórias: ${required.join(', ')}`);
-      const have = new Set(rows.map(r => `${r.table_name}.${r.column_name}`));
-      const missing = Object.entries(expected)
-        .flatMap(([t, cols]) => cols.map(c => `${t}.${c}`))
-        .filter(tc => !have.has(tc));
-      console.log(missing.length ? `🔎 Faltando no banco: ${missing.join(', ')}` : '🔎 Banco completo: todas as colunas OK');
-    });
-  })
-  .catch(err => console.error('Erro ao atualizar banco:', err));
+  CREATE TABLE IF NOT EXISTS error_logs (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT NOW(),
+    method VARCHAR(10),
+    path TEXT,
+    status SMALLINT,
+    message TEXT,
+    stack TEXT
+  );
+`);
 
-const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log(`🛒 EMPÓRIO BRUMADO API rodando em http://localhost:${PORT}`);
-});
+// Nos testes (npm test) o app é carregado sem ligar o servidor nem as rotinas automáticas
+if (require.main === module) {
+  migrate()
+    .then(() => console.log('🧱 Banco atualizado'))
+    .then(() => require('./utils/stockRestock').startStockRestock())
+    .then(() => require('./utils/backup').startAutoBackup())
+    .then(() => {
+      // 🔎 Confere se o banco tem todas as colunas que o código usa (só leitura)
+      const expected = {
+        customers: ['id', 'name', 'username', 'email', 'password', 'phone_number', 'address', 'neighborhood', 'role', 'active', 'avatar_url', 'created_at', 'online', 'last_lat', 'last_lng', 'last_location_at'],
+        orders: ['id', 'customer_id', 'total', 'status', 'delivery_address', 'payment_method', 'created_at', 'motoboy_id', 'delivered_at', 'delivery_fee', 'delivery_neighborhood', 'discount', 'coupon_code', 'change_for', 'notes', 'rating', 'rating_comment', 'rated_at', 'out_at', 'settled_at', 'problem', 'problem_at'],
+        order_items: ['order_id', 'product_id', 'quantity', 'price'],
+        products: ['id', 'name', 'price', 'unit', 'category_id', 'image_url', 'estoque', 'promo_price', 'description', 'active'],
+        categories: ['id', 'name', 'created_at'],
+        product_stock_config: ['product_id', 'type', 'auto_quantity', 'auto_frequency', 'updated_at']
+      };
+      return require('./utils/database').query(
+        "SELECT table_name, column_name, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'public'"
+      ).then(({ rows }) => {
+        const required = rows
+          .filter(r => r.is_nullable === 'NO' && !r.column_default && expected[r.table_name])
+          .map(r => `${r.table_name}.${r.column_name}`);
+        console.log(`🔎 Colunas obrigatórias: ${required.join(', ')}`);
+        const have = new Set(rows.map(r => `${r.table_name}.${r.column_name}`));
+        const missing = Object.entries(expected)
+          .flatMap(([t, cols]) => cols.map(c => `${t}.${c}`))
+          .filter(tc => !have.has(tc));
+        console.log(missing.length ? `🔎 Faltando no banco: ${missing.join(', ')}` : '🔎 Banco completo: todas as colunas OK');
+      });
+    })
+    .catch(err => console.error('Erro ao atualizar banco:', err));
+
+  const PORT = process.env.PORT || 3002;
+  app.listen(PORT, () => {
+    console.log(`🛒 EMPÓRIO BRUMADO API rodando em http://localhost:${PORT}`);
+  });
+}
+
+module.exports = { app, migrate };

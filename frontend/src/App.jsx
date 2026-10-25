@@ -246,7 +246,7 @@ function AppContent() {
     const missing = [];
     items.forEach(item => {
       const product = products.find(p => p.id === item.product_id);
-      if (!product || product.estoque <= 0) {
+      if (!product || product.estoque <= 0 || product.available_now === false) { // 🗓️ fora do horário programado também fica de fora
         missing.push(item.product_name);
         return;
       }
