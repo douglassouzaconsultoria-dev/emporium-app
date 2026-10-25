@@ -89,6 +89,7 @@ require('./utils/database').query(`
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMP;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS out_at TIMESTAMP;
   ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode VARCHAR(32);
+  ALTER TABLE products ADD COLUMN IF NOT EXISTS adult BOOLEAN DEFAULT false;
   CREATE INDEX IF NOT EXISTS products_barcode ON products (barcode);
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS settled_at TIMESTAMP;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS problem TEXT;

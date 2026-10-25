@@ -92,7 +92,7 @@ router.get('/', async (req, res) => {
     // sold = em quantos pedidos (não cancelados) o produto saiu nos últimos 30 dias → "mais vendidos"
     const result = await pool.query(
       `SELECT p.id, p.name, p.price, p.promo_price, p.description, p.active, p.unit, p.category_id,
-              p.image_url, p.estoque, p.sort_order, p.subcategory, p.barcode, COALESCE(s.sold, 0)::int AS sold
+              p.image_url, p.estoque, p.sort_order, p.subcategory, p.barcode, p.adult, COALESCE(s.sold, 0)::int AS sold
        FROM products p
        LEFT JOIN (
          SELECT oi.product_id, COUNT(DISTINCT oi.order_id) AS sold
@@ -215,9 +215,10 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
     const estoqueInicial = parseFloat(estoque) || 0;
 
     const result = await pool.query(
-      `INSERT INTO products (name, price, unit, category_id, image_url, estoque, promo_price, description, active, subcategory, barcode)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-      [name, price, unit, category_id, imageUrl, estoqueInicial, promo, (description || '').trim() || null, parseActive(active), parseSub(subcategory), barcode]
+      `INSERT INTO products (name, price, unit, category_id, image_url, estoque, promo_price, description, active, subcategory, barcode, adult)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [name, price, unit, category_id, imageUrl, estoqueInicial, promo, (description || '').trim() || null, parseActive(active), parseSub(subcategory), barcode,
+        req.body.adult === 'true']
     );
 
     // ⚙️ Produto novo com estoque já nasce AUTOMÁTICO (renova toda semana para a quantidade cadastrada).
@@ -306,10 +307,12 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
       `UPDATE products SET name = $1, price = $2, unit = $3, category_id = $4, image_url = $5,
               promo_price = $6, description = $7, active = $8,
               subcategory = CASE WHEN $11 THEN $10 ELSE subcategory END,
-              barcode = CASE WHEN $13 THEN $12 ELSE barcode END
+              barcode = CASE WHEN $13 THEN $12 ELSE barcode END,
+              adult = CASE WHEN $15 THEN $14 ELSE adult END
        WHERE id = $9 RETURNING *`,
       [name, price, unit, category_id, imageUrl, promo, (description || '').trim() || null, parseActive(active), id,
-        parseSub(subcategory), subcategory !== undefined, barcode, req.body.barcode !== undefined]
+        parseSub(subcategory), subcategory !== undefined, barcode, req.body.barcode !== undefined,
+        req.body.adult === 'true', req.body.adult !== undefined]
     );
 
     if (result.rows.length === 0) {
