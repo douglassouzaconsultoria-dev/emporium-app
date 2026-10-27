@@ -7,6 +7,7 @@ const multer = require('multer');
 const pool = require('../utils/database');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { cloudinary, uploadBuffer } = require('../utils/cloudinary');
+const { notifyAdmins, notifyCustomer, keyHandler, subscribeHandler, unsubscribeHandler } = require('../utils/push');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'seu_segredo_super_seguro_aqui_2024';
 
@@ -395,6 +396,8 @@ router.delete('/account', verifyToken, async (req, res) => {
        WHERE id = $1`,
       [id, `excluido.${id}`, `del${id}`, lockedPassword]
     );
+    await pool.query('DELETE FROM customer_favorites WHERE customer_id = $1', [id]);
+    await pool.query('DELETE FROM push_subscriptions WHERE customer_id = $1', [id]); // para de receber avisos
 
     res.json({ message: 'Conta excluída' });
   } catch (err) {
@@ -403,4 +406,134 @@ router.delete('/account', verifyToken, async (req, res) => {
   }
 });
 
+// ===================== 🔔 AVISOS DO PEDIDO NO CELULAR DO CLIENTE =====================
+router.get('/push-key', verifyToken, keyHandler);
+router.post('/push-subscribe', verifyToken, subscribeHandler);
+router.post('/push-unsubscribe', verifyToken, unsubscribeHandler);
+
+// ===================== 🔑 ESQUECI A SENHA =====================
+// 1) O cliente pede pelo app (usuário, e-mail ou telefone) → o admin recebe o aviso
+// 2) O admin confere que é a pessoa e aprova → sai um código de 6 números (vale 30 min),
+//    que o admin passa para o cliente (e que também vai como notificação, se o cliente ativou)
+// 3) O cliente digita o código e a senha nova → já entra na conta
+const RESET_MINUTES = 30;
+const resetRequests = new Map(); // ip → { count, first } (no máximo 5 pedidos a cada 15 min)
+
+const findClient = async (identifier) => {
+  const login = clean(identifier).toLowerCase();
+  const digits = login.replace(/\D/g, '');
+  if (!login) return null;
+  const { rows } = await pool.query(
+    `SELECT id, name, username, phone_number, active FROM customers
+     WHERE role = 'client' AND (LOWER(username) = $1 OR LOWER(email) = $1
+       OR (length($2) >= 10 AND regexp_replace(COALESCE(phone_number, ''), '\\D', '', 'g') IN ($2, '55' || $2)))
+     ORDER BY id LIMIT 1`,
+    [login, digits]
+  );
+  return rows[0] || null;
+};
+
+router.post('/forgot', async (req, res) => {
+  const done = () => res.json({
+    message: 'Pedido enviado! O Empório vai conferir e te passar um código de 6 números.'
+  });
+  try {
+    const now = Date.now();
+    const r = resetRequests.get(req.ip);
+    if (r && now - r.first < LOCK_MS && r.count >= 5) {
+      return res.status(429).json({ error: 'Muitos pedidos. Espere 15 minutos e tente de novo.' });
+    }
+    resetRequests.set(req.ip, r && now - r.first < LOCK_MS ? { count: r.count + 1, first: r.first } : { count: 1, first: now });
+    if (resetRequests.size > 10000) resetRequests.clear();
+
+    const user = await findClient(req.body.login);
+    if (!user || user.active === false) return done(); // não conta se a conta existe
+
+    // Já tem pedido em aberto: não duplica nem avisa o admin de novo
+    const open = await pool.query(
+      `SELECT id FROM password_resets WHERE customer_id = $1 AND status = 'pending' AND created_at > NOW() - INTERVAL '1 day'`,
+      [user.id]
+    );
+    if (open.rows.length) return done();
+
+    await pool.query(
+      `UPDATE password_resets SET status = 'expired' WHERE customer_id = $1 AND status IN ('pending', 'approved')`, [user.id]
+    );
+    await pool.query('INSERT INTO password_resets (customer_id) VALUES ($1)', [user.id]);
+    notifyAdmins({
+      title: '🔑 Pedido de senha nova',
+      body: `${user.name}${user.phone_number ? ` · ${user.phone_number}` : ''}. Confira em Admin → Clientes.`,
+      tag: `senha-${user.id}`
+    });
+    done();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao enviar o pedido' });
+  }
+});
+
+router.post('/reset', async (req, res) => {
+  const code = String(req.body.code || '').replace(/\D/g, '');
+  const password = req.body.password || '';
+  if (code.length !== 6) return res.status(400).json({ error: 'Digite o código de 6 números' });
+  if (password.length < 6) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres' });
+  try {
+    const user = await findClient(req.body.login);
+    const wrong = { error: 'Código errado ou vencido. Confira com o Empório.' };
+    if (!user || user.active === false) return res.status(400).json(wrong);
+
+    const { rows: [request] } = await pool.query(
+      `SELECT id, code_hash, attempts FROM password_resets
+       WHERE customer_id = $1 AND status = 'approved' AND expires_at > NOW()
+       ORDER BY id DESC LIMIT 1`,
+      [user.id]
+    );
+    if (!request) return res.status(400).json(wrong);
+
+    if (!(await bcrypt.compare(code, request.code_hash))) {
+      // 5 erros: o código não vale mais (precisa pedir de novo)
+      await pool.query(
+        `UPDATE password_resets SET attempts = attempts + 1,
+           status = CASE WHEN attempts + 1 >= 5 THEN 'expired' ELSE status END
+         WHERE id = $1`, [request.id]
+      );
+      return res.status(400).json(request.attempts + 1 >= 5
+        ? { error: 'Código errado 5 vezes. Peça um código novo.' }
+        : wrong);
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    const { rows: [updated] } = await pool.query(
+      'UPDATE customers SET password = $1 WHERE id = $2 RETURNING *', [hashed, user.id]
+    );
+    await pool.query(`UPDATE password_resets SET status = 'used', used_at = NOW() WHERE id = $1`, [request.id]);
+    for (const key of failures.keys()) if (key.endsWith(`|${clean(req.body.login).toLowerCase()}`)) failures.delete(key);
+
+    res.json({ message: 'Senha nova criada!', token: generateToken(updated), user: publicUser(updated) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao criar a senha nova' });
+  }
+});
+
+// Usado pelo admin ao aprovar (customers.js): gera o código e manda como notificação para o cliente
+const approveReset = async (requestId) => {
+  const code = String(crypto.randomInt(100000, 1000000));
+  const { rows: [request] } = await pool.query(
+    `UPDATE password_resets SET status = 'approved', code_hash = $2, attempts = 0, approved_at = NOW(),
+       expires_at = NOW() + INTERVAL '${RESET_MINUTES} minutes'
+     WHERE id = $1 AND status IN ('pending', 'approved') RETURNING customer_id, expires_at`,
+    [requestId, await bcrypt.hash(code, 10)]
+  );
+  if (!request) return null;
+  notifyCustomer(request.customer_id, {
+    title: '🔑 Seu código do Empório',
+    body: `Código para criar a senha nova: ${code} (vale ${RESET_MINUTES} minutos)`,
+    tag: 'senha-nova',
+    url: '/'
+  });
+  return { code, expires_at: request.expires_at };
+};
+
 module.exports = router;
+module.exports.approveReset = approveReset;

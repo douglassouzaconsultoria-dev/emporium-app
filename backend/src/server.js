@@ -32,6 +32,7 @@ app.use('/api/media', require('./routes/media'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/schedules', require('./routes/schedules'));
 app.use('/api/errors', require('./routes/errors'));
+app.use('/api/favorites', require('./routes/favorites'));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -163,6 +164,23 @@ const migrate = () => require('./utils/database').query(`
   );
   ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_endpoint_key;
   CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_customer ON push_subscriptions (endpoint, customer_id);
+  CREATE TABLE IF NOT EXISTS customer_favorites (
+    customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (customer_id, product_id)
+  );
+  CREATE TABLE IF NOT EXISTS password_resets (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    status VARCHAR(10) NOT NULL DEFAULT 'pending',
+    code_hash TEXT,
+    attempts SMALLINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    approved_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    used_at TIMESTAMP
+  );
   CREATE TABLE IF NOT EXISTS error_logs (
     id SERIAL PRIMARY KEY,
     created_at TIMESTAMP DEFAULT NOW(),

@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../AuthContext';
 import { canInstall, requestInstall } from './InstallBanner';
+import ForgotPassword from './ForgotPassword';
 import './Auth.css';
 
 function Login({ onSwitchToRegister }) {
@@ -9,6 +10,7 @@ function Login({ onSwitchToRegister }) {
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgot, setForgot] = useState(false);
   const { login } = useContext(AuthContext);
 
   const handleLogin = async (e) => {
@@ -24,6 +26,8 @@ function Login({ onSwitchToRegister }) {
     }
     // Se deu certo, o app troca de tela sozinho (não precisa recarregar)
   };
+
+  if (forgot) return <ForgotPassword initialLogin={identifier.trim()} onBack={() => setForgot(false)} />;
 
   return (
     <div className="auth-container">
@@ -88,6 +92,9 @@ function Login({ onSwitchToRegister }) {
 
           <button type="submit" className="auth-btn" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar'}
+          </button>
+          <button type="button" className="auth-link" onClick={() => setForgot(true)}>
+            🔑 Esqueci minha senha
           </button>
         </form>
 

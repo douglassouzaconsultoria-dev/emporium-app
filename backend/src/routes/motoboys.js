@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const pool = require('../utils/database');
 const { verifyAdmin, verifyMotoboy } = require('../middleware/authMiddleware');
-const { notifyDelivery, notifyAdmins, keyHandler, subscribeHandler, unsubscribeHandler } = require('../utils/push');
+const { notifyDelivery, notifyAdmins, notifyOrderStatus, keyHandler, subscribeHandler, unsubscribeHandler } = require('../utils/push');
 
 const isValidUsername = (u) => /^[a-z0-9._]{3,20}$/.test(u);
 const clean = (v) => (typeof v === 'string' ? v.trim() : '');
@@ -172,6 +172,7 @@ me.put('/deliveries/:id/status', async (req, res) => {
       return res.status(400).json({ error: 'Não foi possível atualizar essa entrega' });
     }
 
+    notifyOrderStatus(result.rows[0].id, status, allowedFrom[status]); // 🔔 avisa o cliente
     res.json({ message: 'Status atualizado!', order: result.rows[0] });
   } catch (err) {
     console.error(err);

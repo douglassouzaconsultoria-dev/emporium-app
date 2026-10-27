@@ -48,4 +48,45 @@ router.put('/:id/password', verifyAdmin, async (req, res) => {
   }
 });
 
+// 🔑 Pedidos de senha nova (cliente tocou em "Esqueci minha senha")
+router.get('/password-requests', verifyAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT r.id, r.status, r.created_at, r.approved_at, r.expires_at,
+             c.id AS customer_id, c.name, c.username, c.phone_number, c.neighborhood,
+             (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.status <> 'Cancelado')::int AS total_orders
+      FROM password_resets r JOIN customers c ON c.id = r.customer_id
+      WHERE (r.status = 'pending' AND r.created_at > NOW() - INTERVAL '1 day')
+         OR (r.status = 'approved' AND r.expires_at > NOW())
+      ORDER BY r.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar pedidos de senha' });
+  }
+});
+
+// Aprovar: gera o código de 6 números (só aparece agora, para o admin passar ao cliente)
+router.post('/password-requests/:id/approve', verifyAdmin, async (req, res) => {
+  try {
+    const result = await require('./auth').approveReset(parseInt(req.params.id) || 0);
+    if (!result) return res.status(404).json({ error: 'Pedido não encontrado ou já resolvido' });
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao gerar o código' });
+  }
+});
+
+router.post('/password-requests/:id/deny', verifyAdmin, async (req, res) => {
+  try {
+    await pool.query(`UPDATE password_resets SET status = 'denied' WHERE id = $1 AND status IN ('pending', 'approved')`, [parseInt(req.params.id) || 0]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao recusar' });
+  }
+});
+
 module.exports = router;

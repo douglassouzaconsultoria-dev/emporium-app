@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { API_URL } from '../config';
 import { AuthContext } from '../AuthContext';
+import CustomerPush from './CustomerPush';
 import './Profile.css';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -224,6 +225,8 @@ function Profile({ onClose, onLogout }) {
           <button className="profile-back profile-logout" onClick={onLogout}>🚪 Sair da conta</button>
         </div>
       </div>
+
+      <CustomerPush />
 
       <div className="profile-grid">
         {/* DADOS + FOTO */}

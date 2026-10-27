@@ -180,7 +180,7 @@
   position: absolute;
   top: 12px;
   left: 12px;
-  right: 12px;
+  right: 52px; /* espaço do ❤️ */
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -251,4 +251,38 @@
 @keyframes sk-shine {
   from { background-position: 100% 50%; }
   to { background-position: 0 50%; }
+}
+
+/* ❤️ Favoritar */
+.fav-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.fav-btn:active {
+  transform: scale(0.85);
+}
+
+.fav-btn.on {
+  animation: fav-pop 0.3s ease;
+}
+
+@keyframes fav-pop {
+  50% { transform: scale(1.3); }
 }

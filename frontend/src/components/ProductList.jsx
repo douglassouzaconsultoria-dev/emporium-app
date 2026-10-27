@@ -52,11 +52,12 @@ function KgPicker({ product, onAdd, onClose }) {
 // best: ids dos mais vendidos (selo ⭐)
 // adult: aviso 🔞 embaixo do título; adultCats: categorias 🔞 (selo no card, até na seção de Ofertas)
 // product.adult: produto 🔞 marcado sozinho, mesmo numa categoria sem aviso
+// favorites: ids dos ❤️ favoritos do cliente; onToggleFavorite: toque no coração
 // subcats: mostra as abinhas de subcategoria (na ordem em que aparecem nos produtos)
 // subOrder: ordem das abinhas definida no admin (🗂️ Organizar → subcategorias)
 function ProductList({
   products, onAddToCart, onUpdateQuantity, title = 'Produtos', row = false, inCart = {}, best = null,
-  subcats = false, subOrder = null, adult = false, adultCats = null
+  subcats = false, subOrder = null, adult = false, adultCats = null, favorites = null, onToggleFavorite = null
 }) {
   const [activeSub, setActiveSub] = useState(null);
   const [picking, setPicking] = useState(null); // produto por kg com a escolha de gramas aberta
@@ -111,6 +112,18 @@ function ProductList({
                 />
               ) : (
                 <div className="product-image product-image-empty">🛒</div>
+              )}
+
+              {onToggleFavorite && (
+                <button
+                  type="button"
+                  className={`fav-btn ${favorites && favorites.has(product.id) ? 'on' : ''}`}
+                  onClick={() => onToggleFavorite(product)}
+                  aria-label={favorites && favorites.has(product.id) ? `Tirar ${product.name} dos favoritos` : `Favoritar ${product.name}`}
+                  aria-pressed={!!(favorites && favorites.has(product.id))}
+                >
+                  {favorites && favorites.has(product.id) ? '❤️' : '🤍'}
+                </button>
               )}
 
               {/* 🏷️ Selos */}
