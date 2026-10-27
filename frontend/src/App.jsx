@@ -12,6 +12,8 @@ import { sortCategories, sortProducts, subcategoryOrder } from './utils/storefro
 import SearchBar from './components/SearchBar';
 import Admin from './components/Admin';
 import MyOrders from './components/MyOrders';
+import { matchesSearch } from './utils/search';
+import CustomerPush from './components/CustomerPush';
 import Profile from './components/Profile';
 import MotoboyPanel from './components/MotoboyPanel';
 import InstallBanner from './components/InstallBanner';
@@ -38,7 +40,17 @@ function AppContent() {
   const toastTimer = React.useRef(null);
   const [showCheckout, setShowCheckout] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [view, setView] = React.useState('store');
+  // Toque na notificação do pedido abre direto "Meus Pedidos" (/?ver=pedidos)
+  const [view, setView] = React.useState(() => (new URLSearchParams(window.location.search).get('ver') === 'pedidos' ? 'orders' : 'store'));
+  const [askPush, setAskPush] = React.useState(false); // 🔔 oferece os avisos logo depois do pedido
+
+  React.useEffect(() => {
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
+    // App já aberto: o service worker manda a mensagem em vez de abrir outra janela
+    const onMessage = (e) => { if (String(e.data?.url || '').includes('ver=pedidos')) setView('orders'); };
+    navigator.serviceWorker?.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onMessage);
+  }, []);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const headerRef = React.useRef(null);
   const [headerHeight, setHeaderHeight] = React.useState(0);
@@ -77,6 +89,28 @@ function AppContent() {
     const timer = setInterval(load, 60000);
     return () => clearInterval(timer);
   }, [token, user]);
+
+  // ❤️ Favoritos (ficam na conta do cliente)
+  const [favorites, setFavorites] = React.useState([]);
+  React.useEffect(() => {
+    if (!token || !user || user.role === 'motoboy') return;
+    axios.get(`${API_URL}/favorites`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => setFavorites(res.data))
+      .catch(() => setFavorites([]));
+  }, [token, user]);
+  const favoriteSet = new Set(favorites);
+
+  const toggleFavorite = (product) => {
+    const on = !favoriteSet.has(product.id);
+    setFavorites(list => (on ? [product.id, ...list] : list.filter(id => id !== product.id)));
+    showToast(on ? `❤️ ${product.name} nos favoritos` : `${product.name} saiu dos favoritos`);
+    axios({ method: on ? 'put' : 'delete', url: `${API_URL}/favorites/${product.id}`, headers: { Authorization: `Bearer ${token}` } })
+      .catch(() => {
+        // Não salvou: volta como estava
+        setFavorites(list => (on ? list.filter(id => id !== product.id) : [product.id, ...list]));
+        showToast('❌ Não consegui salvar o favorito. Tente de novo.', 3000);
+      });
+  };
 
   const fetchCategories = async () => {
     try {
@@ -141,19 +175,23 @@ function AppContent() {
     setSearchTerm(term);
   };
 
-  const term = searchTerm.toLowerCase();
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(term) ||
-    (product.description || '').toLowerCase().includes(term)
-  );
+  // 🔎 Sem acento, maiúscula ou plural; acha também pela categoria, subcategoria e código de barras
+  const categoryName = Object.fromEntries(categories.map(c => [c.id, c.name]));
+  const filteredProducts = products.filter(product => matchesSearch(
+    searchTerm, product.name, product.description, product.subcategory, categoryName[product.category_id], product.barcode
+  ));
 
-  // Vitrine: 🔥 Ofertas primeiro, depois uma seção por categoria (só as que têm produto)
+  // Vitrine: ❤️ Favoritos e 🔥 Ofertas primeiro, depois uma seção por categoria (só as que têm produto)
   const hiddenCategories = new Set(categories.filter(c => c.active === false).map(c => c.id));
+  const favoriteItems = favorites
+    .map(id => filteredProducts.find(p => p.id === id))
+    .filter(p => p && !hiddenCategories.has(p.category_id));
   const offers = sortProducts(
     filteredProducts.filter(p => isPromo(p) && p.estoque > 0 && !hiddenCategories.has(p.category_id)),
     'bestsellers'
   );
   const sections = [
+    ...(favoriteItems.length ? [{ id: 'favoritos', name: '❤️ Seus favoritos', items: favoriteItems }] : []),
     ...(offers.length ? [{ id: 'ofertas', name: '🔥 Ofertas', items: offers }] : []),
     // Categorias na ordem escolhida no admin (🗂️ Organizar); ocultas não aparecem
     ...sortCategories(categories.filter(c => c.active !== false), store?.category_sort)
@@ -238,6 +276,7 @@ function AppContent() {
     setShowCheckout(false);
     setView('store');
     showToast('✅ Pedido realizado com sucesso!', 3500);
+    setAskPush(true);
   };
 
   // 🔁 Pedir de novo: coloca no carrinho os itens de um pedido antigo
@@ -429,7 +468,7 @@ function AppContent() {
                   className="cat-section"
                   style={{ scrollMarginTop: headerHeight + 70 }}
                 >
-                  <ProductList title={section.name} adult={section.adult === true} adultCats={adultCats} products={section.items} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} inCart={inCart} best={best} row subcats={section.id !== 'ofertas'} subOrder={section.id !== 'ofertas' ? subcategoryOrder(section, section.items) : null} />
+                  <ProductList title={section.name} adult={section.adult === true} adultCats={adultCats} products={section.items} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} inCart={inCart} best={best} row subcats={!['ofertas', 'favoritos'].includes(section.id)} subOrder={!['ofertas', 'favoritos'].includes(section.id) ? subcategoryOrder(section, section.items) : null} favorites={favoriteSet} onToggleFavorite={toggleFavorite} />
                 </section>
               ))
             )}
@@ -438,6 +477,7 @@ function AppContent() {
       </div>
 
       {toast && <div className="toast">{toast}</div>}
+      {askPush && <CustomerPush variant="sheet" onClose={() => setAskPush(false)} />}
 
       {/* 🛒 Barra fixa: total e "Finalizar" sempre à mão */}
       {cartCount > 0 && (view === 'store' || view === 'cart') && !showCheckout && (

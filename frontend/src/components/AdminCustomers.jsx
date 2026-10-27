@@ -1,7 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import axios from 'axios';
+import { confirmDialog, notify } from '../utils/dialog';
 import './AdminCategories.css';
+
+const hhmm = (d) => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+// 🔑 Pedidos de senha nova: o cliente pediu pelo app; você confere que é a pessoa e gera o código
+function PasswordRequests({ authHeaders, whatsappLink }) {
+  const [requests, setRequests] = useState([]);
+  const [codes, setCodes] = useState({}); // id → { code, expires_at } (o código só aparece aqui, na hora)
+
+  const load = () => axios.get(`${API_URL}/customers/password-requests`, authHeaders())
+    .then(res => setRequests(res.data))
+    .catch(() => setRequests([]));
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 30000);
+    return () => clearInterval(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const approve = async (r) => {
+    try {
+      const { data } = await axios.post(`${API_URL}/customers/password-requests/${r.id}/approve`, {}, authHeaders());
+      setCodes(c => ({ ...c, [r.id]: data }));
+      load();
+    } catch (err) {
+      notify(`❌ ${err.response?.data?.error || 'Erro ao gerar o código'}`, 'error');
+    }
+  };
+
+  const deny = async (r) => {
+    if (!(await confirmDialog(`Recusar o pedido de senha nova de ${r.name}?`, { okText: 'Recusar', danger: true }))) return;
+    await axios.post(`${API_URL}/customers/password-requests/${r.id}/deny`, {}, authHeaders()).catch(() => {});
+    load();
+  };
+
+  if (!requests.length) return null;
+  return (
+    <div className="pw-requests">
+      <h3>🔑 Pedidos de senha nova ({requests.length})</h3>
+      <p className="pw-help">Confira que é mesmo a pessoa (ligue ou chame no WhatsApp) antes de gerar o código.</p>
+      {requests.map(r => (
+        <div key={r.id} className="pw-request">
+          <div className="pw-who">
+            <strong>{r.name}</strong> <span>@{r.username}</span>
+            <small>📞 {r.phone_number || '—'} · 🏘️ {r.neighborhood || '—'} · 📦 {r.total_orders} pedidos · pediu às {hhmm(r.created_at)}</small>
+          </div>
+          {codes[r.id] ? (
+            <div className="pw-code">
+              <span>Código para passar ao cliente:</span>
+              <b>{codes[r.id].code.replace(/(\d{3})(\d{3})/, '$1 $2')}</b>
+              <small>Vale até {hhmm(codes[r.id].expires_at)}. Também foi como notificação para o celular do cliente, se ele ativou os avisos.</small>
+            </div>
+          ) : r.status === 'approved' ? (
+            <p className="pw-sent">✅ Código gerado às {hhmm(r.approved_at)} (vale até {hhmm(r.expires_at)})</p>
+          ) : null}
+          <div className="pw-actions">
+            {r.phone_number && <a href={whatsappLink(r.phone_number)} target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>}
+            {r.phone_number && <a href={`tel:${r.phone_number.replace(/\D/g, '')}`}>📞 Ligar</a>}
+            <button type="button" className="pw-ok" onClick={() => approve(r)}>
+              {r.status === 'approved' ? '🔄 Gerar outro código' : '✅ É a pessoa: gerar código'}
+            </button>
+            <button type="button" className="pw-no" onClick={() => deny(r)}>Recusar</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function AdminCustomers() {
   const [customers, setCustomers] = useState([]);
@@ -70,6 +137,8 @@ function AdminCustomers() {
       </div>
 
       {message && <div className={`admin-message ${message.includes('✅') ? 'success' : 'error'}`}>{message}</div>}
+
+      <PasswordRequests authHeaders={authHeaders} whatsappLink={whatsappLink} />
 
       <div className="cu-views">
         <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}>Todos ({customers.length})</button>

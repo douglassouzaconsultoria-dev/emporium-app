@@ -7,7 +7,7 @@ const { isKg } = require('../utils/units');
 const { getStore, storeStatus } = require('../utils/store');
 const { applyCoupon } = require('../utils/coupons');
 const { loadSchedules, applySchedules } = require('../utils/schedules');
-const { notifyDelivery, notifyNewOrder } = require('../utils/push');
+const { notifyDelivery, notifyNewOrder, notifyOrderStatus } = require('../utils/push');
 
 const VALID_PAYMENT_METHODS = ['dinheiro', 'cartao', 'pix'];
 
@@ -397,6 +397,7 @@ router.post('/bulk-status', verifyAdmin, async (req, res) => {
        RETURNING id`,
       [status, ids, fromOf[status], status === 'Saído', status === 'Entregue']
     );
+    result.rows.forEach(r => notifyOrderStatus(r.id, status, fromOf[status])); // 🔔 avisa cada cliente
     res.json({ updated: result.rows.map(r => r.id) });
   } catch (err) {
     console.error(err);
@@ -546,6 +547,7 @@ router.put('/:id', verifyAdmin, async (req, res) => {
 
     await client.query('COMMIT');
     if (status === 'Preparando' && oldStatus !== 'Preparando') notifyDelivery(result.rows[0].id);
+    notifyOrderStatus(result.rows[0].id, status, oldStatus); // 🔔 avisa o cliente
 
     res.json({
       message: 'Status atualizado!',

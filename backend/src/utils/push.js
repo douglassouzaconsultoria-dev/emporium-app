@@ -122,6 +122,36 @@ const notifyNewOrder = async (orderId) => {
   }
 };
 
+// 🔔 Avisos para o celular do cliente (só sobre o pedido dele, só se ele ativou)
+const notifyCustomer = async (customerId, payload) => {
+  try {
+    await sendTo([customerId], { url: '/?ver=pedidos', ...payload });
+  } catch (err) {
+    console.error('Erro ao avisar o cliente:', err.message);
+  }
+};
+
+const STATUS_MESSAGES = {
+  Preparando: (id) => ({ title: '✅ Pagamento confirmado!', body: `Pedido #${id}: já estamos separando suas compras.` }),
+  'Saído': (id) => ({ title: '🛵 Seu pedido saiu para entrega!', body: `Pedido #${id} está a caminho.` }),
+  Entregue: (id) => ({ title: '✅ Pedido entregue!', body: `Pedido #${id}. Obrigado por comprar no Empório Brumado!` }),
+  Cancelado: (id) => ({ title: '❌ Pedido cancelado', body: `Pedido #${id} foi cancelado. Qualquer dúvida, fale com o Empório.` })
+};
+
+// Mudou a situação do pedido → avisa o cliente.
+// "Preparando" só avisa quando vem do PIX conferido (no dinheiro/cartão o pedido já nasce assim).
+const notifyOrderStatus = async (orderId, status, oldStatus) => {
+  if (!STATUS_MESSAGES[status] || status === oldStatus) return;
+  if (status === 'Preparando' && oldStatus !== 'Pendente') return;
+  try {
+    const { rows } = await pool.query('SELECT customer_id FROM orders WHERE id = $1', [orderId]);
+    if (!rows[0]) return;
+    await notifyCustomer(rows[0].customer_id, { ...STATUS_MESSAGES[status](orderId), tag: `meu-pedido-${orderId}` });
+  } catch (err) {
+    console.error('Erro ao avisar o cliente:', err.message);
+  }
+};
+
 // Rotas de inscrição (motoboy e admin usam as mesmas): o mesmo celular pode receber avisos de duas contas
 const subscribeHandler = async (req, res) => {
   const sub = req.body.subscription || {};
@@ -164,6 +194,6 @@ const keyHandler = async (req, res) => {
 };
 
 module.exports = {
-  getPublicKey, notifyDelivery, notifyAdmins, notifyNewOrder,
+  getPublicKey, notifyDelivery, notifyAdmins, notifyNewOrder, notifyCustomer, notifyOrderStatus,
   subscribeHandler, unsubscribeHandler, keyHandler
 };

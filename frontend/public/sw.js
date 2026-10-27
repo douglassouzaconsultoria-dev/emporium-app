@@ -30,7 +30,10 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       const open = windows.find(w => 'focus' in w);
-      return open ? open.focus() : self.clients.openWindow(event.notification.data.url || '/');
+      const url = event.notification.data.url || '/';
+      if (!open) return self.clients.openWindow(url);
+      open.postMessage({ url }); // ex: aviso do pedido → o app abre "Meus Pedidos"
+      return open.focus();
     })
   );
 });

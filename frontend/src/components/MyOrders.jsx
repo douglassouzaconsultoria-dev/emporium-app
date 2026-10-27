@@ -3,6 +3,7 @@ import { API_URL } from '../config';
 import { QRCodeSVG } from 'qrcode.react';
 import { gerarPixCopiaECola, PIX_CONFIG } from '../utils/pix';
 import PixNotice from './PixNotice';
+import CustomerPush from './CustomerPush';
 import './MyOrders.css';
 import { brl } from '../utils/format';
 
@@ -246,6 +247,8 @@ const MyOrders = ({ user, onReorder }) => {
           🔄 Atualizar
         </button>
       </div>
+
+      <CustomerPush />
 
       {error && <div className="my-orders-error">{error}</div>}
 
