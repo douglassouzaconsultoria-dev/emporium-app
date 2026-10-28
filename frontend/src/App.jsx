@@ -14,6 +14,7 @@ import Admin from './components/Admin';
 import MyOrders from './components/MyOrders';
 import { matchesSearch } from './utils/search';
 import CustomerPush from './components/CustomerPush';
+import OfflineBanner, { useOnline } from './components/OfflineBanner';
 import Profile from './components/Profile';
 import MotoboyPanel from './components/MotoboyPanel';
 import InstallBanner from './components/InstallBanner';
@@ -43,6 +44,7 @@ function AppContent() {
   // Toque na notificação do pedido abre direto "Meus Pedidos" (/?ver=pedidos)
   const [view, setView] = React.useState(() => (new URLSearchParams(window.location.search).get('ver') === 'pedidos' ? 'orders' : 'store'));
   const [askPush, setAskPush] = React.useState(false); // 🔔 oferece os avisos logo depois do pedido
+  const online = useOnline(); // 📶 sem internet: dá para olhar e montar o carrinho, mas não finalizar
 
   React.useEffect(() => {
     if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
@@ -90,14 +92,20 @@ function AppContent() {
     return () => clearInterval(timer);
   }, [token, user]);
 
-  // ❤️ Favoritos (ficam na conta do cliente)
+  // ❤️ Favoritos (ficam na conta do cliente; uma cópia no aparelho para abrir sem internet)
   const [favorites, setFavorites] = React.useState([]);
+  const favKey = user ? `favoritos-${user.id}` : null;
+  const keepFavorites = (list) => {
+    try { localStorage.setItem(favKey, JSON.stringify(list)); } catch { /* sem espaço: só não guarda */ }
+  };
   React.useEffect(() => {
     if (!token || !user || user.role === 'motoboy') return;
     axios.get(`${API_URL}/favorites`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => setFavorites(res.data))
-      .catch(() => setFavorites([]));
-  }, [token, user]);
+      .then(res => { setFavorites(res.data); keepFavorites(res.data); })
+      .catch(() => {
+        try { setFavorites(JSON.parse(localStorage.getItem(favKey)) || []); } catch { setFavorites([]); }
+      });
+  }, [token, user, favKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const favoriteSet = new Set(favorites);
 
   const toggleFavorite = (product) => {
@@ -105,6 +113,7 @@ function AppContent() {
     setFavorites(list => (on ? [product.id, ...list] : list.filter(id => id !== product.id)));
     showToast(on ? `❤️ ${product.name} nos favoritos` : `${product.name} saiu dos favoritos`);
     axios({ method: on ? 'put' : 'delete', url: `${API_URL}/favorites/${product.id}`, headers: { Authorization: `Bearer ${token}` } })
+      .then(() => keepFavorites(on ? [product.id, ...favorites] : favorites.filter(id => id !== product.id)))
       .catch(() => {
         // Não salvou: volta como estava
         setFavorites(list => (on ? list.filter(id => id !== product.id) : [product.id, ...list]));
@@ -260,6 +269,10 @@ function AppContent() {
 
   // ✅ Finalizar direto da vitrine (sem precisar abrir o carrinho)
   const startCheckout = () => {
+    if (!online) {
+      showToast('📶 Sem internet. Seu carrinho está guardado: finalize quando a conexão voltar.', 4000);
+      return;
+    }
     if (!storeOpen) {
       showToast(`🔒 ${store.status.message || 'A loja está fechada no momento.'}`, 4000);
       return;
@@ -477,6 +490,7 @@ function AppContent() {
       </div>
 
       {toast && <div className="toast">{toast}</div>}
+      <OfflineBanner text="Seu carrinho está guardado e dá para olhar os produtos. Para finalizar o pedido, espere a internet voltar." />
       {askPush && <CustomerPush variant="sheet" onClose={() => setAskPush(false)} />}
 
       {/* 🛒 Barra fixa: total e "Finalizar" sempre à mão */}
@@ -487,7 +501,9 @@ function AppContent() {
             <span className="cart-bar-text">
               <strong>{brl(cartTotal)}</strong>
               <small>
-                {!storeOpen
+                {!online
+                  ? 'Sem internet: carrinho guardado'
+                  : !storeOpen
                   ? 'Loja fechada agora'
                   : missingForMin > 0
                     ? `Faltam ${brl(missingForMin)} p/ o mínimo`
@@ -495,7 +511,7 @@ function AppContent() {
               </small>
             </span>
           </button>
-          <button className="cart-bar-go" onClick={startCheckout} disabled={!storeOpen || missingForMin > 0}>
+          <button className="cart-bar-go" onClick={startCheckout} disabled={!online || !storeOpen || missingForMin > 0}>
             Finalizar pedido →
           </button>
           {minOrder > 0 && missingForMin > 0 && (

@@ -163,7 +163,10 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
         setTimeout(() => onSuccess(), 2500);
       }
     } catch (err) {
-      setError(err.message);
+      // Caiu a internet no meio: o pedido pode ou não ter chegado, então pede para conferir antes de repetir
+      setError(err instanceof TypeError || !navigator.onLine
+        ? '📶 Sem internet. Seu carrinho está guardado. Quando a conexão voltar, confira em Meus Pedidos se o pedido chegou antes de tentar de novo.'
+        : err.message);
       console.error('Erro ao criar pedido:', err);
     } finally {
       setLoading(false);

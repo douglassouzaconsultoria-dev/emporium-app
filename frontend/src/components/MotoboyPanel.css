@@ -727,3 +727,9 @@
 .mb-chip-static {
   cursor: default;
 }
+
+/* 📶 Lista guardada (sem internet) */
+.mb-offline {
+  color: #b45309;
+  font-weight: 700;
+}
