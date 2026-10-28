@@ -61,6 +61,7 @@ function ProductList({
 }) {
   const [activeSub, setActiveSub] = useState(null);
   const [picking, setPicking] = useState(null); // produto por kg com a escolha de gramas aberta
+  const [broken, setBroken] = useState(() => new Set()); // foto que não carregou (ex: sem internet) → mostra 🛒
   const present = [...new Set(products.map(p => p.subcategory).filter(Boolean))];
   const subs = !subcats ? [] : subOrder
     ? [...subOrder.filter(s => present.includes(s)), ...present.filter(s => !subOrder.includes(s))]
@@ -103,12 +104,13 @@ function ProductList({
           return (
           <div key={product.id} data-product-id={product.id} className={`product-card ${soldOut || offHours ? 'sold-out' : ''}`}>
             <div className="product-media">
-              {product.image_url ? (
+              {product.image_url && !broken.has(product.id) ? (
                 <img
                   src={getImageUrl(product.image_url)}
                   alt={product.name}
                   className="product-image"
                   loading="lazy"
+                  onError={() => setBroken(set => new Set(set).add(product.id))}
                 />
               ) : (
                 <div className="product-image product-image-empty">🛒</div>

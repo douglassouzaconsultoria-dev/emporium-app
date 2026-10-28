@@ -3,6 +3,7 @@ import { API_URL } from '../config';
 import { formatQty } from '../utils/units';
 import { AuthContext } from '../AuthContext';
 import Profile from './Profile';
+import OfflineBanner from './OfflineBanner';
 import './MotoboyPanel.css';
 
 const CITY = 'Patrocínio - MG';
@@ -83,6 +84,9 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
   const [openMapId, setOpenMapId] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [offlineSince, setOfflineSince] = useState(null); // mostrando a lista guardada (sem internet)
+  const cacheKey = `entregas-${user?.id}`;
+  const lastLoaded = useRef(null); // quando a lista na tela veio da internet pela última vez
 
   // 🔔 Alerta de entrega nova
   const audioRef = useRef(null);          // o celular só libera som depois de um toque na tela
@@ -124,6 +128,12 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
       if (!res.ok) throw new Error('Erro ao buscar entregas');
 
       const data = await res.json();
+      if (!asAdmin) {
+        // 📶 Guarda a última lista no celular: sem sinal na rua, o motoboy continua vendo endereço e itens
+        try { localStorage.setItem(cacheKey, JSON.stringify({ data, at: Date.now() })); } catch { /* sem espaço */ }
+      }
+      setOfflineSince(null);
+      lastLoaded.current = Date.now();
 
       const availIds = data.available.map(o => o.id);
       const mineIds = data.mine.map(o => o.id);
@@ -151,10 +161,24 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
       setLastUpdate(new Date());
     } catch (err) {
       console.error(err);
+      // Sem internet: mostra a última lista guardada
+      if (!asAdmin && (err instanceof TypeError || !navigator.onLine)) {
+        try {
+          const saved = JSON.parse(localStorage.getItem(cacheKey));
+          if (saved && !lastLoaded.current) { // abriu o app já sem sinal: usa tudo que estava guardado
+            const d = saved.data;
+            setMine(d.mine);
+            setAvailable(d.available);
+            setOnline(d.online);
+            setMoney({ delivered_today: d.delivered_today, fees_today: d.fees_today, cash_pending: d.cash_pending, cash_orders: d.cash_orders });
+          }
+          if (saved || lastLoaded.current) setOfflineSince(lastLoaded.current || saved.at);
+        } catch { /* nada guardado */ }
+      }
     } finally {
       setLoading(false);
     }
-  }, [token, base, exit, asAdmin]);
+  }, [token, base, exit, asAdmin, cacheKey]);
 
   // Carrega e atualiza sozinho
   useEffect(() => {
@@ -362,7 +386,9 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
         : `🚀 Boa entrega! Pedido #${order.id} em rota`);
       fetchDeliveries();
     } catch (err) {
-      showMessage('error', `❌ ${err.message}`);
+      showMessage('error', err instanceof TypeError || !navigator.onLine
+        ? '📶 Sem internet: não deu para marcar. Tente de novo quando o sinal voltar.'
+        : `❌ ${err.message}`);
     } finally {
       setBusyId(null);
     }
@@ -431,6 +457,7 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
 
   return (
     <div className="mb-app">
+      {!asAdmin && <OfflineBanner text="Mostrando as entregas que já estavam no celular. Para marcar saiu/entregue, espere o sinal voltar." />}
       {/* HEADER */}
       <header className="mb-header">
         <div className="mb-brand">
@@ -605,8 +632,10 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
             ) : (
               <>
                 <div className="mb-refresh">
-                  <span>
-                    {lastUpdate ? `Atualizado às ${lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  <span className={offlineSince ? 'mb-offline' : ''}>
+                    {offlineSince
+                      ? `📶 Sem internet: lista guardada às ${new Date(offlineSince).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                      : lastUpdate ? `Atualizado às ${lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
                   </span>
                   <button onClick={fetchDeliveries}>🔄 Atualizar</button>
                 </div>
