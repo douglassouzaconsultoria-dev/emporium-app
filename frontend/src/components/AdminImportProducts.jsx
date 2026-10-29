@@ -13,7 +13,8 @@ const COLUMNS = {
   estoque: ['estoque', 'quantidade', 'qtd'],
   preco_oferta: ['preco_oferta', 'oferta', 'promocao', 'preco_promocional'],
   descricao: ['descricao', 'detalhes', 'observacao'],
-  codigo_barras: ['codigo_barras', 'codigo_de_barras', 'ean', 'gtin']
+  codigo_barras: ['codigo_barras', 'codigo_de_barras', 'ean', 'gtin'],
+  acrescimo_cartao: ['acrescimo_cartao', 'acrescimo_no_cartao', 'acrescimo']
 };
 
 const keyOf = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')

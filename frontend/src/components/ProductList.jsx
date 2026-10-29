@@ -169,6 +169,9 @@ function ProductList({
                 </span>
                 {promo && <span className="old-price">{brl(parseFloat(product.price))}</span>}
               </div>
+              {parseFloat(product.card_extra) > 0 && (
+                <small className="card-extra-note">💳 + {brl(parseFloat(product.card_extra))} no cartão</small>
+              )}
               <h3>{product.name}</h3>
               {product.description && <p className="product-desc">{product.description}</p>}
 

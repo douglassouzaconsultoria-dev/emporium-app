@@ -134,12 +134,13 @@ router.post('/', verifyToken, async (req, res) => {
     await client.query('BEGIN');
 
     let total = 0;
+    let cardExtra = 0; // 💳 acréscimo no cartão (ex: cigarro +R$ 1,00 cada)
     const pricedItems = [];
     const schedules = await loadSchedules(client); // 🗓️ oferta programada e horário do produto
 
     for (const item of items) {
       const productResult = await client.query(
-        'SELECT id, name, price, promo_price, unit, estoque, active FROM products WHERE id = $1 FOR UPDATE',
+        'SELECT id, name, price, promo_price, unit, estoque, active, card_extra FROM products WHERE id = $1 FOR UPDATE',
         [item.product_id]
       );
 
@@ -181,6 +182,7 @@ router.post('/', verifyToken, async (req, res) => {
       const promo = parseFloat(product.promo_price);
       const price = promo > 0 && promo < parseFloat(product.price) ? promo : parseFloat(product.price);
       total += Math.round(price * qty * 100) / 100;
+      if (method === 'cartao') cardExtra += Math.round((parseFloat(product.card_extra) || 0) * qty * 100) / 100;
       pricedItems.push({ product_id: product.id, quantity: qty, price });
     }
 
@@ -207,7 +209,8 @@ router.post('/', verifyToken, async (req, res) => {
 
     // 🛵 Taxa calculada no servidor (o navegador não decide o valor)
     const delivery = await getDeliveryFee(client, delivery_neighborhood);
-    total = Math.round((subtotal - discount + delivery.fee) * 100) / 100;
+    cardExtra = Math.round(cardExtra * 100) / 100;
+    total = Math.round((subtotal - discount + delivery.fee + cardExtra) * 100) / 100;
 
     if (changeFor !== null && changeFor < total) {
       await client.query('ROLLBACK');
@@ -215,12 +218,12 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     const orderResult = await client.query(
-      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, payment_note, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-       RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, payment_note, created_at`,
+      `INSERT INTO orders (customer_id, total, status, delivery_address, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, payment_note, card_extra, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+       RETURNING id, customer_id, total, status, payment_method, delivery_fee, delivery_neighborhood, discount, coupon_code, change_for, notes, payment_note, card_extra, created_at`,
       // Dinheiro/cartão já entra em "Preparando" (motoboy vê na hora); PIX espera o admin conferir o pagamento
       [req.user.id, total, method === 'pix' ? 'Pendente' : 'Preparando', delivery_address.trim(), method, delivery.fee, delivery.neighborhood, discount, couponCode, changeFor, notes || null,
-        method === 'dinheiro' && paymentNote ? paymentNote : null]
+        method === 'dinheiro' && paymentNote ? paymentNote : null, cardExtra]
     );
 
     const orderId = orderResult.rows[0].id;
@@ -321,11 +324,12 @@ router.put('/:id/items', verifyAdmin, async (req, res) => {
     }
 
     let subtotal = 0;
+    let cardExtra = 0;
     const priced = [];
     const editSchedules = await loadSchedules(client);
     for (const item of items) {
       const { rows: [product] } = await client.query(
-        'SELECT id, name, price, promo_price, unit, estoque FROM products WHERE id = $1 FOR UPDATE', [item.product_id]
+        'SELECT id, name, price, promo_price, unit, estoque, card_extra FROM products WHERE id = $1 FOR UPDATE', [item.product_id]
       );
       if (!product) {
         await client.query('ROLLBACK');
@@ -348,6 +352,7 @@ router.put('/:id/items', verifyAdmin, async (req, res) => {
         price = promo > 0 && promo < parseFloat(product.price) ? promo : parseFloat(product.price);
       }
       subtotal += Math.round(price * qty * 100) / 100;
+      if (order.payment_method === 'cartao') cardExtra += Math.round((parseFloat(product.card_extra) || 0) * qty * 100) / 100;
       priced.push({ product_id: product.id, quantity: qty, price });
     }
     subtotal = Math.round(subtotal * 100) / 100;
@@ -360,9 +365,10 @@ router.put('/:id/items', verifyAdmin, async (req, res) => {
     }
 
     const discount = Math.min(parseFloat(order.discount) || 0, subtotal);
-    const total = Math.round((subtotal - discount + (parseFloat(order.delivery_fee) || 0)) * 100) / 100;
+    cardExtra = Math.round(cardExtra * 100) / 100;
+    const total = Math.round((subtotal - discount + (parseFloat(order.delivery_fee) || 0) + cardExtra) * 100) / 100;
     const { rows: [updated] } = await client.query(
-      'UPDATE orders SET total = $1, discount = $2 WHERE id = $3 RETURNING *', [total, discount, order.id]
+      'UPDATE orders SET total = $1, discount = $2, card_extra = $3 WHERE id = $4 RETURNING *', [total, discount, cardExtra, order.id]
     );
     await client.query('COMMIT');
     res.json({ message: 'Pedido atualizado', order: updated, subtotal });

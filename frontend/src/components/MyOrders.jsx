@@ -284,6 +284,9 @@ const MyOrders = ({ user, onReorder }) => {
                   {parseFloat(order.discount) > 0 && (
                     <p><strong>Desconto{order.coupon_code ? ` (${order.coupon_code})` : ''}:</strong> − {brl(parseFloat(order.discount))}</p>
                   )}
+                  {parseFloat(order.card_extra) > 0 && (
+                    <p><strong>💳 Acréscimo no cartão:</strong> {brl(parseFloat(order.card_extra))}</p>
+                  )}
                   <p><strong>Total:</strong> {brl(parseFloat(order.total))}</p>
                   {order.payment_method === 'dinheiro' && parseFloat(order.change_for) > 0 && (
                     <p><strong>Troco para:</strong> {brl(parseFloat(order.change_for))}</p>

@@ -14,7 +14,8 @@ const COLS = [
   { key: 'estoque', label: 'Estoque', width: 80, num: true },
   { key: 'preco_oferta', label: 'Oferta', width: 90, num: true },
   { key: 'descricao', label: 'Descrição', width: 220 },
-  { key: 'codigo_barras', label: 'Código de barras', width: 140, inputMode: 'numeric' }
+  { key: 'codigo_barras', label: 'Código de barras', width: 140, inputMode: 'numeric' },
+  { key: 'acrescimo_cartao', label: '💳 Acrésc. cartão', width: 110, num: true }
 ];
 
 const UNITS = ['un', 'kg', 'pacote', 'caixa', 'litro', 'garrafa', 'lata', 'dúzia', 'bandeja', 'fardo'];
@@ -22,7 +23,7 @@ const UNITS = ['un', 'kg', 'pacote', 'caixa', 'litro', 'garrafa', 'lata', 'dúzi
 let nextUid = 1;
 const blank = () => ({
   uid: nextUid++, id: null, nome: '', preco: '', unidade: 'un', categoria: '', subcategoria: '', estoque: '',
-  preco_oferta: '', descricao: '', codigo_barras: '', ativo: true, foto: '', apagar: false
+  preco_oferta: '', descricao: '', codigo_barras: '', acrescimo_cartao: '', ativo: true, foto: '', apagar: false
 });
 
 const money = (v) => (v === null || v === undefined || v === '' ? '' : Number(v).toFixed(2).replace('.', ','));
@@ -48,6 +49,8 @@ const errorsOf = (r) => {
   if (!String(r.categoria).trim()) e.add('categoria');
   if (Number.isNaN(stock) || stock < 0) e.add('estoque');
   if (Number.isNaN(promo) || (promo !== null && promo > 0 && price > 0 && promo >= price)) e.add('preco_oferta');
+  const extra = num(r.acrescimo_cartao);
+  if (Number.isNaN(extra) || extra < 0) e.add('acrescimo_cartao');
   const code = String(r.codigo_barras || '').replace(/\D/g, '');
   if (String(r.codigo_barras || '').trim() && (code.length < 6 || code.length > 14)) e.add('codigo_barras');
   return e;
@@ -62,6 +65,7 @@ const MASS = [
   ['price_pct', 'Preço: aumentar/baixar %', '% (ex: 10 ou -5)'],
   ['price_set', 'Preço: definir valor', 'R$'],
   ['promo_set', 'Oferta: definir (vazio tira)', 'R$'],
+  ['card_set', '💳 Acréscimo no cartão (vazio tira)', 'R$ (ex: 1,00)'],
   ['categoria', 'Categoria', 'nome da categoria'],
   ['subcategoria', 'Subcategoria', 'nome (vazio tira)'],
   ['unidade', 'Unidade', 'un, kg...'],
@@ -195,6 +199,7 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
     preco_oferta: money(p.promo_price),
     descricao: p.description || '',
     codigo_barras: p.barcode || '',
+    acrescimo_cartao: parseFloat(p.card_extra) > 0 ? money(p.card_extra) : '',
     ativo: p.active !== false,
     foto: p.image_url || '',
     apagar: false
@@ -361,6 +366,7 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
         }
         case 'price_set': return { ...r, preco: money(num(v)) };
         case 'promo_set': return { ...r, preco_oferta: v ? money(num(v)) : '' };
+        case 'card_set': return { ...r, acrescimo_cartao: v ? money(num(v)) : '' };
         case 'estoque': return { ...r, estoque: qty(num(v)) };
         case 'categoria': case 'subcategoria': case 'unidade': return { ...r, [action]: v };
         case 'show': return { ...r, ativo: true };
@@ -441,7 +447,7 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
   // ⬇️ Baixar a planilha inteira (CSV que abre no Excel; dá para colar de volta aqui), ignora os filtros
   const download = () => {
     const esc = (v) => (/[;"\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''));
-    const header = 'nome;preco;unidade;categoria;subcategoria;estoque;preco_oferta;descricao;codigo_barras';
+    const header = 'nome;preco;unidade;categoria;subcategoria;estoque;preco_oferta;descricao;codigo_barras;acrescimo_cartao';
     const lines = rows.filter(r => !isEmpty(r) && !r.apagar).map(r => COLS.map(c => esc(r[c.key])).join(';'));
     const blob = new Blob(['﻿' + [header, ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);

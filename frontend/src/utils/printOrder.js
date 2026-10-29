@@ -16,7 +16,8 @@ const receiptHtml = (order) => {
 
   const discount = parseFloat(order.discount) || 0;
   const fee = parseFloat(order.delivery_fee) || 0;
-  const subtotal = (parseFloat(order.total) || 0) + discount - fee;
+  const cardExtra = parseFloat(order.card_extra) || 0;
+  const subtotal = (parseFloat(order.total) || 0) + discount - fee - cardExtra;
   const changeFor = parseFloat(order.change_for) || 0;
 
   let payment = PAYMENT[order.payment_method] || esc(order.payment_method);
@@ -62,6 +63,7 @@ const receiptHtml = (order) => {
     <tr><td>Subtotal</td><td class="r">${money(subtotal)}</td></tr>
     ${discount > 0 ? `<tr><td>Desconto${order.coupon_code ? ` (${esc(order.coupon_code)})` : ''}</td><td class="r">- ${money(discount)}</td></tr>` : ''}
     <tr><td>Taxa de entrega</td><td class="r">${money(fee)}</td></tr>
+    ${cardExtra > 0 ? `<tr><td>Acréscimo cartão</td><td class="r">${money(cardExtra)}</td></tr>` : ''}
     <tr class="total"><td>TOTAL</td><td class="r">${money(order.total)}</td></tr>
   </table>
   <hr>

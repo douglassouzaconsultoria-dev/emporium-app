@@ -12,7 +12,7 @@ import BarcodeScanner from './BarcodeScanner';
 import { brl } from '../utils/format';
 import { prepareImage } from '../utils/prepareImage';
 
-const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true, barcode: '', adult: false };
+const emptyForm = { name: '', price: '', promo_price: '', description: '', unit: '', category_id: '', subcategory: '', estoque: '', active: true, barcode: '', adult: false, card_extra: '' };
 
 // Sugestões de unidade (pode digitar outra)
 const UNIT_SUGGESTIONS = ['un', 'kg', 'pacote', 'caixa', 'litro', 'garrafa', 'lata', 'dúzia', 'bandeja', 'fardo'];
@@ -179,7 +179,8 @@ function AdminProducts() {
       estoque: product.estoque ?? 0,
       active: product.active !== false,
       barcode: product.barcode || '',
-      adult: product.adult === true
+      adult: product.adult === true,
+      card_extra: parseFloat(product.card_extra) > 0 ? product.card_extra : ''
     });
     setImageFile(null);
     setFormError('');
@@ -274,6 +275,7 @@ function AdminProducts() {
       fd.append('active', formData.active ? 'true' : 'false');
       fd.append('barcode', formData.barcode || '');
       fd.append('adult', formData.adult ? 'true' : 'false');
+      fd.append('card_extra', formData.card_extra === '' ? '' : parseFloat(formData.card_extra));
       if (readyUrl) fd.append('image_url', readyUrl); // já tratada e conferida: não trata de novo
       else if (imageFile) fd.append('image', imageFile);
       else if (modalMode === 'create' && editingProduct?.image_url) fd.append('image_url', editingProduct.image_url);
@@ -640,6 +642,24 @@ function AdminProducts() {
                   />
                   {formData.promo_price !== '' && parseFloat(formData.promo_price) < parseFloat(formData.price) && (
                     <small>Aparece na loja com {Math.round((1 - formData.promo_price / formData.price) * 100)}% OFF e na seção 🔥 Ofertas.</small>
+                  )}
+                </div>
+              </div>
+
+              <div className="ap-form-row">
+                <div className="ap-form-group">
+                  <label>💳 Acréscimo no cartão (R$ por unidade)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Vazio = sem acréscimo (ex: cigarro 1.00)"
+                    value={formData.card_extra}
+                    onChange={(e) => setFormData({ ...formData, card_extra: e.target.value })}
+                    className="ap-input"
+                  />
+                  {parseFloat(formData.card_extra) > 0 && (
+                    <small>Quem pagar no cartão paga + R$ {parseFloat(formData.card_extra).toFixed(2).replace('.', ',')} em cada um. Aparece no card da loja e no pedido.</small>
                   )}
                 </div>
               </div>
