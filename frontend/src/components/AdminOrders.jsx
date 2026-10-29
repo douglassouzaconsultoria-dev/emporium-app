@@ -691,6 +691,9 @@ const AdminOrders = () => {
               {parseFloat(selectedOrder.delivery_fee) > 0 && (
                 <p>🛵 Taxa de entrega{selectedOrder.delivery_neighborhood ? ` (${selectedOrder.delivery_neighborhood})` : ''}: {brl(parseFloat(selectedOrder.delivery_fee))}</p>
               )}
+              {parseFloat(selectedOrder.card_extra) > 0 && (
+                <p>💳 Acréscimo no cartão: {brl(parseFloat(selectedOrder.card_extra))}</p>
+              )}
               <h4>Total do Pedido: {brl(parseFloat(selectedOrder.total))}</h4>
               <p><strong>Status Atual:</strong>
                 <span

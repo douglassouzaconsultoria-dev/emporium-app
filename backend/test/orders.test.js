@@ -231,3 +231,60 @@ test('🔒 cliente não acessa rotas do admin', async () => {
   assert.equal((await ctx.api('GET', '/orders', undefined, clientToken)).status, 403);
   assert.equal((await ctx.api('GET', '/orders')).status, 401);
 });
+
+test('💳 acréscimo no cartão: cigarro +R$ 1,00 cada só no cartão, fora do cupom e do pedido mínimo', async () => {
+  const cigarro = await product({ name: 'Cigarro X', price: 12 });
+  const leite = await product({ name: 'Leite Y', price: 5 });
+  await ctx.pool.query('UPDATE products SET card_extra = 1 WHERE id = $1', [cigarro.id]);
+
+  const card = await order([[cigarro, 3], [leite, 2]], { payment_method: 'cartao' });
+  assert.equal(card.status, 201, JSON.stringify(card.data));
+  assert.equal(card.data.order.card_extra, 3); // 3 maços × R$ 1,00
+  assert.equal(card.data.order.total, 54); // 36 + 10 + 5 de taxa + 3
+  assert.equal((await itemsOf(card.data.id)).find(i => i.product_id === cigarro.id).price, 12); // preço do item não muda
+
+  const cash = await order([[cigarro, 3]], { payment_method: 'dinheiro' });
+  assert.equal(cash.data.order.card_extra, 0);
+  assert.equal(cash.data.order.total, 41);
+  const pix = await order([[cigarro, 3]], { payment_method: 'pix' });
+  assert.equal(pix.data.order.card_extra, 0);
+
+  // cupom de 10% vale só sobre os produtos (36), não sobre o acréscimo
+  await db.coupon({ code: 'CIG10', value: 10 });
+  const withCoupon = await order([[cigarro, 3]], { payment_method: 'cartao', coupon_code: 'CIG10' });
+  assert.equal(withCoupon.data.order.discount, 3.6);
+  assert.equal(withCoupon.data.order.total, 40.4); // 36 - 3,60 + 5 + 3
+
+  // editar itens recalcula o acréscimo
+  const edit = await ctx.api('PUT', `/orders/${card.data.id}/items`, {
+    items: [{ product_id: cigarro.id, quantity: 1 }, { product_id: leite.id, quantity: 2 }]
+  }, adminToken);
+  assert.equal(edit.status, 200);
+  assert.equal(edit.data.order.card_extra, 1);
+  assert.equal(edit.data.order.total, 28); // 12 + 10 + 5 + 1
+});
+
+test('💳 cadastro aceita o acréscimo e recusa valor negativo', async () => {
+  const fd = (extra) => {
+    const f = new FormData();
+    f.append('name', 'Cigarro Z'); f.append('price', '10'); f.append('unit', 'un'); f.append('category_id', String(cat.id));
+    if (extra !== undefined) f.append('card_extra', extra);
+    return f;
+  };
+  const post = async (body, url = '/products', method = 'POST') => {
+    const res = await fetch(ctx.api.base + url, { method, body, headers: { Authorization: `Bearer ${adminToken}` } });
+    return { status: res.status, data: await res.json() };
+  };
+  const created = await post(fd('1,00'));
+  assert.equal(created.status, 201);
+  assert.equal(parseFloat(created.data.card_extra), 1);
+  assert.equal((await post(fd('-1'))).status, 400);
+  // editar sem o campo mantém o acréscimo
+  const kept = await post(fd(), `/products/${created.data.id}`, 'PUT');
+  assert.equal(parseFloat(kept.data.card_extra), 1);
+  // planilha: coluna acrescimo_cartao
+  const imp = await ctx.api('POST', '/products/import', { rows: [{ id: created.data.id, nome: 'Cigarro Z', preco: '10', categoria: 'Mercearia', acrescimo_cartao: '' }] }, adminToken);
+  assert.equal(imp.status, 200, JSON.stringify(imp.data));
+  const { rows: [p] } = await ctx.pool.query('SELECT card_extra FROM products WHERE id = $1', [created.data.id]);
+  assert.equal(parseFloat(p.card_extra), 0);
+});

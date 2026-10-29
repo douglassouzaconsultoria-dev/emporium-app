@@ -63,7 +63,10 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
   const selectedFee = fees.find(f => f.neighborhood === neighborhood);
   const deliveryFee = !neighborhood ? 0 : selectedFee ? parseFloat(selectedFee.fee) : defaultFee;
   const discount = coupon ? coupon.discount : 0;
-  const finalTotalPreview = Math.round((parseFloat(total) - discount + deliveryFee) * 100) / 100;
+  // 💳 Acréscimo no cartão (ex: cigarro +R$ 1,00 cada); o servidor calcula de novo ao criar o pedido
+  const cardExtraIfCard = Math.round(cart.reduce((sum, item) => sum + (parseFloat(item.card_extra) || 0) * item.quantity, 0) * 100) / 100;
+  const cardExtra = paymentMethod === 'cartao' ? cardExtraIfCard : 0;
+  const finalTotalPreview = Math.round((parseFloat(total) - discount + deliveryFee + cardExtra) * 100) / 100;
   const changeValue = parseFloat(String(changeFor).replace(',', '.')) || 0;
 
   // 🎟️ Confere o cupom (o servidor confere de novo ao criar o pedido)
@@ -308,6 +311,12 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
             <span>🛵 Taxa de entrega{neighborhood ? '' : ' (escolha o bairro)'}</span>
             <span>{brl(deliveryFee)}</span>
           </div>
+          {cardExtra > 0 && (
+            <div className="order-item">
+              <span>💳 Acréscimo no cartão</span>
+              <span>+ {brl(cardExtra)}</span>
+            </div>
+          )}
           <div className="order-total">
             <strong>Total: {brl(finalTotalPreview)}</strong>
           </div>
@@ -423,7 +432,10 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
                   onChange={(e) => setPaymentMethod(e.target.value)}
                   disabled={loading}
                 />
-                <span>💳 Cartão de Crédito/Débito (na entrega)</span>
+                <span>
+                  💳 Cartão de Crédito/Débito (na entrega)
+                  {cardExtraIfCard > 0 && <small className="card-extra-hint"> · + {brl(cardExtraIfCard)} de acréscimo</small>}
+                </span>
               </label>
             </div>
           </div>
@@ -502,6 +514,11 @@ const Checkout = ({ cart, total, onClose, onSuccess }) => {
             <div className="card-message">
               <p>💳 Levaremos a maquininha de cartão na entrega!</p>
               <p>Você pode pagar com débito ou crédito quando receber seu pedido.</p>
+              {cardExtra > 0 && (
+                <p className="card-extra-hint">
+                  💳 No cartão, alguns produtos (como cigarros) têm acréscimo: + {brl(cardExtra)} neste pedido. No dinheiro ou no PIX não tem.
+                </p>
+              )}
             </div>
           )}
 

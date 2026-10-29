@@ -73,6 +73,13 @@ const parseSub = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').slic
 // Vem do formulário (multipart) como texto
 const parseActive = (value) => value === undefined || value === true || value === 'true';
 
+// 💳 Acréscimo no cartão por unidade (ex: cigarro +R$ 1,00). Vazio = 0; negativo/inválido = NaN
+const parseCardExtra = (value) => {
+  if (value === undefined || value === null || String(value).trim() === '') return 0;
+  const n = parseFloat(String(value).replace(/[R$\s]/g, '').replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN;
+};
+
 // Código de barras: só números (EAN-8 a EAN-14 / GTIN); qualquer outra coisa = sem código
 const parseBarcode = (value) => {
   const digits = String(value ?? '').replace(/\D/g, '');
@@ -92,7 +99,7 @@ router.get('/', async (req, res) => {
     // sold = em quantos pedidos (não cancelados) o produto saiu nos últimos 30 dias → "mais vendidos"
     const result = await pool.query(
       `SELECT p.id, p.name, p.price, p.promo_price, p.description, p.active, p.unit, p.category_id,
-              p.image_url, p.estoque, p.sort_order, p.subcategory, p.barcode, p.adult, COALESCE(s.sold, 0)::int AS sold
+              p.image_url, p.estoque, p.sort_order, p.subcategory, p.barcode, p.adult, p.card_extra, COALESCE(s.sold, 0)::int AS sold
        FROM products p
        LEFT JOIN (
          SELECT oi.product_id, COUNT(DISTINCT oi.order_id) AS sold
@@ -206,6 +213,8 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
     if (promo !== null && promo >= parseFloat(price)) {
       return res.status(400).json({ error: 'O preço de oferta precisa ser menor que o preço normal' });
     }
+    const cardExtra = parseCardExtra(req.body.card_extra);
+    if (Number.isNaN(cardExtra)) return res.status(400).json({ error: 'Acréscimo no cartão inválido' });
 
     let imageUrl = req.body.image_url || null; // "Duplicar" reaproveita a foto do original
     if (req.file) {
@@ -215,10 +224,10 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
     const estoqueInicial = parseFloat(estoque) || 0;
 
     const result = await pool.query(
-      `INSERT INTO products (name, price, unit, category_id, image_url, estoque, promo_price, description, active, subcategory, barcode, adult)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      `INSERT INTO products (name, price, unit, category_id, image_url, estoque, promo_price, description, active, subcategory, barcode, adult, card_extra)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
       [name, price, unit, category_id, imageUrl, estoqueInicial, promo, (description || '').trim() || null, parseActive(active), parseSub(subcategory), barcode,
-        req.body.adult === 'true']
+        req.body.adult === 'true', cardExtra]
     );
 
     // ⚙️ Produto novo com estoque já nasce AUTOMÁTICO (renova toda semana para a quantidade cadastrada).
@@ -285,6 +294,8 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
     if (promo !== null && promo >= parseFloat(price)) {
       return res.status(400).json({ error: 'O preço de oferta precisa ser menor que o preço normal' });
     }
+    const cardExtra = parseCardExtra(req.body.card_extra);
+    if (Number.isNaN(cardExtra)) return res.status(400).json({ error: 'Acréscimo no cartão inválido' });
 
     let imageUrl = null;
 
@@ -308,11 +319,12 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
               promo_price = $6, description = $7, active = $8,
               subcategory = CASE WHEN $11 THEN $10 ELSE subcategory END,
               barcode = CASE WHEN $13 THEN $12 ELSE barcode END,
-              adult = CASE WHEN $15 THEN $14 ELSE adult END
+              adult = CASE WHEN $15 THEN $14 ELSE adult END,
+              card_extra = CASE WHEN $17 THEN $16 ELSE card_extra END
        WHERE id = $9 RETURNING *`,
       [name, price, unit, category_id, imageUrl, promo, (description || '').trim() || null, parseActive(active), id,
         parseSub(subcategory), subcategory !== undefined, barcode, req.body.barcode !== undefined,
-        req.body.adult === 'true', req.body.adult !== undefined]
+        req.body.adult === 'true', req.body.adult !== undefined, cardExtra, req.body.card_extra !== undefined]
     );
 
     if (result.rows.length === 0) {
@@ -353,6 +365,8 @@ router.post('/import', verifyAdmin, async (req, res) => {
     const category = String(r.categoria || '').trim();
     const stock = num(r.estoque);
     const promo = num(r.preco_oferta);
+    const cardExtra = num(r.acrescimo_cartao);
+    if (Number.isNaN(cardExtra) || cardExtra < 0) errors.push(`Linha ${line}: acréscimo no cartão inválido`);
     if (!name) errors.push(`Linha ${line}: falta o nome`);
     if (!(price > 0)) errors.push(`Linha ${line}: preço inválido`);
     if (!category) errors.push(`Linha ${line}: falta a categoria`);
@@ -376,6 +390,9 @@ router.post('/import', verifyAdmin, async (req, res) => {
       // 📷 Foto já tratada (planilha do app): só da nossa pasta do Cloudinary; vazio = tirar a foto
       hasImage: r.foto === '' || isOurImage(r.foto),
       image: isOurImage(r.foto) ? r.foto : null,
+      // 💳 Acréscimo no cartão; sem a coluna → não mexe; vazio = sem acréscimo
+      hasCardExtra: Object.prototype.hasOwnProperty.call(r, 'acrescimo_cartao'),
+      cardExtra: cardExtra > 0 ? Math.round(cardExtra * 100) / 100 : 0,
       line,
       id: parseInt(r.id) || null
     };
@@ -419,19 +436,20 @@ router.post('/import', verifyAdmin, async (req, res) => {
                   subcategory = CASE WHEN $12 THEN $11 ELSE subcategory END,
                   barcode = CASE WHEN $14 THEN $13 ELSE barcode END,
                   active = CASE WHEN $16 THEN $15 ELSE active END,
-                  image_url = CASE WHEN $18 THEN $17 ELSE image_url END
+                  image_url = CASE WHEN $18 THEN $17 ELSE image_url END,
+                  card_extra = CASE WHEN $20 THEN $19 ELSE card_extra END
            WHERE id = $7`,
           [r.price, r.unit, categoryId, r.promo, r.description, r.stock, existingId, r.hasPromo, r.hasDesc, r.name,
-            r.subcategory, r.hasSub, r.barcode, r.hasBarcode, r.active, r.hasActive, r.image, r.hasImage]
+            r.subcategory, r.hasSub, r.barcode, r.hasBarcode, r.active, r.hasActive, r.image, r.hasImage, r.cardExtra, r.hasCardExtra]
         );
         prods.set(key(r.name), existingId);
         updated++;
       } else {
         const stock = r.stock || 0;
         const id = (await client.query(
-          `INSERT INTO products (name, price, unit, category_id, estoque, promo_price, description, active, subcategory, barcode, image_url)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $10, $8, $9, $11) RETURNING id`,
-          [r.name, r.price, r.unit, categoryId, stock, r.promo, r.description, r.subcategory, r.barcode, r.active, r.image]
+          `INSERT INTO products (name, price, unit, category_id, estoque, promo_price, description, active, subcategory, barcode, image_url, card_extra)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $10, $8, $9, $11, $12) RETURNING id`,
+          [r.name, r.price, r.unit, categoryId, stock, r.promo, r.description, r.subcategory, r.barcode, r.active, r.image, r.cardExtra]
         )).rows[0].id;
         // Igual ao cadastro manual: com estoque já entra no automático (renova toda semana)
         await client.query(
