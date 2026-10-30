@@ -7,12 +7,104 @@
   flex-direction: column;
 }
 
+.pc-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 .pc-video {
   flex: 1;
   width: 100%;
   min-height: 0;
   object-fit: contain;
   background: #000;
+}
+
+/* # Linhas para centralizar */
+.pc-grid {
+  position: absolute;
+  pointer-events: none;
+}
+
+.pc-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.pc-line.v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.pc-line.h {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.pc-square {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 2px solid #facc15;
+  border-radius: 12px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.pc-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.pc-flashing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 48px;
+  pointer-events: none;
+}
+
+/* ⚡ Flash e linhas */
+.pc-tools {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px 0;
+  background: #000;
+}
+
+.pc-tool {
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pc-tool.on {
+  border-color: #facc15;
+  background: #facc15;
+  color: #1a1a1a;
+}
+
+.pc-shutter:disabled {
+  opacity: 0.6;
 }
 
 .pc-error {
