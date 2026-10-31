@@ -32,9 +32,10 @@ router.put('/order', verifyAdmin, async (req, res) => {
   }
 });
 
-// 🔒 PUT - Apenas ADMIN (mostrar/ocultar na vitrine, como ordenar os produtos e 🔞 venda proibida p/ menores)
+// 🔒 PUT - Apenas ADMIN (mostrar/ocultar na vitrine, como ordenar os produtos, 🔞 venda proibida p/ menores
+// e 📱 esconder no app da Play Store, ex: Tabacaria — a Play não permite venda de tabaco)
 router.put('/:id/display', verifyAdmin, async (req, res) => {
-  const { active, product_sort, subcategory_order, adult } = req.body;
+  const { active, product_sort, subcategory_order, adult, play_hidden } = req.body;
   if (product_sort !== undefined && !['az', 'bestsellers', 'manual'].includes(product_sort)) {
     return res.status(400).json({ error: 'Ordenação inválida' });
   }
@@ -48,10 +49,11 @@ router.put('/:id/display', verifyAdmin, async (req, res) => {
          active = COALESCE($1, active),
          product_sort = COALESCE($2, product_sort),
          subcategory_order = COALESCE($4, subcategory_order),
-         adult = COALESCE($5, adult)
+         adult = COALESCE($5, adult),
+         play_hidden = COALESCE($6, play_hidden)
        WHERE id = $3 RETURNING *`,
       [typeof active === 'boolean' ? active : null, product_sort || null, req.params.id, subOrder,
-        typeof adult === 'boolean' ? adult : null]
+        typeof adult === 'boolean' ? adult : null, typeof play_hidden === 'boolean' ? play_hidden : null]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' });
     res.json(result.rows[0]);
