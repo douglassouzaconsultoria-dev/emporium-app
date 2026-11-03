@@ -74,7 +74,7 @@ No site e no app instalado pelo navegador, a Tabacaria continua aparecendo.
 - **Gráfico de destaque 1024×500:** `docs/google-play/feature-graphic-1024x500.png`
 - **Capturas de tela do celular** (mínimo 2, recomendado 4 a 8): tire no seu celular, com o app aberto,
   mostrando a loja, um produto, o carrinho e "Meus Pedidos". Use telas sem cigarro.
-- **Categoria:** Compras · **E-mail de contato:** o do Empório · **Site:** https://emporiobrumado.com
+- **Categoria:** Compras · **E-mail de contato:** emporiobrumado@gmail.com · **Site:** https://emporiobrumado.com
 
 ## 5. Conteúdo do app (Play Console → Política → Conteúdo do app)
 
@@ -104,7 +104,3 @@ No site e no app instalado pelo navegador, a Tabacaria continua aparecendo.
 1. Abra **Produção → Criar nova versão** e envie o `.aab`.
 2. Mande para revisão. A primeira revisão costuma levar alguns dias.
 3. Depois de aprovado, o link fica `https://play.google.com/store/apps/details?id=com.emporiobrumado.app`.
-
-## Antes de enviar (falta preencher)
-- WhatsApp e e-mail do Empório nos campos amarelos `[WHATSAPP]` e `[E-MAIL]` de
-  `privacidade.html`, `termos.html` e `excluir-conta.html` (pasta `frontend/public`).
