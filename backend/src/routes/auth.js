@@ -6,7 +6,8 @@ const crypto = require('crypto');
 const multer = require('multer');
 const pool = require('../utils/database');
 const { verifyToken } = require('../middleware/authMiddleware');
-const { cloudinary, uploadBuffer } = require('../utils/cloudinary');
+const { cloudinary } = require('../utils/cloudinary');
+const { prepareAvatar } = require('../utils/imageStore');
 const { notifyAdmins, notifyCustomer, keyHandler, subscribeHandler, unsubscribeHandler } = require('../utils/push');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'seu_segredo_super_seguro_aqui_2024';
@@ -276,16 +277,7 @@ router.put('/profile', verifyToken, uploadAvatar, async (req, res) => {
     // 📸 Nova foto (opcional): recorte quadrado focado no ROSTO
     let avatarUrl = null;
     if (req.file) {
-      const uploaded = await uploadBuffer(req.file.buffer, {
-        public_id: avatarPublicId(req.user.id),
-        overwrite: true,
-        invalidate: true,
-        transformation: [
-          { width: 400, height: 400, crop: 'thumb', gravity: 'face' },
-          { quality: 'auto', fetch_format: 'auto' }
-        ]
-      });
-      avatarUrl = uploaded.secure_url;
+      avatarUrl = await prepareAvatar(req.file.buffer); // guardada no nosso banco (sem gastar o Cloudinary)
     }
 
     // ⚠️ role NUNCA é alterado aqui
@@ -314,6 +306,7 @@ router.put('/profile', verifyToken, uploadAvatar, async (req, res) => {
 // ===================== REMOVER FOTO =====================
 router.delete('/profile/avatar', verifyToken, async (req, res) => {
   try {
+    // Foto antiga do Cloudinary (de antes de guardar no nosso banco); a do nosso banco é limpa sozinha
     try {
       await cloudinary.uploader.destroy(avatarPublicId(req.user.id), { invalidate: true });
     } catch (e) {

@@ -33,6 +33,8 @@ app.use('/api/backup', require('./routes/backup'));
 app.use('/api/schedules', require('./routes/schedules'));
 app.use('/api/errors', require('./routes/errors'));
 app.use('/api/favorites', require('./routes/favorites'));
+app.use('/api/img', require('./routes/images').img); // 🖼️ fotos guardadas no nosso banco
+app.use('/api/images', require('./routes/images').admin);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -184,6 +186,17 @@ const migrate = () => require('./utils/database').query(`
     expires_at TIMESTAMP,
     used_at TIMESTAMP
   );
+  ALTER TABLE media_files ALTER COLUMN public_id DROP NOT NULL; -- arquivo guardado no nosso banco não tem código do Cloudinary
+  CREATE TABLE IF NOT EXISTS images (
+    id SERIAL PRIMARY KEY,
+    key VARCHAR(24) UNIQUE NOT NULL,
+    mime VARCHAR(60) NOT NULL,
+    data BYTEA NOT NULL,
+    small BYTEA,
+    bytes INTEGER,
+    source VARCHAR(20),
+    created_at TIMESTAMP DEFAULT NOW()
+  );
   CREATE TABLE IF NOT EXISTS error_logs (
     id SERIAL PRIMARY KEY,
     created_at TIMESTAMP DEFAULT NOW(),
@@ -201,6 +214,7 @@ if (require.main === module) {
     .then(() => console.log('🧱 Banco atualizado'))
     .then(() => require('./utils/stockRestock').startStockRestock())
     .then(() => require('./utils/backup').startAutoBackup())
+    .then(() => require('./routes/images').startImageCleanup())
     .then(() => {
       // 🔎 Confere se o banco tem todas as colunas que o código usa (só leitura)
       const expected = {

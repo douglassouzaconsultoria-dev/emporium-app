@@ -3,6 +3,7 @@ import { API_URL } from '../config';
 import { AuthContext } from '../AuthContext';
 import CustomerPush from './CustomerPush';
 import './Profile.css';
+import { getImageUrl } from '../utils/imageUrl';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -213,7 +214,7 @@ function Profile({ onClose, onLogout }) {
     }
   };
 
-  const avatarSrc = previewUrl || user?.avatar_url;
+  const avatarSrc = previewUrl || getImageUrl(user?.avatar_url);
   const initial = (user?.name || '?').trim().charAt(0).toUpperCase();
 
   return (

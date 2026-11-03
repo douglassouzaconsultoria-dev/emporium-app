@@ -3,6 +3,7 @@ import { API_URL } from '../config';
 import MotoboyPanel from './MotoboyPanel';
 import { confirmDialog } from '../utils/dialog';
 import './AdminMotoboys.css';
+import { getImageUrl } from '../utils/imageUrl';
 
 const emptyForm = { name: '', username: '', phone_number: '', password: '' };
 
@@ -302,7 +303,7 @@ function AdminMotoboys() {
               <div className="am-card-top">
                 <div className="am-avatar">
                   {m.avatar_url
-                    ? <img src={m.avatar_url} alt={m.name} />
+                    ? <img src={getImageUrl(m.avatar_url)} alt={m.name} />
                     : <span>{(m.name || '?').charAt(0).toUpperCase()}</span>}
                 </div>
                 <div className="am-info">

@@ -496,3 +496,36 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* 📦 Fotos no nosso servidor */
+.as-photos-status {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.as-photos-ok {
+  margin: 0;
+  color: #166534;
+  font-weight: 700;
+}
+
+.as-photos-progress {
+  position: relative;
+  overflow: hidden;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #e5e7eb;
+}
+
+.as-photos-progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #bbf7d0;
+  transition: width 0.3s;
+}
+
+.as-photos-progress small {
+  position: relative;
+  font-size: 14px;
+  font-weight: 700;
+}

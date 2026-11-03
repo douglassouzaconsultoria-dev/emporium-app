@@ -22,6 +22,7 @@ import InstallBanner from './components/InstallBanner';
 import DialogHost from './components/DialogHost';
 import BannerCarousel from './components/BannerCarousel';
 import { brl } from './utils/format';
+import { getImageUrl } from './utils/imageUrl';
 
 function AppContent() {
   const { user, token, loading, logout } = useContext(AuthContext);
@@ -383,7 +384,7 @@ function AppContent() {
             title="Meu Perfil"
           >
             {user.avatar_url ? (
-              <img src={user.avatar_url} alt={firstName} className="user-chip-avatar" />
+              <img src={getImageUrl(user.avatar_url)} alt={firstName} className="user-chip-avatar" />
             ) : (
               <span className="user-chip-initial">{initial}</span>
             )}

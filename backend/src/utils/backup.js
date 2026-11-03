@@ -13,7 +13,8 @@ const KEEP = 14;
 const DAY = 24 * 60 * 60 * 1000;
 
 // Datas e números (preço, estoque) vão exatamente como o banco escreve: sem perder casas nem mudar o fuso
-const RAW = new Set([1082, 1083, 1114, 1184, 1266, 1700]);
+// (17 = bytea: as fotos do nosso banco vão como texto "\x..." e voltam iguais no restaurar)
+const RAW = new Set([17, 1082, 1083, 1114, 1184, 1266, 1700]);
 const rawTypes = { getTypeParser: (oid, format) => (RAW.has(oid) ? (v) => v : types.getTypeParser(oid, format)) };
 
 // Estrutura de cada tabela, do jeito que o próprio Postgres escreve (para recriar igual)
@@ -49,7 +50,8 @@ const readSchema = async (client) => {
 };
 
 // Monta o backup completo (estrutura + dados) já compactado
-const createBackup = async () => {
+// withImages: false = sem as fotos (a cópia diária automática fica leve; o "Baixar backup" leva tudo)
+const createBackup = async ({ withImages = true } = {}) => {
   const client = await pool.connect();
   try {
     // Tudo numa "foto" só do banco, mesmo se chegar pedido durante o backup
@@ -57,6 +59,7 @@ const createBackup = async () => {
     const schema = await readSchema(client);
     const data = {};
     for (const t of schema.tables) {
+      if (t.name === 'images' && !withImages) { data[t.name] = []; continue; }
       data[t.name] = (await client.query({ text: `SELECT * FROM "${t.name}"`, types: rawTypes })).rows;
     }
     await client.query('COMMIT');
@@ -89,7 +92,7 @@ const listCloud = async () => {
 
 // Guarda uma cópia privada no Cloudinary e apaga as mais antigas
 const saveToCloud = async () => {
-  const { buffer, counts } = await createBackup();
+  const { buffer, counts } = await createBackup({ withImages: false });
   const id = fileName();
   await uploadBuffer(buffer, { resource_type: 'raw', type: 'private', public_id: `${FOLDER}/${id}`, overwrite: true });
   await pool.query(

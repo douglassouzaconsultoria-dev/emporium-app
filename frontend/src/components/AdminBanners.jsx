@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { notify } from '../utils/dialog';
+import { getImageUrl } from '../utils/imageUrl';
 
 // 🎞️ Banners da vitrine: escolhidos da pasta de imagens, com botão para mostrar ou esconder
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
-const thumb = (url) => url.replace('/upload/', '/upload/c_limit,w_600/');
+const thumb = (url) => getImageUrl(url, 600);
 
 function AdminBanners({ files }) {
   const [enabled, setEnabled] = useState(false);
