@@ -46,10 +46,10 @@ const getStore = async (db) => {
   }
 };
 
-// Dia da semana e "HH:MM" no horário da Bahia
-const nowInBahia = (date = new Date()) => {
+// Dia da semana e "HH:MM" no horário de Brasília (Patrocínio-MG)
+const nowInBrasilia = (date = new Date()) => {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Bahia', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    timeZone: 'America/Sao_Paulo', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
   }).formatToParts(date);
   const get = (type) => parts.find(p => p.type === type).value;
   const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(get('weekday'));
@@ -67,7 +67,7 @@ const storeStatus = (store, date = new Date()) => {
   }
   if (!store.hours_enabled) return { open: true, message: '' };
 
-  const { day, time } = nowInBahia(date);
+  const { day, time } = nowInBrasilia(date);
   const today = store.hours[day];
   if (!today.closed && openAt(today, time)) {
     return { open: true, message: `Aberto até ${today.close}` };

@@ -159,7 +159,7 @@ function AdminSubcategoryBoard({ categorySort }) {
       onDragEnd={() => { setDragId(null); setOver(null); }}
       title="Arraste para outra subcategoria"
     >
-      <span className="sb-thumb">{p.image_url ? <img src={getImageUrl(p.image_url)} alt="" /> : '📦'}</span>
+      <span className="sb-thumb">{p.image_url ? <img src={getImageUrl(p.image_url, 120)} alt="" /> : '📦'}</span>
       <span className="sb-name">{p.name}</span>
       <select
         className="sb-move"

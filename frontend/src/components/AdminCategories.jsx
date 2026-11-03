@@ -28,6 +28,19 @@ function AdminCategories() {
   };
 
   // 🔞 Venda proibida para menores (ex: bebidas alcoólicas): aviso na categoria e selo nos produtos
+  // 📱 Esconder no app da Play Store (a Play não permite apps que vendem tabaco); no site continua aparecendo
+  const togglePlay = async (category) => {
+    try {
+      await axios.put(`${API_URL}/categories/${category.id}/display`, { play_hidden: !category.play_hidden }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      setCategories(list => list.map(c => (c.id === category.id ? { ...c, play_hidden: !category.play_hidden } : c)));
+      setMessage(!category.play_hidden ? `✅ "${category.name}" não aparece no app da Play Store` : `✅ "${category.name}" volta a aparecer no app da Play Store`);
+    } catch {
+      setMessage('❌ Erro ao salvar');
+    }
+  };
+
   const toggleAdult = async (category) => {
     try {
       await axios.put(`${API_URL}/categories/${category.id}/display`, { adult: !category.adult }, {
@@ -211,6 +224,10 @@ function AdminCategories() {
                     <label className={`category-adult ${category.adult ? 'on' : ''}`}>
                       <input type="checkbox" checked={!!category.adult} onChange={() => toggleAdult(category)} />
                       🔞 Venda proibida para menores de 18
+                    </label>
+                    <label className={`category-adult ${category.play_hidden ? 'on' : ''}`}>
+                      <input type="checkbox" checked={!!category.play_hidden} onChange={() => togglePlay(category)} />
+                      📱 Esconder no app da Play Store
                     </label>
 
                     <div className="category-actions">

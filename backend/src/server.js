@@ -118,6 +118,7 @@ const migrate = () => require('./utils/database').query(`
   );
   CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(50) PRIMARY KEY, value TEXT);
   ALTER TABLE categories ADD COLUMN IF NOT EXISTS adult BOOLEAN DEFAULT false;
+  ALTER TABLE categories ADD COLUMN IF NOT EXISTS play_hidden BOOLEAN NOT NULL DEFAULT false;
   ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_note VARCHAR(200);
   CREATE TABLE IF NOT EXISTS product_schedules (
     id SERIAL PRIMARY KEY,

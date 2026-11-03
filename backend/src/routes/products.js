@@ -29,7 +29,8 @@ const upload = multer({
 });
 
 // ☁️ FUNÇÃO: envia a imagem para o Cloudinary e devolve a URL
-const uploadToCloudinary = (fileBuffer) => {
+// removeBg = false: foto já com fundo branco → só corta e centraliza (a IA de tirar o fundo conta 75 transformações)
+const uploadToCloudinary = (fileBuffer, { removeBg = true } = {}) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -37,7 +38,7 @@ const uploadToCloudinary = (fileBuffer) => {
         format: 'jpg', // JPG: a área sem fundo vira branca
         transformation: [
           // 🤖 IA do Cloudinary tira o fundo (mesa, prateleira, mão...), deixando só o produto
-          { effect: 'background_removal' },
+          ...(removeBg ? [{ effect: 'background_removal' }] : []),
           // ✂️ Corta o espaço vazio em volta do produto
           { effect: 'trim' },
           // 🎯 Centraliza o produto inteiro (sem cortar nem distorcer) em 740x740...
@@ -218,7 +219,7 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
 
     let imageUrl = req.body.image_url || null; // "Duplicar" reaproveita a foto do original
     if (req.file) {
-      imageUrl = await uploadToCloudinary(req.file.buffer);
+      imageUrl = await uploadToCloudinary(req.file.buffer, { removeBg: req.body.remove_bg !== 'false' });
     }
 
     const estoqueInicial = parseFloat(estoque) || 0;
@@ -252,7 +253,7 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
 router.post('/image-preview', verifyAdmin, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Envie a foto' });
   try {
-    res.json({ url: await uploadToCloudinary(req.file.buffer) });
+    res.json({ url: await uploadToCloudinary(req.file.buffer, { removeBg: req.body.remove_bg !== 'false' }) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Não consegui tratar a foto. Tente de novo.' });
@@ -301,7 +302,7 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
 
     if (req.file) {
       // Nova imagem → envia pro Cloudinary
-      imageUrl = await uploadToCloudinary(req.file.buffer);
+      imageUrl = await uploadToCloudinary(req.file.buffer, { removeBg: req.body.remove_bg !== 'false' });
     } else if (isOurImage(req.body.image_url)) {
       // Foto que já foi tratada e conferida no "Ver como vai ficar"
       imageUrl = req.body.image_url;

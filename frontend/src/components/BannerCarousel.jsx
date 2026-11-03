@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { API_URL } from '../config';
 import './BannerCarousel.css';
+import { getImageUrl } from '../utils/imageUrl';
 
 // 🖼️ Banners de promoção no topo da vitrine (o admin liga/desliga em Admin → Imagens)
 function BannerCarousel({ onOpen }) {
@@ -45,7 +46,7 @@ function BannerCarousel({ onOpen }) {
             onClick={() => b.link_type !== 'none' && onOpen(b)}
             style={{ cursor: b.link_type !== 'none' ? 'pointer' : 'default' }}
           >
-            <img src={b.image_url} alt="" loading={i === 0 ? 'eager' : 'lazy'} />
+            <img src={getImageUrl(b.image_url, 1000)} alt="" loading={i === 0 ? 'eager' : 'lazy'} />
           </button>
         ))}
       </div>

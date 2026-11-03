@@ -15,6 +15,7 @@ import MyOrders from './components/MyOrders';
 import { matchesSearch } from './utils/search';
 import CustomerPush from './components/CustomerPush';
 import OfflineBanner, { useOnline } from './components/OfflineBanner';
+import { isPlayApp } from './utils/playApp';
 import Profile from './components/Profile';
 import MotoboyPanel from './components/MotoboyPanel';
 import InstallBanner from './components/InstallBanner';
@@ -124,16 +125,19 @@ function AppContent() {
   const fetchCategories = async () => {
     try {
       const response = await axios.get(`${API_URL}/categories`);
-      setCategories(response.data);
-      fetchProducts();
+      // 📱 App da Play Store: categorias marcadas (ex: Tabacaria) não aparecem (a Play não permite venda de tabaco)
+      const playHidden = isPlayApp() ? new Set(response.data.filter(c => c.play_hidden).map(c => c.id)) : new Set();
+      setCategories(response.data.filter(c => !playHidden.has(c.id)));
+      fetchProducts(playHidden);
     } catch (error) {
       console.error('Erro ao buscar categorias:', error);
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (playHidden = new Set()) => {
     try {
       const response = await axios.get(`${API_URL}/products`);
+      response.data = response.data.filter(p => !playHidden.has(p.category_id));
       setProducts(response.data);
       setProductsLoaded(true);
       // Atualiza preço/oferta do carrinho salvo e tira o que saiu da loja

@@ -14,7 +14,7 @@ const applyCoupon = async (db, code, subtotal, { lock = false } = {}) => {
 
   if (!coupon || !coupon.active) return { error: 'Cupom inválido' };
   if (coupon.expires_text) {
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bahia' });
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     if (coupon.expires_text < today) return { error: 'Cupom vencido' };
   }
   if (coupon.max_uses && coupon.uses >= coupon.max_uses) {

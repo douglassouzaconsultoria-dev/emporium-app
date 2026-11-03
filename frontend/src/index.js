@@ -1,6 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { detectPlayApp } from './utils/playApp';
+
+detectPlayApp(); // antes do app limpar o endereço (?app=play)
 
 // 📲 Guarda o convite de instalação do Android (chega antes da tela montar)
 window.addEventListener('beforeinstallprompt', (e) => {
