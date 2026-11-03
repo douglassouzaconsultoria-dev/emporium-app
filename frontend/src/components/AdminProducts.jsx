@@ -8,6 +8,7 @@ import { getImageUrl } from '../utils/imageUrl';
 import AdminImportProducts from './AdminImportProducts';
 import AdminProductsGrid from './AdminProductsGrid';
 import ProductCamera from './ProductCamera';
+import RemoveBgOption, { useRemoveBg } from './RemoveBgOption';
 import BarcodeScanner from './BarcodeScanner';
 import { brl } from '../utils/format';
 import { prepareImage } from '../utils/prepareImage';
@@ -56,12 +57,14 @@ function AdminProducts() {
   }, [imageFile]);
 
   // ✨ Trata a foto agora (tira o fundo, centraliza em 800x800) para conferir antes de salvar
+  const [removeBg, setRemoveBg] = useRemoveBg();
   const preparePhoto = async () => {
     try {
       setPreparing(true);
       setFormError('');
       const fd = new FormData();
       fd.append('image', imageFile);
+      fd.append('remove_bg', removeBg ? 'true' : 'false');
       const { data } = await axios.post(`${API_URL}/products/image-preview`, fd, {
         headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
       });
@@ -277,7 +280,10 @@ function AdminProducts() {
       fd.append('adult', formData.adult ? 'true' : 'false');
       fd.append('card_extra', formData.card_extra === '' ? '' : parseFloat(formData.card_extra));
       if (readyUrl) fd.append('image_url', readyUrl); // já tratada e conferida: não trata de novo
-      else if (imageFile) fd.append('image', imageFile);
+      else if (imageFile) {
+        fd.append('image', imageFile);
+        fd.append('remove_bg', removeBg ? 'true' : 'false');
+      }
       else if (modalMode === 'create' && editingProduct?.image_url) fd.append('image_url', editingProduct.image_url);
 
       const multipartHeaders = {
@@ -447,7 +453,7 @@ function AdminProducts() {
                 <div className="ap-cell-product">
                   <div className="ap-thumb">
                     {product.image_url ? (
-                      <img src={getImageUrl(product.image_url)} alt={product.name} />
+                      <img src={getImageUrl(product.image_url, 120)} alt={product.name} />
                     ) : (
                       <span>📦</span>
                     )}
@@ -569,9 +575,12 @@ function AdminProducts() {
                       <span>✅ Assim vai aparecer na loja. Ao salvar, é esta foto que fica.</span>
                     </div>
                   ) : (
-                    <button type="button" className="ap-prepare" onClick={preparePhoto} disabled={saving || preparing}>
-                      {preparing ? '⏳ Tirando o fundo...' : '✨ Ver como vai ficar'}
-                    </button>
+                    <>
+                      <RemoveBgOption value={removeBg} onChange={setRemoveBg} disabled={saving || preparing} />
+                      <button type="button" className="ap-prepare" onClick={preparePhoto} disabled={saving || preparing}>
+                        {preparing ? (removeBg ? '⏳ Tirando o fundo...' : '⏳ Preparando...') : '✨ Ver como vai ficar'}
+                      </button>
+                    </>
                   )}
                 </div>
               )}

@@ -255,7 +255,7 @@ function AdminStorefront({ section }) {
                     <li key={p.id} className={p.active === false ? 'sf-off' : ''}>
                       <span className="ate-pos">{i + 1}º</span>
                       <span className="sf-thumb">
-                        {p.image_url ? <img src={getImageUrl(p.image_url)} alt="" /> : '📦'}
+                        {p.image_url ? <img src={getImageUrl(p.image_url, 120)} alt="" /> : '📦'}
                       </span>
                       <span className="ate-label sf-prod">
                         {p.name}

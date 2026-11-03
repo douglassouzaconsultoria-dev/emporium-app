@@ -4,6 +4,7 @@ import { API_URL } from '../config';
 import { confirmDialog, notify } from '../utils/dialog';
 import { prepareImage } from '../utils/prepareImage';
 import ProductCamera from './ProductCamera';
+import RemoveBgOption, { useRemoveBg } from './RemoveBgOption';
 
 const COLS = [
   { key: 'nome', label: 'Nome *', width: 240 },
@@ -117,11 +118,13 @@ function GridPhoto({ row, onUse, onClose }) {
 
   const pick = async (f) => f && setFile(await prepareImage(f));
 
+  const [removeBg, setRemoveBg] = useRemoveBg();
   const prepare = async () => {
     try {
       setBusy(true);
       const fd = new FormData();
       fd.append('image', file);
+      fd.append('remove_bg', removeBg ? 'true' : 'false');
       const { data } = await axios.post(`${API_URL}/products/image-preview`, fd, {
         headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
       });
@@ -161,9 +164,10 @@ function GridPhoto({ row, onUse, onClose }) {
               <button type="button" onClick={async () => setFile(await rotateFile(file, 90))} disabled={busy}>↻ Girar</button>
             </div>
           )}
+          {file && !ready && <RemoveBgOption value={removeBg} onChange={setRemoveBg} disabled={busy} />}
           {file && !ready && (
             <button type="button" className="gp-prepare" onClick={prepare} disabled={busy}>
-              {busy ? '⏳ Tirando o fundo...' : '✨ Ver como vai ficar'}
+              {busy ? (removeBg ? '⏳ Tirando o fundo...' : '⏳ Preparando...') : '✨ Ver como vai ficar'}
             </button>
           )}
           {ready && <button type="button" className="gp-use" onClick={() => onUse(ready)}>✅ Usar esta foto</button>}

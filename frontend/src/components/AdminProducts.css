@@ -1263,3 +1263,27 @@ button.ap-photo-btn {
     flex: 1;
   }
 }
+
+/* 🤖 Tirar o fundo (opcional, para economizar o plano do Cloudinary) */
+.rbg-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rbg-option input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.rbg-option small {
+  display: block;
+  color: #666;
+  font-size: 12px;
+  font-weight: 500;
+}

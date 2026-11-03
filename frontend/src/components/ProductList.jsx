@@ -106,7 +106,7 @@ function ProductList({
             <div className="product-media">
               {product.image_url && !broken.has(product.id) ? (
                 <img
-                  src={getImageUrl(product.image_url)}
+                  src={getImageUrl(product.image_url, 400)}
                   alt={product.name}
                   className="product-image"
                   loading="lazy"
