@@ -4,16 +4,8 @@ const router = express.Router();
 const pool = require('../utils/database');
 const multer = require('multer');
 const { loadSchedules, applySchedules } = require('../utils/schedules');
-const cloudinary = require('cloudinary').v2;
 const { verifyAdmin } = require('../middleware/authMiddleware');
 const axios = require('axios');
-
-// ☁️ CONFIGURAÇÃO CLOUDINARY (lê do .env)
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
 
 // 📦 MULTER: guarda a imagem na MEMÓRIA (não salva mais no disco)
 const upload = multer({
@@ -28,39 +20,14 @@ const upload = multer({
   }
 });
 
-// ☁️ FUNÇÃO: envia a imagem para o Cloudinary e devolve a URL
-// removeBg = false: foto já com fundo branco → só corta e centraliza (a IA de tirar o fundo conta 75 transformações)
-const uploadToCloudinary = (fileBuffer, { removeBg = true } = {}) => {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'emporio-brumado/produtos',
-        format: 'jpg', // JPG: a área sem fundo vira branca
-        transformation: [
-          // 🤖 IA do Cloudinary tira o fundo (mesa, prateleira, mão...), deixando só o produto
-          ...(removeBg ? [{ effect: 'background_removal' }] : []),
-          // ✂️ Corta o espaço vazio em volta do produto
-          { effect: 'trim' },
-          // 🎯 Centraliza o produto inteiro (sem cortar nem distorcer) em 740x740...
-          { width: 740, height: 740, crop: 'pad', background: 'white' },
-          // ...e completa até 800x800 com fundo branco (30px de margem em volta)
-          { width: 800, height: 800, crop: 'lpad', background: 'white' },
-          { quality: 'auto' }
-        ]
-      },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result.secure_url);
-      }
-    );
-    stream.end(fileBuffer);
-  });
-};
+// 📦 Fotos de produto ficam no nosso banco (utils/imageStore); o Cloudinary só tira o fundo, quando pedido
+const { prepareProductImage } = require('../utils/imageStore');
+const wantsRemoveBg = (req) => req.body.remove_bg === 'true';
 
-// Foto já pronta (do "Ver como vai ficar"): só aceita imagem da nossa pasta no Cloudinary
-const isOurImage = (url) => typeof url === 'string' &&
+// Foto já pronta (do "Ver como vai ficar"): só aceita as nossas (/api/img/...) e as antigas da nossa pasta no Cloudinary
+const isOurImage = (url) => typeof url === 'string' && (/^\/api\/img\/[a-f0-9]{24}$/.test(url) || (
   url.startsWith(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/`) &&
-  url.includes('/emporio-brumado/produtos/');
+  url.includes('/emporio-brumado/produtos/')));
 
 // Preço de oferta: vazio/zero = sem oferta
 const parsePromo = (value) => {
@@ -219,7 +186,7 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
 
     let imageUrl = req.body.image_url || null; // "Duplicar" reaproveita a foto do original
     if (req.file) {
-      imageUrl = await uploadToCloudinary(req.file.buffer, { removeBg: req.body.remove_bg !== 'false' });
+      imageUrl = (await prepareProductImage(req.file.buffer, { removeBg: wantsRemoveBg(req) })).url;
     }
 
     const estoqueInicial = parseFloat(estoque) || 0;
@@ -253,7 +220,8 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
 router.post('/image-preview', verifyAdmin, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Envie a foto' });
   try {
-    res.json({ url: await uploadToCloudinary(req.file.buffer, { removeBg: req.body.remove_bg !== 'false' }) });
+    const { url, removedBg } = await prepareProductImage(req.file.buffer, { removeBg: wantsRemoveBg(req) });
+    res.json({ url, removed_bg: removedBg });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Não consegui tratar a foto. Tente de novo.' });
@@ -301,8 +269,8 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
     let imageUrl = null;
 
     if (req.file) {
-      // Nova imagem → envia pro Cloudinary
-      imageUrl = await uploadToCloudinary(req.file.buffer, { removeBg: req.body.remove_bg !== 'false' });
+      // Nova imagem → trata e guarda no nosso banco
+      imageUrl = (await prepareProductImage(req.file.buffer, { removeBg: wantsRemoveBg(req) })).url;
     } else if (isOurImage(req.body.image_url)) {
       // Foto que já foi tratada e conferida no "Ver como vai ficar"
       imageUrl = req.body.image_url;
@@ -388,7 +356,7 @@ router.post('/import', verifyAdmin, async (req, res) => {
       // 👁️ Mostrar na loja (planilha do app); sem a coluna → não mexe
       hasActive: typeof r.ativo === 'boolean',
       active: r.ativo !== false,
-      // 📷 Foto já tratada (planilha do app): só da nossa pasta do Cloudinary; vazio = tirar a foto
+      // 📷 Foto já tratada (planilha do app): só as nossas; vazio = tirar a foto
       hasImage: r.foto === '' || isOurImage(r.foto),
       image: isOurImage(r.foto) ? r.foto : null,
       // 💳 Acréscimo no cartão; sem a coluna → não mexe; vazio = sem acréscimo

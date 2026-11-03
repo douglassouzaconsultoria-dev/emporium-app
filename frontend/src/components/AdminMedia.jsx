@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { API_URL } from '../config';
 import AdminBanners from './AdminBanners';
 import './AdminMedia.css';
+import { getImageUrl } from '../utils/imageUrl';
 
 // 📲 Para onde o QR code leva: o site abre e já oferece "Instalar o app"
 const APP_URL = 'https://emporiobrumado.com';
@@ -19,9 +20,10 @@ const formatSize = (bytes) => {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.round(bytes / 1024)} KB`;
 };
 
-// Cloudinary: miniatura e link que força o download
-const thumbUrl = (f) => (f.format === 'svg' ? f.url : f.url.replace('/upload/', '/upload/c_limit,w_400/'));
-const downloadUrl = (f) => f.url.replace('/upload/', '/upload/fl_attachment/');
+// Miniatura, link completo e link que força o download (nosso banco ou Cloudinary, para os arquivos antigos)
+const fullUrl = (f) => getImageUrl(f.url);
+const thumbUrl = (f) => (f.format === 'svg' ? fullUrl(f) : getImageUrl(f.url, 400));
+const downloadUrl = (f) => (f.url.startsWith('/api/img/') ? `${fullUrl(f)}?download=1` : f.url.replace('/upload/', '/upload/fl_attachment/'));
 
 // ---------- Arquivos gerados (SVG → PNG em alta resolução) ----------
 const svgToString = (svgEl) => {
@@ -360,10 +362,10 @@ function AdminMedia() {
 
   const copyLink = async (f) => {
     try {
-      await navigator.clipboard.writeText(f.url);
+      await navigator.clipboard.writeText(fullUrl(f));
       showMessage('success', '🔗 Link copiado');
     } catch {
-      window.prompt('Copie o link:', f.url);
+      window.prompt('Copie o link:', fullUrl(f));
     }
   };
 
@@ -457,7 +459,7 @@ function AdminMedia() {
           <div className="amd-grid">
             {files.map(f => (
               <div key={f.id} className="amd-file">
-                <a className="amd-thumb" href={f.url} target="_blank" rel="noopener noreferrer" title="Abrir em tamanho real">
+                <a className="amd-thumb" href={fullUrl(f)} target="_blank" rel="noopener noreferrer" title="Abrir em tamanho real">
                   {f.format === 'pdf' ? <span className="amd-pdf">📄 PDF</span> : <img src={thumbUrl(f)} alt={f.name} loading="lazy" />}
                 </a>
                 <strong title={f.name}>{f.name}</strong>

@@ -3,10 +3,14 @@ const router = express.Router();
 const multer = require('multer');
 const pool = require('../utils/database');
 const { verifyAdmin } = require('../middleware/authMiddleware');
-const { cloudinary, uploadBuffer } = require('../utils/cloudinary');
+const sharp = require('sharp');
+const { cloudinary } = require('../utils/cloudinary');
+const { saveImage, deleteImage, keyOf } = require('../utils/imageStore');
 
-// 🖼️ Pasta de imagens do negócio (propagandas, outdoor, adesivos): guardadas no Cloudinary sem alteração
-const MAX_MB = 10; // limite do Cloudinary no plano gratuito
+// 🖼️ Pasta de imagens do negócio (propagandas, outdoor, adesivos): guardadas no nosso banco sem alteração
+// (as antigas podem estar no Cloudinary)
+const MAX_MB = 10;
+const FORMAT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/svg+xml': 'svg', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' };
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -47,12 +51,13 @@ router.post('/', verifyAdmin, receiveFiles, async (req, res) => {
   try {
     const saved = [];
     for (const file of req.files) {
-      const result = await uploadBuffer(file.buffer, { folder: 'emporio/midia', resource_type: 'auto' });
+      const url = await saveImage(file.buffer, { mime: file.mimetype, source: 'midia' });
+      const meta = file.mimetype.startsWith('image/') ? await sharp(file.buffer).metadata().catch(() => ({})) : {};
       const { rows } = await pool.query(
         `INSERT INTO media_files (name, url, public_id, resource_type, format, bytes, width, height)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [cleanName(file.originalname), result.secure_url, result.public_id, result.resource_type,
-          result.format || null, result.bytes || file.size, result.width || null, result.height || null]
+        [cleanName(file.originalname), url, null, file.mimetype === 'application/pdf' ? 'raw' : 'image',
+          FORMAT[file.mimetype] || null, file.size, meta.width || null, meta.height || null]
       );
       saved.push(rows[0]);
     }
@@ -65,13 +70,14 @@ router.post('/', verifyAdmin, receiveFiles, async (req, res) => {
 
 router.delete('/:id', verifyAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query('DELETE FROM media_files WHERE id = $1 RETURNING public_id, resource_type', [req.params.id]);
+    const { rows } = await pool.query('DELETE FROM media_files WHERE id = $1 RETURNING url, public_id, resource_type', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Arquivo não encontrado' });
-    // Já saiu da lista; se a nuvem falhar, só registra (não deixa o admin sem resposta)
+    // Já saiu da lista; se apagar o arquivo falhar, só registra (não deixa o admin sem resposta)
     try {
-      await cloudinary.uploader.destroy(rows[0].public_id, { resource_type: rows[0].resource_type || 'image', invalidate: true });
+      if (keyOf(rows[0].url)) await deleteImage(rows[0].url);
+      if (rows[0].public_id) await cloudinary.uploader.destroy(rows[0].public_id, { resource_type: rows[0].resource_type || 'image', invalidate: true });
     } catch (err) {
-      console.error('Cloudinary:', err.message);
+      console.error('Apagar arquivo:', err.message);
     }
     res.json({ ok: true });
   } catch (err) {

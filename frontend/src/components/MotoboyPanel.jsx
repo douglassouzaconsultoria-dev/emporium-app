@@ -5,6 +5,7 @@ import { AuthContext } from '../AuthContext';
 import Profile from './Profile';
 import OfflineBanner from './OfflineBanner';
 import './MotoboyPanel.css';
+import { getImageUrl } from '../utils/imageUrl';
 
 const CITY = 'Patrocínio - MG';
 const REFRESH_MS = 20000; // atualiza a cada 20 segundos
@@ -479,7 +480,7 @@ function MotoboyPanel({ onLogout, asAdmin, onClose }) {
             onClick={() => setView(view === 'profile' ? 'deliveries' : 'profile')}
           >
             {user?.avatar_url
-              ? <img src={user.avatar_url} alt={firstName} />
+              ? <img src={getImageUrl(user.avatar_url)} alt={firstName} />
               : <span className="mb-chip-initial">{firstName.charAt(0).toUpperCase()}</span>}
             <span className="mb-chip-name">{firstName}</span>
           </button>

@@ -29,6 +29,57 @@ const TEST_ORDER = {
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 // 🏪 Loja: aberto/fechado, horários, pedido mínimo, aviso, motoboy padrão e impressora
+// 📦 Trazer as fotos do Cloudinary para o nosso banco (o plano grátis do Cloudinary estourou)
+function PhotosCard({ authHeaders }) {
+  const [info, setInfo] = useState(null);
+  const load = () => axios.get(`${API_URL}/images/migrate`, authHeaders()).then(res => setInfo(res.data)).catch(() => setInfo(null));
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Enquanto copia, atualiza o andamento a cada 2 segundos
+  useEffect(() => {
+    if (!info?.running) return undefined;
+    const timer = setInterval(load, 2000);
+    return () => clearInterval(timer);
+  }, [info?.running]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const start = async () => {
+    await axios.post(`${API_URL}/images/migrate`, {}, authHeaders()).catch(() => {});
+    load();
+  };
+
+  if (!info) return null;
+  const mb = (info.stored_bytes / 1024 / 1024).toFixed(1).replace('.', ',');
+  return (
+    <div className="as-card">
+      <h3>📦 Fotos no nosso servidor</h3>
+      <p className="as-help">
+        As fotos dos produtos, banners, perfis e da aba Imagens ficam guardadas no nosso próprio banco, sem gastar o Cloudinary.
+        O Cloudinary fica só para tirar o fundo, quando você marcar.
+      </p>
+      <p className="as-photos-status">
+        ✅ <b>{info.stored}</b> foto(s) aqui ({mb} MB)
+        {info.left > 0 && <> · ☁️ <b>{info.left}</b> ainda no Cloudinary</>}
+      </p>
+      {info.running ? (
+        <div className="as-photos-progress">
+          <span style={{ width: `${info.total ? ((info.done + info.failed) / info.total) * 100 : 0}%` }} />
+          <small>⏳ Copiando {info.done + info.failed} de {info.total}...</small>
+        </div>
+      ) : info.left > 0 ? (
+        <button type="button" className="as-btn-backup" onClick={start}>📦 Trazer as fotos para o nosso servidor</button>
+      ) : (
+        <p className="as-photos-ok">🎉 Todas as fotos já estão no nosso servidor.</p>
+      )}
+      {!info.running && info.finished_at && (
+        <div className={`as-message ${info.failed ? 'err' : 'ok'}`}>
+          {info.failed
+            ? `⚠️ ${info.done} copiada(s), ${info.failed} não deu (o Cloudinary pode estar bloqueado). Tente de novo mais tarde.`
+            : `✅ ${info.done} foto(s) copiada(s). Os clientes já veem as fotos daqui.`}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminStore() {
   const [store, setStore] = useState(null);
   const [motoboys, setMotoboys] = useState([]);
@@ -339,6 +390,9 @@ function AdminStore() {
         )}
         {backupMsg && <div className={`as-message ${backupMsg.includes('✅') ? 'ok' : 'err'}`}>{backupMsg}</div>}
       </div>
+
+      {/* 📦 FOTOS NO NOSSO SERVIDOR */}
+      <PhotosCard authHeaders={authHeaders} />
 
       {/* ERROS RECENTES */}
       <div className="as-card">

@@ -69,6 +69,7 @@ function AdminProducts() {
         headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
       });
       setReadyUrl(data.url);
+      if (removeBg && !data.removed_bg) setFormError('⚠️ Não deu para tirar o fundo agora (Cloudinary sem crédito). A foto foi só centralizada.');
     } catch (err) {
       setFormError(`❌ ${err.response?.data?.error || 'Não consegui tratar a foto'}`);
     } finally {
@@ -333,7 +334,7 @@ function AdminProducts() {
     }
   };
 
-  const modalImage = readyUrl || previewUrl || (editingProduct && getImageUrl(editingProduct.image_url));
+  const modalImage = (readyUrl && getImageUrl(readyUrl)) || previewUrl || (editingProduct && getImageUrl(editingProduct.image_url));
 
   return (
     <div className="ap-container">
@@ -571,7 +572,7 @@ function AdminProducts() {
                   </div>
                   {readyUrl ? (
                     <div className="ap-ready">
-                      <img src={readyUrl} alt="Foto pronta" />
+                      <img src={getImageUrl(readyUrl)} alt="Foto pronta" />
                       <span>✅ Assim vai aparecer na loja. Ao salvar, é esta foto que fica.</span>
                     </div>
                   ) : (

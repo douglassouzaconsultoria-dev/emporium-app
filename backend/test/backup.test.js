@@ -34,6 +34,8 @@ before(async () => {
   }, token(client));
   assert.equal(res.status, 201, JSON.stringify(res.data));
   adminToken = token({ id: (await db.customer('Dono', 'admin')).id, role: 'admin' });
+  // uma foto no nosso banco (bytea) também precisa voltar igual
+  await require('../src/utils/imageStore').saveImage(Buffer.from([0, 1, 2, 250, 255, 92, 120]), { mime: 'image/png' });
 });
 
 after(async () => {
@@ -60,7 +62,7 @@ test('♻️ backup baixado pelo app volta inteiro num banco vazio', async () =>
 
   const copy = await connect(restored);
   try {
-    for (const table of ['products', 'customers', 'orders', 'order_items', 'categories', 'delivery_fees']) {
+    for (const table of ['products', 'customers', 'orders', 'order_items', 'categories', 'delivery_fees', 'images']) {
       const a = (await ctx.pool.query(`SELECT * FROM ${table} ORDER BY 1`)).rows;
       const b = (await copy.query(`SELECT * FROM ${table} ORDER BY 1`)).rows;
       assert.deepEqual(JSON.parse(JSON.stringify(b)), JSON.parse(JSON.stringify(a)), `tabela ${table} diferente`);

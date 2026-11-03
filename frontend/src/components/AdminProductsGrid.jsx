@@ -5,6 +5,7 @@ import { confirmDialog, notify } from '../utils/dialog';
 import { prepareImage } from '../utils/prepareImage';
 import ProductCamera from './ProductCamera';
 import RemoveBgOption, { useRemoveBg } from './RemoveBgOption';
+import { getImageUrl } from '../utils/imageUrl';
 
 const COLS = [
   { key: 'nome', label: 'Nome *', width: 240 },
@@ -129,6 +130,7 @@ function GridPhoto({ row, onUse, onClose }) {
         headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
       });
       setReady(data.url);
+      if (removeBg && !data.removed_bg) notify('⚠️ Não deu para tirar o fundo agora (Cloudinary sem crédito). A foto foi só centralizada.', 'error');
     } catch (err) {
       notify(`❌ ${err.response?.data?.error || 'Não consegui tratar a foto'}`, 'error');
     } finally {
@@ -136,7 +138,7 @@ function GridPhoto({ row, onUse, onClose }) {
     }
   };
 
-  const shown = ready || preview || row.foto;
+  const shown = ready ? getImageUrl(ready) : preview || getImageUrl(row.foto);
   // stopPropagation: clique aqui não pode chegar na planilha por trás (ela fecharia)
   return (
     <div onClick={(e) => e.stopPropagation()}>
@@ -654,7 +656,7 @@ function AdminProductsGrid({ products, categories, onClose, onDone }) {
                     <td className="ap-grid-photo">
                       {filled && (
                         <button type="button" onClick={() => setPhotoFor(r.uid)} disabled={r.apagar} title="Foto">
-                          {r.foto ? <img src={r.foto} alt="" /> : '📷'}
+                          {r.foto ? <img src={getImageUrl(r.foto, 120)} alt="" /> : '📷'}
                         </button>
                       )}
                     </td>
